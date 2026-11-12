@@ -488,7 +488,7 @@ export function createSfx(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
     const g = ctx.createGain(); g.gain.value = 0; lfo.connect(lg).connect(g.gain); // slow swell of the bed
     bed.connect(f).connect(g).connect(out); bed.start(0); lfo.start(0);
     const bg = ctx.createGain(); bg.gain.value = 0;
-    return { gain: g, level: 0, bed, lfo, f, bg, rr: rng(hash('multidao', curSeed)), next: 0, timer: null };
+    return { gain: g, swell: lg, level: 0, bed, lfo, f, bg, rr: rng(hash('multidao', curSeed)), next: 0, timer: null };
   }
   function eventAt(c, t, lvl) {
     const x = c.rr(); // heavier animals as the crowd gets louder
@@ -508,7 +508,14 @@ export function createSfx(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
       const total = o.length ?? ctx.length / sr, c = crowd = crowd || startCrowd(); c.level = level;
       const ramp = o.ramp || [level, level], at = o.at ?? 0, levelAt = (t) => lerp(ramp[0], ramp[1], Math.min(1, (t - at) / total));
       c.next = at; crowdSchedule(c, at + total, levelAt);
+      // Each stretch starts from silence and ends in silence: the bed never stops, so without these
+      // the gain would glide from one stretch to the next across the quiet between them.
+      // The slow swell is added to the gain, so it is silenced outside the stretch too.
+      c.gain.gain.setValueAtTime(0.0001, at); c.swell.gain.setValueAtTime(0, at);
+      c.swell.gain.linearRampToValueAtTime(0.35, at + 0.15);
       for (let t = 0; t <= total; t += 0.5) c.gain.gain.linearRampToValueAtTime(0.26 * levelAt(at + t) ** 1.2 + 0.0001, at + t);
+      c.gain.gain.linearRampToValueAtTime(0.0001, at + total + 0.15);
+      c.swell.gain.setValueAtTime(0.35, at + total); c.swell.gain.linearRampToValueAtTime(0, at + total + 0.15);
       return;
     }
     if (level <= 0.001) { if (crowd) { const c = crowd; crowd = null; clearInterval(c.timer); c.gain.gain.cancelScheduledValues(ctx.currentTime); c.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.25); setTimeout(() => { try { c.bed.stop(); c.lfo.stop(); c.gain.disconnect(); } catch { /* ok */ } }, 2000); } return; }
