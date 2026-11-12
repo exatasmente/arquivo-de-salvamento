@@ -29,8 +29,10 @@ import celaTempo from './cela-tempo.js';
 import pomarCerco from './pomar-cerco.js';
 import casaFome from './casa-fome.js';
 import ringuePlateia from './ringue-plateia.js';
+import ringueAbducao from './ringue-abducao.js';
+import celaVolta from './cela-volta.js';
 
-export const CUTSCENES = { casa, pomar, flashes, 'cela-acordar': celaAcordar, 'treino-fim': treinoFim, 'entrada-ringue': entradaRingue, familia, 'fim-campanha': fimCampanha, 'treino-aula': treinoAula, 'cela-tempo': celaTempo, 'pomar-cerco': pomarCerco, 'casa-fome': casaFome, 'ringue-plateia': ringuePlateia };
+export const CUTSCENES = { casa, pomar, flashes, 'cela-acordar': celaAcordar, 'treino-fim': treinoFim, 'entrada-ringue': entradaRingue, familia, 'fim-campanha': fimCampanha, 'treino-aula': treinoAula, 'cela-tempo': celaTempo, 'pomar-cerco': pomarCerco, 'casa-fome': casaFome, 'ringue-plateia': ringuePlateia, 'ringue-abducao': ringueAbducao, 'cela-volta': celaVolta };
 /** The cutscenes the game plays (the ones with `filmOnly` are reels for the film mode only). */
 export const cutsceneNames = () => Object.keys(CUTSCENES).filter((n) => !CUTSCENES[n].filmOnly);
 export function cutsceneDuration(nome) {
@@ -120,7 +122,7 @@ export function createStage(r, { seed = 1, ring = null, groups = null, blocks = 
       dark: flashMode === 'dark' ? Math.max(lvl, gl * 0.9) : 0,
       glare: flashMode === 'flash' ? gl : 0, glareAt: f.glareAt,
       daze: Math.max(f.daze ?? 0, extraDaze), blur: f.blur ?? 0,
-      noise: f.noise ?? 0, card: f.card ?? null, dim: f.dim ?? 0, shop: f.shop ?? null, hud: f.hud ?? null, label: f.label ?? null,
+      noise: f.noise ?? 0, ice: f.ice ?? 0, wash: f.wash ?? 0, card: f.card ?? null, dim: f.dim ?? 0, shop: f.shop ?? null, hud: f.hud ?? null, label: f.label ?? null,
     };
   }
   function draw() { r.renderer.render(r.scene, camera); }

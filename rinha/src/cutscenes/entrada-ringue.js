@@ -13,7 +13,7 @@ import { ROPE_R } from '../ring.js';
 import { buildHuman } from '../models/human.js';
 import { buildDrone } from './drone.js';
 import { ringCreatures, cullCrowd } from './crowd.js';
-import { track, playerArms, ramp, smooth, lerp, clamp, bob } from './common.js';
+import { track, every, playerArms, ramp, smooth, lerp, clamp, bob } from './common.js';
 
 const D = 20.5;
 const views = {
@@ -147,11 +147,19 @@ function camAt(t) {
 export default {
   name: 'entrada-ringue', prefix: 'ringue', duration: D, cue: 'ringue', views,
   anchors: { poste: 'O poste de fita amarela', pedra: 'A pedra ao pé do poste de fita amarela', drone: 'O drone-câmera que transmite a rinha', lutador: 'O lutador grande que corre na sua direção' },
+  // The bell and the crowd at the start; the big fighter's heavy steps as he charges (2.4 to 4.4 s) and the chase
+  // (5 to 8.4 s, ~0.35 s a step); the drone hum from the start of the charge; the fall (8.6 to 8.85 s); the five
+  // punches with their flashes (PUNCHES); the hand closes on the stone (12.35 s); the throw leaves the hand at T_LEAVE;
+  // the stone hits the drone at HIT (a short spark) and the transmission fails (14.2 s), then the last static (16.2 s).
   sfx: [
-    { t: 0.1, name: 'sino' }, { t: 0.4, crowd: 0.55 }, { t: 2.4, name: 'passo' }, { t: 3.0, name: 'passo' }, { t: 3.6, name: 'passo' }, { t: 4.2, name: 'passo' },
-    ...[5.2, 5.6, 6.0, 6.4, 6.8, 7.2, 7.6, 8.0].map((t) => ({ t, name: 'passo' })), { t: 8.7, name: 'knockdown' },
+    { t: 0.1, name: 'sino' }, { t: 0.4, crowd: 0.55 },
+    ...every(2.55, 4.4, 0.35, 'passo', { vol: 1.6 }), ...every(5.05, 8.4, 0.35, 'passo'),
+    { t: 2.4, name: 'drone_zumbido', opts: { dur: 11.8, vol: 0.8 } },
+    { t: 7.2, crowd: 0.8 }, { t: 8.45, name: 'esquiva' }, { t: 8.75, name: 'knockdown', opts: { vol: 0.8 } }, { t: 9.2, crowd: 0.9 },
     ...PUNCHES.flatMap((t, i) => [{ t, name: i === 4 ? 'soco_tempora' : i % 2 ? 'soco_queixo' : 'soco_testa' }, { t, flash: true }]),
-    { t: 12.6, name: 'pedra_pegar' }, { t: THROW, name: 'pedra_lancar' }, { t: HIT, name: 'drone_chiado' }, { t: HIT + 0.02, name: 'soco_guarda', opts: { vol: 0.6 } },
+    { t: 12.2, crowd: 0.4 }, { t: 12.4, name: 'pedra_pegar' }, { t: 13.2, crowd: 0.6 }, { t: T_LEAVE, name: 'pedra_lancar' }, { t: 13.7, crowd: 0.8 },
+    { t: HIT, name: 'taser', opts: { vol: 0.25 } }, { t: 14.2, name: 'drone_chiado' }, { t: 14.3, name: 'taser', opts: { vol: 0.5 } }, { t: 14.5, crowd: 0 },
+    { t: 16.2, name: 'drone_chiado', opts: { seed: 7 } },
   ],
   build(ctx) {
     const { r } = ctx;

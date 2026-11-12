@@ -1,7 +1,7 @@
 // Cutscene 1, "casa": you wake up hungry, the fridge is empty, you go out by the back door.
 // First person, 26 s. Scene: scenes/casa.js (the bed is on the west side, the kitchen on the east).
 import { buildScene } from '../scenes/casa.js';
-import { track, bob, playerArms, liftArms, ramp, smooth, clamp, lerp } from './common.js';
+import { track, bob, footfalls, playerArms, liftArms, ramp, smooth, clamp, lerp } from './common.js';
 import { nightDoor } from './night.js';
 
 const D = 26;
@@ -48,12 +48,15 @@ const walking = (t) => (t > 3.0 && t < 11.0 ? 1 : 0) + (t > 19.2 && t < 23.2 ? 1
 export default {
   name: 'casa', duration: D, cue: 'casa', views,
   anchors: { geladeira: 'A porta da geladeira', portaFundos: 'A porta dos fundos da casa', cama: 'A cama de onde você acorda', tigela: 'A tigela vazia na mesa' },
+  // Sounds from the numbers of the camera: the night bed all along, the footfalls of bob(t) while it walks
+  // (3 to 11 s, 19.2 to 23.2 s), the fridge opening with the door (12.5 to 13.5 s) and its hum until it shuts
+  // (19.05 s), the back door pushed open (22.5 to 23.5 s).
   sfx: [
-    { t: 1.8, name: 'passo' }, { t: 3.6, name: 'passo' }, { t: 4.1, name: 'passo' }, { t: 4.6, name: 'passo' }, { t: 5.1, name: 'passo' },
-    { t: 5.6, name: 'passo' }, { t: 6.1, name: 'passo' }, { t: 6.6, name: 'passo' }, { t: 7.1, name: 'passo' }, { t: 7.6, name: 'passo' }, { t: 8.1, name: 'passo' },
-    { t: 8.6, name: 'passo' }, { t: 9.1, name: 'passo' },
-    { t: 10.3, name: 'painel_tecla', opts: { key: 2 } }, { t: 20.6, name: 'passo' }, { t: 21.1, name: 'passo' }, { t: 21.6, name: 'passo' },
-    { t: 22.8, name: 'porta_cela' },
+    { t: 0, name: 'noite', opts: { dur: D, vol: 0.3 } },
+    ...footfalls(3.0, 11.0, 1.9, { vol: 0.6 }),
+    { t: 12.75, name: 'geladeira', opts: { dur: 6.3 } },
+    ...footfalls(19.2, 23.2, 1.9, { vol: 0.6 }),
+    { t: 22.6, name: 'porta_cela' },
   ],
   build(ctx) {
     const { r } = ctx;

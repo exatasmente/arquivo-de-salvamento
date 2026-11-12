@@ -5,7 +5,7 @@
 import { buildScene } from '../scenes/cela.js';
 import { buildAnimal } from '../models/animals.js';
 import { tex } from '../textures/paint.js';
-import { reel, bob, playerArms, liftArms, ramp, smooth, lerp, clamp } from './common.js';
+import { reel, bob, footfalls, playerArms, liftArms, ramp, smooth, lerp, clamp } from './common.js';
 
 const S = (name, dur, desc, keys, act) => ({ name, dur, desc, keys, act });
 const DOOR_EYE = [1.75, 1.6, 0.95];
@@ -49,7 +49,14 @@ const R = reel([
 export default {
   name: 'cela-tempo', prefix: 'cela', filmOnly: true, duration: R.duration, cue: 'cela', views: R.views,
   anchors: { porta: 'A porta trancada da cela', cama: 'A cama de metal' },
-  sfx: [],
+  // The tube hum all along; the footfalls to the door (bob at 1.7 Hz, 26 to 29 s) and the palm flat on it (2.9 s into
+  // the view); the fist on the wall of the 'parede' view, one blow per 0.9 s landing when the phase wraps (0.81 s + 0.9 n),
+  // a little weaker as the hand tires.
+  sfx: [
+    { t: 0, name: 'cela_zumbido', opts: { dur: R.duration } },
+    ...footfalls(26, 29, 1.7, { vol: 0.6 }), { t: 28.9, name: 'batida_parede', opts: { vol: 0.6 } },
+    ...[1, 2, 3, 4, 5, 6].map((n) => ({ t: +(40 + 0.9 * n - 0.09).toFixed(2), name: 'batida_parede', opts: { vol: +(1 - 0.3 * ramp(0.9 * n - 0.09, 3, 6)).toFixed(2) } })),
+  ],
   build(ctx) {
     const { r } = ctx, T = r.THREE;
     const sc = buildScene(r, { seed: ctx.seed, groups: ctx.groups ?? undefined });

@@ -4,7 +4,7 @@
 // First person, 17 s. Scene: scenes/cela.js (the tally counts come from ctx.groups).
 import { buildScene } from '../scenes/cela.js';
 import { buildAnimal } from '../models/animals.js';
-import { track, bob, playerArms, liftArms, ramp, smooth } from './common.js';
+import { track, bob, footfalls, playerArms, liftArms, ramp, smooth } from './common.js';
 
 const D = 17;
 const views = {
@@ -42,7 +42,9 @@ const cam = track([
 export default {
   name: 'cela-acordar', prefix: 'cela', duration: D, cue: 'cela', views,
   anchors: { riscos: 'A parede dos riscos, ao fundo da cela', painel: 'O painel com o campo FRASE ao lado da porta', corvo: 'O corvo pousado na grade', moeda: 'A moeda brilhante no chão' },
-  sfx: [{ t: 1.0, name: 'passo' }, { t: 2.6, name: 'passo' }, { t: 3.2, name: 'passo' }, { t: 3.8, name: 'passo' }, { t: 4.4, name: 'passo' }, { t: 5.0, name: 'passo' }, { t: 5.6, name: 'passo' }, { t: 6.2, name: 'passo' }, { t: 9.6, name: 'corvo' }, { t: 13.0, name: 'moeda' }, { t: 15.3, name: 'corvo' }],
+  // The tube hum all along; the footfalls of bob(t) while you walk along the wall (2.2 to 6.6 s); the crow calls
+  // and glances at you (15.2 s); the coin glints.
+  sfx: [{ t: 0, name: 'cela_zumbido', opts: { dur: D } }, ...footfalls(2.2, 6.6, 1.7), { t: 9.7, name: 'corvo' }, { t: 13.0, name: 'moeda' }, { t: 15.2, name: 'corvo' }],
   build(ctx) {
     const { r } = ctx;
     const sc = buildScene(r, { seed: ctx.seed, groups: ctx.groups ?? undefined });

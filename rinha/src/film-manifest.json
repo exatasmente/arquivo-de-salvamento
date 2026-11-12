@@ -104,7 +104,9 @@
     "pomar.inclinaCabeca": "Close só da criatura alta: a cabeça e o tronco enchem o quadro, ela inclina a cabeça de lado e olha para você de cima, como quem confere uma coisa à venda, com as fendas amarelas dos olhos acesas (5.0 s)",
     "pomar.falamEntreSi": "As duas criaturas falam entre si por gestos, virando a cabeça e abrindo as mãos uma para a outra: discutem o seu peso (6.0 s)",
     "pomar.fechaSaida": "Um dá um passo para fechar a saída: você tenta correr, mas as pernas não obedecem (6.0 s)",
-    "pomar.macaCai": "A maçã escorrega da sua mão e cai no chão: uma sombra enorme cobre a visão e tudo apaga (5.0 s)",
+    "pomar.congela": "A criatura alta aponta uma arma de congelar para você: o cano brilha, a visão ganha uma película de gelo e um tom azul, e as suas mãos ficam rígidas (5.0 s)",
+    "pomar.macaCai": "A maçã escorrega da sua mão congelada, que não se mexe, e cai no chão: o gelo cobre a visão (3.6 s)",
+    "pomar.abducao": "A outra criatura ergue o cubo, ele flutua até ficar sobre você e uma coluna de luz pálida o puxa para cima: você encolhe, o mundo cresce em volta, e a luz do cubo toma a tela (10.0 s)",
     "casa.mesaVazia": "A mesa da cozinha sob a lâmpada: uma tigela vazia e mais nada (5.0 s)",
     "casa.macaMesa": "Uma única maçã na tigela, sob a luz cansada da lâmpada (5.0 s)",
     "casa.armario": "O armário e a bancada ao lado do fogão: as prateleiras vazias, sem nada para comer (5.0 s)",
@@ -122,7 +124,11 @@
     "ringue.barulho": "O barulho sobe: a plateia ruge e a visão balança, sem uma voz a seu favor (5.0 s)",
     "ringue.gira": "Tudo gira: o chão some, a imagem embaça e os sons chegam abafados (6.0 s)",
     "ringue.maoTateia": "A mão tateia o chão do ringue, chega até a pedra cinza-clara ao pé do poste amarelo e a toca (6.0 s)",
-    "ringue.droneOlha": "Deitado no ringue, você vê o drone lá em cima, ainda olhando: ele filma tudo (6.0 s)"
+    "ringue.droneOlha": "Deitado no ringue, você vê o drone lá em cima, ainda olhando: ele filma tudo (6.0 s)",
+    "ringue.cuboLutador": "O juiz abre um cubo e dele sai um feixe de luz: o lutador grande surge pequenino no feixe, cresce até o tamanho real e começa a correr (8.0 s)",
+    "ringue.nocaute": "O lutador grande bate em você: o soco acerta, a visão tomba e escurece (5.0 s)",
+    "ringue.abducao": "Caído no ringue, você vê uma criatura erguer o cubo: ele flutua sobre você e uma coluna de luz pálida o puxa para cima, encolhendo, até dentro do cubo (10.0 s)",
+    "cela.volta": "De volta à cela, sentado na cama: os riscos na parede, o painel ao lado da porta, a grade do respiro e a luz do teto, que nunca muda; no fim, tudo treme um instante, como se o cubo fosse guardado no bolso de alguém (9.0 s)"
   },
   "actions": {
     "clarao": "Os clarões do trecho aparecem (no máximo 3 por segundo, nunca branco total). Sem esta ação o trecho sai sem clarão",
@@ -143,7 +149,7 @@
     "flashes.balanca": "A balança sobre a mesa",
     "flashes.jaula": "Uma jaula com gente adulta",
     "cela.riscos": "A parede dos riscos, ao fundo da cela",
-    "cela.painel": "O painel com o campo FRASE ao lado da porta",
+    "cela.painel": "O painel ao lado da porta",
     "cela.corvo": "O corvo pousado na grade",
     "cela.moeda": "A moeda brilhante no chão",
     "treino.terminal": "O terminal de salvar",
@@ -151,7 +157,7 @@
     "ringue.poste": "O poste de fita amarela",
     "ringue.pedra": "A pedra ao pé do poste de fita amarela",
     "ringue.drone": "O drone-câmera que transmite a rinha",
-    "ringue.lutador": "O lutador grande que corre na sua direção",
+    "ringue.lutador": "O lutador grande que sai do cubo",
     "familia.mae": "A mãe",
     "familia.irma": "A irmã",
     "familia.cama": "A cama vazia",
@@ -166,6 +172,8 @@
     "casa.mesa": "A mesa da cozinha",
     "casa.maca": "A maçã na tigela",
     "casa.irma": "A irmã dormindo no colchão",
-    "ringue.juiz": "O juiz, a criatura de coleira e colete listrado que leva um apito"
+    "ringue.juiz": "O juiz, que abre o cubo",
+    "ringue.cubo": "O cubo que as criaturas carregam",
+    "cela.grade": "A grade do respiro"
   }
 }

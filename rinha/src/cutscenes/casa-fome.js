@@ -28,7 +28,11 @@ const R = reel([
 export default {
   name: 'casa-fome', prefix: 'casa', filmOnly: true, duration: R.duration, cue: 'casa', views: R.views,
   anchors: { mesa: 'A mesa da cozinha', maca: 'A maçã na tigela', irma: 'A irmã dormindo no colchão' },
-  sfx: [],
+  // The night bed all along; the soft steps as you get up from the mat (the 'levanta' view, 25 to 30 s).
+  sfx: [
+    { t: 0, name: 'noite', opts: { dur: R.duration, vol: 0.3 } },
+    { t: 26.3, name: 'passo', opts: { vol: 0.5 } }, { t: 26.9, name: 'passo', opts: { vol: 0.5 } }, { t: 27.45, name: 'passo', opts: { vol: 0.5 } }, { t: 28.0, name: 'passo', opts: { vol: 0.5 } },
+  ],
   build(ctx) {
     const { r } = ctx, T = r.THREE;
     const sc = buildScene(r, { seed: ctx.seed });

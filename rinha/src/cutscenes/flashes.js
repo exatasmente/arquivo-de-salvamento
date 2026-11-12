@@ -35,7 +35,17 @@ const SEATS = [['vigia', 'lugarJavali'], ['fole', 'lugarLobo'], ['casca', 'lugar
 export default {
   name: 'flashes', duration: D, cue: 'flashes', views,
   anchors: { mesa: 'A mesa de negociação', balanca: 'A balança sobre a mesa', jaula: 'Uma jaula com gente adulta' },
-  sfx: [...CUTS.map((c) => ({ t: c[0] + 0.02, flash: true })), { t: 0.5, name: 'multidao', opts: { intensity: 0.2 } }, { t: 5.0, name: 'ui_mover' }, { t: 8.6, name: 'painel_tecla', opts: { key: 5 } }, { t: 11.0, name: 'moeda' }],
+  // The flash of every cut; the murmur of the shed (a crowd level that rises); the creatures take turns at the table
+  // (the speaker of pose(): Vigia 4.8 to 6 s, Fole 6 to 7.2 s, Casca 7.2 to 8 s) and the Vigia reads the numbers (8 to
+  // 12.6 s); the chips slide on the table (10.3 to 12.8 s).
+  sfx: [
+    ...CUTS.map((c) => ({ t: c[0] + 0.02, flash: true })),
+    { t: 0.1, crowd: 0.2 }, { t: 8.0, crowd: 0.28 }, { t: 12.6, crowd: 0.35 }, { t: 16.95, crowd: 0 },
+    { t: 4.8, name: 'fala', opts: { who: 'vigia', dur: 1.2, mood: 'negocia' } },
+    { t: 6.0, name: 'fala', opts: { who: 'fole', dur: 1.2, mood: 'negocia' } }, { t: 7.2, name: 'fala', opts: { who: 'casca', dur: 0.8, mood: 'negocia' } },
+    { t: 8.1, name: 'fala', opts: { who: 'vigia', dur: 2.2, mood: 'negocia' } }, { t: 10.5, name: 'fala', opts: { who: 'vigia', dur: 1.9, mood: 'negocia' } },
+    { t: 10.45, name: 'moeda' }, { t: 12.3, name: 'moeda' },
+  ],
   build(ctx) {
     const { r } = ctx;
     const sc = buildScene(r, { seed: ctx.seed });

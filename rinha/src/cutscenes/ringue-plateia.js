@@ -37,7 +37,20 @@ const R = reel([
 export default {
   name: 'ringue-plateia', prefix: 'ringue', filmOnly: true, duration: R.duration, cue: 'ringue', views: R.views,
   anchors: { drone: 'O drone-câmera que transmite a rinha', juiz: 'O juiz, a criatura de coleira e colete listrado que leva um apito', pedra: 'A pedra ao pé do poste de fita amarela' },
-  sfx: [],
+  // The spotlight glare and the bell (0.3 s); the crowd level follows 'excite' of each view (it rises to the roar of
+  // 'barulho' at 34 s, is muffled in 'gira' from 39 s and falls to a murmur); the drone hum from its first view and again
+  // from 39 s; the referee blows the whistle as it reaches his mouth (the 'juiz' view lifts it from 29.2 to 30.2 s,
+  // 'fala' ends with the whistle); the hand closes on the stone (48.3 s); the fall in 'gira' (40.15 s).
+  sfx: [
+    { t: 0.3, flash: true }, { t: 0.3, name: 'sino', opts: { hits: 2 } },
+    { t: 1.0, crowd: 0.4 }, { t: 5.0, crowd: 0.55 }, { t: 13.0, crowd: 0.65 }, { t: 34.0, crowd: 0.85 },
+    { t: 39.0, crowd: 0.5 }, { t: 41.0, crowd: 0.35 }, { t: 43.0, crowd: 0.2 }, { t: 44.5, crowd: 0.12 },
+    { t: 48.0, crowd: 0.2 }, { t: 50.0, crowd: 0.3 }, { t: 57.0, crowd: 0 },
+    { t: 24.0, name: 'drone_zumbido', opts: { dur: 15, vol: 0.8 } }, { t: 39.0, name: 'drone_zumbido', opts: { dur: 18, vol: 0.8 } },
+    { t: 29.0, name: 'fala', opts: { who: 'apito', dur: 1.4, mood: 'ordena' } },
+    { t: 40.15, name: 'knockdown', opts: { vol: 0.6 } },
+    { t: 48.3, name: 'pedra_pegar' },
+  ],
   build(ctx) {
     const { r } = ctx, T = r.THREE, ring = ctx.ring;
     const grp = new T.Group(); r.scene.add(grp);

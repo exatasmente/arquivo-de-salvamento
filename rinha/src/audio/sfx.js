@@ -9,6 +9,7 @@
 //   sfx.play('multidao', { intensity: 0.6 });   // continuous; intensity 0 stops it
 //   sfx.play('painel_tecla', { key: 7 });
 //   sfx.play('fala', { who: 'fole', mood: 'ordena', dur: 2.5, at });   // creature babble (no words)
+//   sfx.play('texto', { text: 'Fria. Pesada.', cps: 28, at });   // dialogue box typing, one blip per letter
 //   sfx.play('noite', { dur: 30, at });   // loops by dur: noite, drone_zumbido, cela_zumbido
 // opts: seed, vol (0..2), delay (s), at (absolute context time, for offline renders), intensity.
 
@@ -19,7 +20,7 @@ const lerp = (a, b, k) => a + (b - a) * k;
 
 export const SFX_NAMES = ['soco_testa', 'soco_queixo', 'soco_tempora', 'soco_guarda', 'soco_ar', 'esquiva', 'knockdown', 'clarao', 'sino', 'multidao',
   'passo', 'pedra_pegar', 'pedra_lancar', 'drone_chiado', 'taser', 'spray', 'corvo', 'moeda', 'ui_mover', 'ui_ok', 'ui_voltar', 'painel_tecla', 'porta_cela', 'salvar',
-  'fala', 'noite', 'geladeira', 'maca_colher', 'maca_cair', 'drone_zumbido', 'cela_zumbido', 'batida_parede', 'golpe_nuca'];
+  'fala', 'noite', 'geladeira', 'maca_colher', 'maca_cair', 'drone_zumbido', 'cela_zumbido', 'batida_parede', 'golpe_nuca', 'feixe', 'congelar', 'texto'];
 
 // ---- building blocks ---------------------------------------------------------------------------
 /** Percussive gain: fast attack, exponential decay. */
@@ -223,6 +224,15 @@ const FX = {
     K.tn(t + 0.1 + dur, 0.25, { f0: 100, f1: 40, g: 0.55, send: 0.3 });
     K.nz(t + 0.1 + dur, 0.1, { type: 'bandpass', f0: 800, q: 1, g: 0.35, off: r() * 9 });
   },
+  texto(K, t, r, o) {
+    // A dialogue box typing: one short square blip per letter at the box's reveal speed, silent on
+    // spaces and punctuation. One pitch per box, with a small wobble per letter.
+    const text = String(o.text ?? ''), cps = o.cps ?? 28, base = [880, 784, 988][v(r, 3)];
+    for (let k = 0; k < text.length; k++) {
+      if (!/[\p{L}\p{N}]/u.test(text[k])) continue;
+      K.tn(t + k / cps, 0.035, { type: 'square', f0: base * (1 + (r() - 0.5) * 0.06), g: 0.1, lp: 2600, send: 0.03 });
+    }
+  },
   salvar(K, t, r) {
     // Memory card: data blips racing up, then a settled chord.
     const n = v(r, 3), base = [523, 587, 466][n];
@@ -405,6 +415,45 @@ Object.assign(FX, {
       for (let k = 0; k < 3; k++) K.nz(tt + k * 0.035, 0.02, { type: 'bandpass', f0: 3000 + r() * 2000, q: 1.5, g: 0.1, att: 0.001, off: r() * 9, send: 0.1 });
       K.tn(tt, 0.1, { type: 'square', f0: 120, f1: 120, g: 0.03, lp: 700 });
     }
+  },
+  /**
+   * The beam of the cubes. Default (abduction), opts.dur seconds: a low hum that climbs, a glassy shimmer that rises with it and a bright
+   * noise sweep, ending in a soft swallowed thump as the light closes. opts.mode 'solta' (a fighter released from a cube): a short
+   * falling shimmer with a pop at the start and a thump of arrival at the end.
+   */
+  feixe(K, t, r, o) {
+    const solta = o.mode === 'solta', dur = o.dur ?? (solta ? 2.4 : 5), p = 1 + (r() - 0.5) * 0.06;
+    if (solta) {
+      K.tn(t, 0.18, { type: 'sine', f0: 1800 * p, f1: 500, g: 0.25, att: 0.002, send: 0.3 }); K.nz(t, 0.25, { type: 'bandpass', f0: 3200, f1: 900, q: 1.5, g: 0.3, att: 0.003, off: r() * 9, send: 0.3 });
+      const h = drone(K, t, dur, { type: 'sine', f: 520 * p, g: 0.1, fade: 0.2, send: 0.35 }); h.frequency.exponentialRampToValueAtTime(190 * p, t + dur);
+      const sh = drone(K, t, dur, { type: 'triangle', f: 2200 * p, g: 0.035, fade: 0.2, lp: 4500, send: 0.4 }); sh.frequency.exponentialRampToValueAtTime(900 * p, t + dur);
+      bed(K, t, dur, { type: 'bandpass', f: 2600, q: 2, g: 0.04, fade: 0.2, off: r() * 9, send: 0.2 });
+      K.tn(t + dur * 0.92, 0.35, { f0: 95, f1: 45, g: 0.45, send: 0.2 });
+      return;
+    }
+    const sub = drone(K, t, dur, { type: 'sawtooth', f: 62 * p, g: 0.11, fade: 0.8, lp: 420, send: 0.25 }); sub.frequency.exponentialRampToValueAtTime(150 * p, t + dur * 0.92);
+    const up = drone(K, t, dur, { type: 'sine', f: 330 * p, g: 0.09, fade: 0.8, send: 0.4 }); up.frequency.exponentialRampToValueAtTime(1500 * p, t + dur * 0.95);
+    for (const [m, g, dt] of [[1.5, 0.035, 5], [2.01, 0.03, -6]]) { // the shimmer: two detuned partials, wobbling
+      const sh = drone(K, t, dur, { type: 'triangle', f: 330 * m * p, g, fade: 0.8, lp: 5500, send: 0.45, detune: dt }); sh.frequency.exponentialRampToValueAtTime(1500 * m * p, t + dur * 0.95);
+      const lf = K.ctx.createOscillator(), lg = K.ctx.createGain(); lf.frequency.value = 6 + r() * 2; lg.gain.value = 14; lf.connect(lg).connect(sh.detune); lf.start(t); lf.stop(t + dur + 0.05);
+    }
+    const sw = bed(K, t, dur, { type: 'bandpass', f: 500, q: 1.6, g: 0.07, fade: 0.9, off: r() * 9, send: 0.3 }); sw.frequency.exponentialRampToValueAtTime(5200, t + dur * 0.95);
+    for (let tt = t + 0.4; tt < t + dur - 0.3; tt += 0.12 + r() * 0.18) K.tn(tt, 0.05, { type: 'sine', f0: 2600 + r() * 3200, f1: 2200 + r() * 1000, g: 0.025 * (0.4 + (tt - t) / dur), att: 0.002, send: 0.5, pan: r() * 1.4 - 0.7 }); // specks
+    K.tn(t + dur - 0.1, 0.5, { f0: 110 * p, f1: 40, g: 0.4, att: 0.01, send: 0.3 }); K.nz(t + dur - 0.1, 0.4, { type: 'lowpass', f0: 800, f1: 120, g: 0.25, off: r() * 9, send: 0.3 }); // the light closes over you
+  },
+  /** The gun that freezes: a charging whine, a hiss of cold air, then ice forming (a rain of tiny crackles and glassy ticks) and a dull settling. */
+  congelar(K, t, r) {
+    const p = 1 + (r() - 0.5) * 0.08;
+    K.tn(t - 0.01, 0.4, { type: 'sine', f0: 700 * p, f1: 3400 * p, g: 0.09, att: 0.25, lp: 5200, send: 0.3 }); // charge whine
+    K.nz(t + 0.38, 1.6, { type: 'highpass', f0: 5200, f1: 2600, g: 0.3, att: 0.03, off: r() * 9, send: 0.25 });       // hiss of the jet
+    K.nz(t + 0.38, 1.2, { type: 'bandpass', f0: 1400, f1: 700, q: 0.8, g: 0.14, att: 0.05, off: r() * 9, send: 0.2 });
+    K.tn(t + 0.38, 0.5, { type: 'sawtooth', f0: 240, f1: 90, g: 0.12, att: 0.01, lp: 700, send: 0.15 });               // the push of the shot
+    for (let k = 0; k < 26; k++) { // ice forming
+      const tt = t + 0.6 + k * 0.065 + r() * 0.05;
+      K.nz(tt, 0.012, { type: 'bandpass', f0: 3800 + r() * 3200, q: 3, g: 0.2 * (0.4 + 0.6 * r()), att: 0.0008, off: r() * 9, send: 0.2, pan: r() * 1.4 - 0.7 });
+      if (r() < 0.45) K.tn(tt, 0.09, { type: 'sine', f0: 3000 + r() * 3500, f1: 2500 + r() * 800, g: 0.04, att: 0.001, send: 0.45 });
+    }
+    K.tn(t + 2.2, 0.6, { f0: 70 * p, f1: 38, g: 0.4, att: 0.02, send: 0.25 }); K.nz(t + 2.2, 0.3, { type: 'lowpass', f0: 500, f1: 100, g: 0.25, off: r() * 9 }); // it settles
   },
   /** A fist on the metal wall of the cell, muffled. opts: hits (1 to 4). */
   batida_parede(K, t, r, o) {

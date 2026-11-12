@@ -51,6 +51,24 @@ export function bob(t, amp = 1, freq = 1.9) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Sound timelines. A cutscene lists its sounds as `sfx: [{ t, name, opts }]` (t in seconds of the
+// cutscene; `{ t, flash: true }` is a screen flash, `{ t, crowd: level }` sets the crowd level, 0 stops
+// it). These helpers build the repeated ones from the same numbers the camera uses.
+
+/** Footfalls of a first-person walk driven by bob(t, amp, freq): the head is lowest at t = n / freq. */
+export function footfalls(from, to, freq = 1.9, opts) {
+  const out = [];
+  for (let n = Math.ceil(from * freq - 1e-9); n / freq < to - 1e-9; n++) out.push({ t: +(n / freq).toFixed(3), name: 'passo', ...(opts ? { opts } : {}) });
+  return out;
+}
+/** `name` every `period` seconds from `from` while t < `to`; `opts` may be a function of the index. */
+export function every(from, to, period, name = 'passo', opts) {
+  const out = [];
+  for (let i = 0; from + i * period < to - 1e-9; i++) { const o = typeof opts === 'function' ? opts(i) : opts; out.push({ t: +(from + i * period).toFixed(3), name, ...(o ? { opts: o } : {}) }); }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Screen flashes. Same limits as the game (hud.js): at most 3 per second, each one rising and
 // falling over at least 0.1 s, never full white. Events: [{ t, s?, rise?, fall? }]; events closer
 // than MIN_GAP are a mistake (checked by `checkFlashes`, used in the tests).
@@ -159,6 +177,8 @@ export function drawOverlay(g, w, h, st) {
   }
   if (st.flash > 0.005) { g.globalAlpha = st.flash * FLASH.peak; g.fillStyle = FLASH.color; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
   if (st.dark > 0.005) { g.globalAlpha = st.dark * FLASH.darkPeak; g.fillStyle = FLASH.dark; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
+  if (st.ice > 0.005) drawIce(g, w, h, st.ice);
+  if (st.wash > 0.005) { g.globalAlpha = Math.min(0.85, st.wash); g.fillStyle = '#bff3e2'; g.fillRect(0, 0, w, h); g.globalAlpha = 1; } // the light of the cube: pale green-blue, never white
   if (st.dim > 0.005) { g.globalAlpha = st.dim; g.fillStyle = '#04050c'; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
   if (st.noise > 0.01) drawNoise(g, w, h, st.noise, st.t);
   if (st.shop) drawShop(g, w, h, st.shop, st.t);
@@ -166,6 +186,30 @@ export function drawOverlay(g, w, h, st) {
   if (st.hud) drawHud(g, w, h, st.hud);
   if (st.label) drawLabel(g, w, h, st.label);
   if (st.fade > 0.005) { g.globalAlpha = Math.min(1, st.fade); g.fillStyle = '#000'; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
+}
+
+/**
+ * Frost on the lens and a cold blue tone (the freezing): k 0..1. Pure function of k: the same shards every time,
+ * growing in from the four edges as k rises; the middle of the picture stays clear until the very end.
+ */
+function drawIce(g, w, h, k) {
+  g.save();
+  g.fillStyle = `rgba(40,110,200,${(0.42 * k).toFixed(3)})`; g.fillRect(0, 0, w, h); // the cold tone (the overlay is transparent, so a plain blue veil)
+  const gr = g.createRadialGradient(w / 2, h / 2, h * (0.55 - 0.3 * k), w / 2, h / 2, h * 0.95);
+  gr.addColorStop(0, 'rgba(190,225,255,0)'); gr.addColorStop(1, `rgba(205,235,255,${(0.7 * k).toFixed(3)})`);
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  const r = mulberry32(4242), n = 90;
+  for (let i = 0; i < n; i++) { // shards: thin triangles from an edge toward the middle
+    const side = i % 4, a = r(), len = (0.08 + 0.2 * r()) * k * Math.min(w, h) * (0.6 + 0.8 * ((i * 7) % 5) / 4), wd = (0.01 + 0.025 * r()) * h;
+    const bx = side === 0 ? a * w : side === 1 ? w : side === 2 ? a * w : 0, by = side === 0 ? 0 : side === 1 ? a * h : side === 2 ? h : a * h;
+    const dx = (w / 2 - bx), dy = (h / 2 - by), dl = Math.hypot(dx, dy) || 1, ux = dx / dl + (r() - 0.5) * 0.5, uy = dy / dl + (r() - 0.5) * 0.5;
+    const px = -uy * wd, py = ux * wd;
+    g.fillStyle = `rgba(${200 + ((i * 13) % 50)},${232 + ((i * 7) % 20)},255,${(0.55 + 0.3 * r()).toFixed(2)})`;
+    g.beginPath(); g.moveTo(bx - px, by - py); g.lineTo(bx + px, by + py); g.lineTo(bx + ux * len, by + uy * len); g.closePath(); g.fill();
+  }
+  g.fillStyle = 'rgba(235,248,255,0.5)'; // fine frost grains
+  for (let i = 0; i < 160 * k; i++) { const x = r() * w, y = r() * h, e = Math.min(x, w - x, y, h - y) / (h * 0.4); if (r() > e * e) g.fillRect(x, y, 3, 3); }
+  g.restore();
 }
 
 /** Static: seeded by the frame number of the time, so the same time always gives the same picture. */

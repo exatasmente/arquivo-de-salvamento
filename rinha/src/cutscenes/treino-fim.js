@@ -5,7 +5,7 @@
 import { buildScene } from '../scenes/treino.js';
 import { buildCreature } from '../models/creatures.js';
 import { GUIDE_END } from './treino-aula.js';
-import { track, bob, playerArms, defaultBlocks, ramp, smooth, lerp } from './common.js';
+import { track, bob, footfalls, playerArms, defaultBlocks, ramp, smooth, lerp } from './common.js';
 
 // The instructor who led you here (the walk of treino-aula) is where that walk left him, and goes on to stand by the terminal, out of the way.
 const GUIDE_STOP = [GUIDE_END.x, GUIDE_END.z];
@@ -28,7 +28,9 @@ const cam = track([
 export default {
   name: 'treino-fim', prefix: 'treino', duration: D, cue: 'treino', views,
   anchors: { terminal: 'O terminal de salvar', cartao: 'A tela do cartão de memória' },
-  sfx: [{ t: 0.6, name: 'passo' }, { t: 1.2, name: 'passo' }, { t: 1.8, name: 'passo' }, { t: 2.4, name: 'passo' }, { t: 2.6, name: 'painel_tecla', opts: { key: 5 } }, { t: 3.0, name: 'salvar' }],
+  // The footfalls of bob(t) across the hall (to 2.8 s), the key pressed as the hand reaches the panel (2.6 s) and
+  // "SALVANDO..." as the card appears (3 s).
+  sfx: [...footfalls(0, 2.8, 1.9, { vol: 0.8 }), { t: 2.6, name: 'painel_tecla', opts: { key: 5 } }, { t: 3.0, name: 'salvar' }],
   build(ctx) {
     const { r } = ctx;
     const sc = buildScene(r, { seed: ctx.seed });

@@ -11,7 +11,7 @@
 // Everything is a function of the time.
 import { buildScene } from '../scenes/treino.js';
 import { buildCreature } from '../models/creatures.js';
-import { reel, bob, playerArms, defaultBlocks, ramp, smooth, lerp, clamp } from './common.js';
+import { reel, bob, footfalls, every, playerArms, defaultBlocks, ramp, smooth, lerp, clamp } from './common.js';
 
 const P = [0, 1.65, 1.0];                  // where you stand for the lessons (looking toward +z, the instructor)
 const DUMMY_EYE = [-1.7, 1.6, -1.5];       // in front of the dummy
@@ -142,7 +142,34 @@ export const GUIDE_END = (() => {
 export default {
   name: 'treino-aula', prefix: 'treino', filmOnly: true, duration: R.duration, cue: 'treino', views: R.views,
   anchors: { instrutor: 'O instrutor, a criatura de braços longos', boneco: 'O boneco de treino com as zonas pintadas', prateleira: 'A prateleira da loja' },
-  sfx: [],
+  // Every sound is placed from the code of its lesson (`local` is the time into the view; a view starts at the t0 of R.views):
+  //  - the door opens as the instructor comes in (entra, 0 to 1 s) and he walks (his gait is ~0.65 s a step);
+  //  - he speaks at the start of each lesson, at the cue of the film script;
+  //  - each punch lands at the peak of out(u): 0.8 + 0.45 * the length of its window (jab and uppercut 1.16 s, hook 1.2 s);
+  //  - the whoosh of the slow strike and the dodge (esquivaLado), the heavy blow that lands on you (golpeForte, 1.3 s);
+  //  - the credits count (2.2 to 3.4 s), the shop cursor moves (3.0 and 3.8 s), the card cursor.
+  sfx: [
+    { t: 0.2, name: 'porta_cela' }, ...every(2.1, 4.6, 0.65, 'passo', { vol: 0.9 }),
+    { t: 13.25, name: 'fala', opts: { who: 'mestre', dur: 1.5, mood: 'calmo' } },
+    { t: 18.4, name: 'fala', opts: { who: 'mestre', dur: 1.6, mood: 'calmo' } }, { t: 21.4, name: 'fala', opts: { who: 'mestre', dur: 1.4, mood: 'calmo' } }, { t: 24.4, name: 'fala', opts: { who: 'mestre', dur: 1.6, mood: 'calmo' } },
+    { t: 31.25, name: 'fala', opts: { who: 'mestre', dur: 1.0, mood: 'calmo' } },
+    { t: 36.2, name: 'soco_ar' }, { t: 36.95, name: 'esquiva' }, { t: 37.7, name: 'fala', opts: { who: 'mestre', dur: 1.15, mood: 'calmo' } },
+    { t: 42.13, name: 'fala', opts: { who: 'mestre', dur: 1.3, mood: 'calmo' } },
+    { t: 43.16, name: 'soco_testa' }, { t: 46.16, name: 'soco_queixo' }, { t: 49.2, name: 'soco_tempora' },
+    { t: 52.3, name: 'soco_tempora', opts: { vol: 1.2 } }, { t: 54.35, name: 'fala', opts: { who: 'mestre', dur: 1.3, mood: 'calmo' } },
+    { t: 58.96, name: 'soco_testa' }, { t: 59.5, name: 'fala', opts: { who: 'mestre', dur: 0.65, mood: 'calmo' } },
+    { t: 61.85, name: 'soco_ar' }, { t: 62.1, name: 'fala', opts: { who: 'mestre', dur: 1.6, mood: 'calmo' } },
+    { t: 64.17, name: 'fala', opts: { who: 'mestre', dur: 1.2, mood: 'calmo' } },
+    { t: 66.2, name: 'moeda' }, { t: 66.8, name: 'moeda' }, { t: 67.4, name: 'ui_ok' },
+    { t: 72.0, name: 'ui_mover' }, { t: 72.8, name: 'ui_mover' },
+    { t: 75.5, name: 'ui_ok' }, { t: 75.5, name: 'moeda' },
+    { t: 78.4, name: 'ui_ok' }, { t: 79.9, name: 'esquiva', opts: { vol: 0.6 } }, { t: 80.6, name: 'esquiva', opts: { vol: 0.6 } },
+    { t: 87.31, name: 'fala', opts: { who: 'mestre', dur: 1.55, mood: 'calmo' } },
+    ...every(88.95, 91.8, 0.65, 'passo', (i) => ({ vol: +(0.9 - 0.1 * i).toFixed(2) })), { t: 90.3, name: 'porta_cela', opts: { vol: 0.7 } },
+    { t: 94.4, name: 'moeda', opts: { vol: 0.5 } },
+    ...footfalls(97, 102, 1.8, { vol: 0.8 }),
+    { t: 104.0, name: 'ui_mover' }, { t: 105.2, name: 'ui_mover' }, { t: 106.4, name: 'ui_mover' },
+  ],
   build(ctx) {
     const { r } = ctx, T = r.THREE;
     const sc = buildScene(r, { seed: ctx.seed });

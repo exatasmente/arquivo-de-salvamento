@@ -5,7 +5,7 @@ import { buildScene } from '../scenes/pomar.js';
 import { buildCreature } from '../models/creatures.js';
 import { tex } from '../textures/paint.js';
 import { nightify } from './night.js';
-import { liftArms, hideInstanceNear, track, bob, playerArms, ramp, smooth, lerp } from './common.js';
+import { liftArms, hideInstanceNear, footfalls, track, bob, playerArms, ramp, smooth, lerp } from './common.js';
 
 const D = 30;
 const views = {
@@ -58,11 +58,14 @@ const FOLE = (t) => { const u = smooth(ramp(t, 20, 25.2)); const a = lerp(0.2, 1
 export default {
   name: 'pomar', duration: D, cue: 'pomar', views,
   anchors: { macieira: 'A macieira de onde você colhe a maçã', maca: 'A maçã no galho', casca: 'A criatura alta e magra de placas cinza pálidas', fole: 'A criatura enorme e corcunda de peito que infla' },
+  // The night bed; the footfalls of bob(t) while you walk (to 13.6 s); the apple leaves the branch at 16.7 s (the grab is 16.4 to 17.2 s; the twig
+  // cracks 0.12 s into the sound); the creatures close in with heavy steps; the blow on the back of the head and the flash at 26.2 s.
   sfx: [
-    { t: 0.8, name: 'passo' }, { t: 1.8, name: 'passo' }, { t: 2.8, name: 'passo' }, { t: 3.8, name: 'passo' }, { t: 4.8, name: 'passo' }, { t: 5.8, name: 'passo' },
-    { t: 6.8, name: 'passo' }, { t: 7.8, name: 'passo' }, { t: 8.8, name: 'passo' }, { t: 9.8, name: 'passo' }, { t: 10.8, name: 'passo' }, { t: 11.8, name: 'passo' }, { t: 12.8, name: 'passo' },
-    { t: 13.8, name: 'passo' }, { t: 16.5, name: 'pedra_pegar' }, { t: 19.2, name: 'passo' }, { t: 21.0, name: 'passo' }, { t: 22.6, name: 'passo' }, { t: 24.0, name: 'passo' },
-    { t: 25.6, name: 'passo' }, { t: 26.2, name: 'soco_testa' }, { t: 26.2, flash: true },
+    { t: 0, name: 'noite', opts: { dur: D } },
+    ...footfalls(0.5, 13.6, 1.9, { vol: 0.8 }),
+    { t: 16.85, name: 'maca_colher' },
+    { t: 19.2, name: 'passo' }, { t: 21.0, name: 'passo' }, { t: 22.6, name: 'passo' }, { t: 24.0, name: 'passo' }, { t: 25.6, name: 'passo' },
+    { t: 26.2, name: 'golpe_nuca', opts: { dur: 2.2 } }, { t: 26.2, flash: true },
   ],
   build(ctx) {
     const { r } = ctx;

@@ -5,6 +5,7 @@
 //   shot({ from, to, actions, prev, duration, t0 })                          (a stretch of a cutscene)
 //   frame(tLocal) -> data URL (JPEG) of the whole picture at width x height
 //   report() -> { frames, offscreen, ... }
+//   __film.sounds(from, to) -> { natural, events: [{ u, name, opts }] }     (the sound events of a stretch, see `sounds`)
 //
 // A view is a named stretch of a cutscene ("cela.riscos"). A shot from `from` to `to` plays from
 // the start of `from` to the end of `to` (consecutive views of one cutscene), stretched or
@@ -55,6 +56,51 @@ export function manifest() {
     actions: ACTIONS,
     anchors,
   };
+}
+
+/** Long sounds that keep going across a cut: a stretch that starts inside them gets the rest of them (`opts.offset`). */
+const BEDS = new Set(['noite', 'cela_zumbido', 'drone_zumbido', 'geladeira']);
+
+/**
+ * The sound events of a shot from view `from` to view `to` (the same stretch `shot()` plays) of one cutscene.
+ * Returns { natural, events }: natural = t1 of `to` - t0 of `from`, in seconds of cutscene, and for each event of
+ * the cutscene's `sfx` with a <= t < b: { u: (t - a) / natural, name, opts }. All durations in `opts` (dur, length,
+ * offset) are seconds of cutscene: whoever places them on a scene of another length multiplies them, like u, by the
+ * ratio scene duration / natural.
+ *  - { flash: true } becomes name 'clarao'.
+ *  - { crowd: level } becomes name 'multidao' with opts { intensity: level, length }, where length runs to the next
+ *    change of the crowd or to b (a level of 0 only ends the previous one).
+ *  - A bed (noite, cela_zumbido, drone_zumbido, geladeira) or a crowd that started before a and still sounds at a comes
+ *    with u = 0, opts.offset = a - t, and the duration left, cut at b.
+ */
+export function sounds(from, to = from) {
+  const views = listViews(), va = views[from], vb = views[to];
+  if (!va) throw new Error(`unknown view: ${from}`);
+  if (!vb) throw new Error(`unknown view: ${to}`);
+  if (va.cutscene !== vb.cutscene) throw new Error(`views of different cutscenes: ${from} -> ${to}`);
+  const a = va.t0, b = vb.t1, natural = b - a;
+  if (natural <= 0) throw new Error(`view ${to} comes before ${from}`);
+  const sfx = CUTSCENES[va.cutscene].sfx ?? [];
+  const r = (x) => +x.toFixed(4), events = [];
+  const crowd = sfx.filter((e) => e.crowd !== undefined).sort((p, q) => p.t - q.t);
+  crowd.forEach((e, i) => {
+    const end = Math.min(crowd[i + 1]?.t ?? b, b);
+    if (!(e.crowd > 0) || e.t >= b || end <= a) return;
+    if (e.t >= a) events.push({ u: r((e.t - a) / natural), name: 'multidao', opts: { intensity: e.crowd, length: r(end - e.t) } });
+    else events.push({ u: 0, name: 'multidao', opts: { intensity: e.crowd, length: r(end - a), offset: r(a - e.t) } });
+  });
+  for (const e of sfx) {
+    if (e.crowd !== undefined) continue;
+    const name = e.flash ? 'clarao' : e.name, opts = { ...(e.opts ?? {}) };
+    if (e.t >= a && e.t < b) {
+      if (BEDS.has(name) && opts.dur !== undefined) opts.dur = r(Math.min(opts.dur, b - e.t));
+      events.push({ u: r((e.t - a) / natural), name, opts });
+    } else if (e.t < a && BEDS.has(name) && opts.dur !== undefined && e.t + opts.dur > a) {
+      events.push({ u: 0, name, opts: { ...opts, dur: r(Math.min(e.t + opts.dur, b) - a), offset: r(a - e.t) } });
+    }
+  }
+  events.sort((p, q) => p.u - q.u);
+  return { natural: r(natural), events };
 }
 
 export function build({ width = 1920, height = 1080, seed = 1, groups = null, canvas = null, blocks = null } = {}) {
@@ -114,6 +160,7 @@ export function build({ width = 1920, height = 1080, seed = 1, groups = null, ca
     actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, d]) => [k, { desc: d }])),
     anchors: listAnchors(),
     tick(t) { ambientT = t; },
+    sounds,
     shot: startShot, frame, report, paint, stage, render, get time() { return ambientT; },
   };
 }
@@ -136,7 +183,7 @@ export function installFilm() {
   window.shot = (s) => film.shot(s);
   window.frame = (t) => film.frame(t);
   window.report = () => film.report();
-  window.__film = { manifest, build, listViews, current: null };
+  window.__film = { manifest, build, listViews, sounds, current: null };
   return window.__film;
 }
 
