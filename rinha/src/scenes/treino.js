@@ -8,6 +8,8 @@
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
 import { kit, tex, rig } from '../textures/paint.js';
 import { mulberry32 } from '../rng.js';
+import { buildTatame, buildMarcasFita, buildBoneco, buildSacoDePancada, buildArmarios, buildRelogio, buildPrateleira, buildItensLoja,
+  buildPanosPrateleira, buildBancoTreino, buildSuporteVaras, buildTerminalSalvar, buildRedeDeCarga, buildTablado } from '../props.js';
 
 export const SIZE = { x0: -8, x1: 8, z0: -7, z1: 7, h: 6.5 };
 
@@ -18,7 +20,7 @@ export function buildScene(r, { seed = 1 } = {}) {
   const { x0, x1, z0, z1, h } = SIZE;
 
   const woodFloor = k.mat('#c8ac84', 'wood'), panel = k.mat('#6c7c74', 'plaster'), plaster = k.mat('#a0a4ae', 'concrete');
-  const dark = k.mat('#3a3e48', 'metal'), steel = k.mat('#8a909c', 'metal');
+  const dark = k.mat('#3a3e48', 'metal');
 
   k.floor({ x0, x1, z0, z1, y: 0, material: woodFloor, tile: [2.5, 2.5], step: 2 });
   k.floor({ x0, x1, z0, z1, y: h, material: k.mat('#50545e', 'metal'), tile: [3, 3], up: false, step: 3 });
@@ -54,101 +56,46 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   // ---- tatami with a border, and the taped marks
   const tx = 5.6, tz = 4.3;
-  k.box([tx * 2, 0.07, tz * 2], k.mat('#b0c0d8', 'mat'), [0, 0.035, 0], [0, 0, 0], [1.2, 1.2]);
-  const edge = k.mat('#4a5468', 'rubber');
-  k.box([tx * 2 + 0.3, 0.09, 0.15], edge, [0, 0.045, -tz - 0.07]); k.box([tx * 2 + 0.3, 0.09, 0.15], edge, [0, 0.045, tz + 0.07]);
-  k.box([0.15, 0.09, tz * 2], edge, [-tx - 0.07, 0.045, 0]); k.box([0.15, 0.09, tz * 2], edge, [tx + 0.07, 0.045, 0]);
-  const tape = k.decal(k.mat('#f0d048', 'tape', { emissive: 0.15 }), -6);
-  const tapeR = (cx, cz, w, d, ry = 0) => { const m = k.add(new T.PlaneGeometry(w, d), tape, [cx, 0.085, cz], [-Math.PI / 2, 0, ry]); m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, 0, 0); m.rotation.z = ry; return m; };
-  // stance: two feet in guard, with a line to the dummy
-  tapeR(-0.22, 2.2, 0.2, 0.5, 0.2); tapeR(0.22, 2.0, 0.2, 0.5, -0.15);
-  tapeR(0, 0.2, 0.12, 4.0); // a line toward the dummies
-  // step marks: a cross of arrows (forward, back, left, right)
-  const arrow = (cx, cz, yaw) => {
-    const g = new T.Group(); g.position.set(cx, 0.086, cz); g.rotation.y = yaw; group.add(g);
-    const shaft = new T.Mesh(new T.PlaneGeometry(0.16, 0.7), tape); shaft.rotation.x = -Math.PI / 2; shaft.position.z = -0.05; g.add(shaft);
-    const head = new T.Mesh(new T.CircleGeometry(0.25, 3), tape); head.rotation.x = -Math.PI / 2; head.rotation.z = Math.PI / 2 + 0.0; head.position.z = -0.46; g.add(head);
-  };
-  for (const [dx, dz, yaw] of [[0, -0.9, 0], [0, 0.9, Math.PI], [-0.9, 0, Math.PI / 2], [0.9, 0, -Math.PI / 2]]) arrow(3.8 + dx, 2.2 + dz, yaw);
-  // dodge marks: two rings left and right of the stance
-  for (const sx of [-1.6, 1.6]) { const g = new T.RingGeometry(0.3, 0.38, 10); g.rotateX(-Math.PI / 2); k.add(g, tape, [sx, 0.086, 1.1]); }
-  // distance marks to the dummy
-  for (let i = 0; i < 3; i++) tapeR(-2.0, 0.6 - i * 0.6, 0.7, 0.1);
+  buildTatame(r, k, tx, tz);
+  buildMarcasFita(r, k);
 
   // ---- dummies
-  const padM = k.mat('#e0c898', 'pad'), headM = k.mat('#f0e0c0', 'dummyHead');
-  function dummy(x, z, yaw) {
-    const g = new T.Group(); g.position.set(x, 0, z); g.rotation.y = yaw; group.add(g);
-    k.cyl(0.4, 0.45, 0.1, 8, dark, [0, 0.1, 0], [0, 0, 0], g);
-    k.cyl(0.07, 0.07, 1.0, 5, steel, [0, 0.55, 0], [0, 0, 0], g);
-    const body = new T.Group(); body.position.y = 0.0; g.add(body);
-    k.cyl(0.23, 0.26, 0.62, 8, padM, [0, 1.12, 0], [0, 0, 0], body, 1.5);
-    k.cyl(0.26, 0.26, 0.28, 8, padM, [0, 0.72, 0], [0, 0, 0], body, 1.5);
-    k.sphere(0.14, headM, [0, 1.62, 0], [1, 1.15, 1], 8, 5, body);
-    k.cyl(0.05, 0.06, 0.1, 5, steel, [0, 1.46, 0], [0, 0, 0], body);
-    for (const sx of [-1, 1]) k.cyl(0.07, 0.07, 0.56, 5, padM, [sx * 0.31, 1.02, 0.02], [0, 0, sx * 0.1], body); // arms hang at the sides
-    return { g, body };
-  }
-  const d1 = dummy(-2.0, -2.2, 0), d2 = dummy(-4.6, 1.4, Math.PI / 2);
+  const d1 = buildBoneco(r, k, -2.0, -2.2, 0), d2 = buildBoneco(r, k, -4.6, 1.4, Math.PI / 2);
 
   // hanging heavy bag and a speed ball
-  k.box([0.14, 0.14, 7], dark, [4.8, h - 1.2, -2.5], [0, 0, 0], [1, 1]);
-  const bag = new T.Group(); bag.position.set(4.8, h - 1.25, -1.5); group.add(bag);
-  k.cyl(0.015, 0.015, 1.6, 3, k.mat('#6a6e78', 'metal'), [0, -0.8, 0], [0, 0, 0], bag);
-  k.cyl(0.28, 0.28, 1.25, 8, k.mat('#a05a3c', 'burlap'), [0, -2.4, 0], [0, 0, 0], bag, 1.5);
-  k.cyl(0.28, 0.2, 0.1, 8, dark, [0, -3.05, 0], [0, 0, 0], bag);
+  const bag = buildSacoDePancada(r, k, h);
   const bagBaseY = bag.position.y;
 
   // ---- walls dressing: night window, wooden pole rack, lockers, clock, shelf with bandages, terminal
   const mir = k.add(new T.PlaneGeometry(5.0, 2.2), k.mat('#ffffff', 'nightsky', { emissive: 1, fogged: 0.5 }), [x0 + 0.04, 2.4, -1], [0, Math.PI / 2, 0]);
   k.box([0.06, 2.3, 5.2], dark, [x0 + 0.03, 2.4, -1]);
   mir.position.x = x0 + 0.075; // window pane in front of its frame (night outside, like everywhere in the game)
-  k.box([0.3, 1.8, 0.5], k.mat('#6a7a8a', 'metal'), [x0 + 0.2, 0.9, 5.4]); k.box([0.3, 1.8, 0.5], k.mat('#6a7a8a', 'metal'), [x0 + 0.2, 0.9, 5.95]); k.box([0.3, 1.8, 0.5], k.mat('#6a7a8a', 'metal'), [x0 + 0.2, 0.9, 6.5]);
-  k.cyl(1.0, 1.0, 0.08, 10, k.mat('#e0dcd0', 'concrete'), [0, 4.2, z0 + 0.06], [Math.PI / 2, 0, 0]);
-  k.box([0.04, 0.4, 0.04], dark, [0, 4.35, z0 + 0.12]); k.box([0.3, 0.04, 0.04], dark, [0.1, 4.2, z0 + 0.12], [0, 0, 0.4]);
+  buildArmarios(r, k, x0);
+  buildRelogio(r, k, z0);
   // shelf with bandage rolls (east wall) and a bench
   const shelf = [x1 - 0.3, 1.1, -1.5];
-  k.box([0.5, 0.06, 2.0], k.mat('#6a4e34', 'wood'), [shelf[0], 1.1, shelf[2]], [0, 0, 0], [1, 1]);
-  k.box([0.5, 0.06, 2.0], k.mat('#6a4e34', 'wood'), [shelf[0], 1.8, shelf[2]], [0, 0, 0], [1, 1]);
-  // the three items of the shop, large enough to tell apart by shape: a taser, a pepper spray can, a roll of bandage
-  {
-    const ig = new T.Group(); ig.position.set(shelf[0] - 0.05, 1.13, shelf[2]); ig.scale.setScalar(1.8); group.add(ig);
-    const grey = k.mat('#4a4e5c', 'metal', { emissive: 0.3 }), yel = k.mat('#f0c820', 'metal', { emissive: 0.5 }), red = k.mat('#d0402e', 'metal', { emissive: 0.45 }), white = k.mat('#f6f2e6', 'sheet', { emissive: 0.6 });
-    const B = (size, m, pos, rot = [0, 0, 0]) => k.box(size, m, pos, rot, undefined, ig), C = (rt, rb, h, seg, m, pos, rot = [0, 0, 0]) => k.cyl(rt, rb, h, seg, m, pos, rot, ig);
-    // taser: a grey body with a yellow stripe, a grip and two prongs with blue tips (z -0.55)
-    const blk = k.mat('#15161a', 'metal', { emissive: 0.2 }), yel2 = k.mat('#ffd830', 'metal', { emissive: 0.85 });
-    B([0.2, 0.12, 0.44], yel2, [0, 0.06, -0.55]); for (const dz of [-0.13, 0, 0.13]) B([0.205, 0.125, 0.045], blk, [0, 0.06, -0.55 + dz]); B([0.14, 0.2, 0.1], blk, [0.02, 0.1, -0.4], [0, 0, 0.25]);
-    for (const dx of [-0.05, 0.05]) { C(0.014, 0.014, 0.18, 5, k.mat('#e8ecf4', 'metal', { emissive: 0.9 }), [dx, 0.07, -0.86], [Math.PI / 2, 0, 0]); k.sphere(0.028, k.glow('#4ab8ff'), [dx, 0.07, -0.97], [1, 1, 1], 5, 4, ig); }
-    // spray: a red can with a white label band and a black nozzle (z 0)
-    C(0.07, 0.07, 0.36, 8, red, [0, 0.18, 0]); C(0.073, 0.073, 0.1, 8, white, [0, 0.17, 0]); C(0.04, 0.05, 0.05, 6, grey, [0, 0.385, 0]); B([0.05, 0.03, 0.04], grey, [-0.06, 0.4, 0]);
-    // bandage: a fat cream roll with a loose end (z 0.55)
-    C(0.13, 0.13, 0.2, 10, white, [0, 0.1, 0.55]); C(0.05, 0.05, 0.21, 6, k.mat('#8a7a60', 'cloth'), [0, 0.1, 0.55]); B([0.015, 0.003, 0.2], white, [-0.14, 0.012, 0.55]);
-  }
-  for (let i = 0; i < 4; i++) k.box([0.3, 0.18, 0.22], k.mat(i % 2 ? '#b0503c' : '#4a6a8a', 'cloth'), [shelf[0] + 0.02, 1.9, shelf[2] - 0.6 + i * 0.4], [0, 0, 0], [0.4, 0.4]);
+  buildPrateleira(r, k, shelf);
+  buildItensLoja(r, k, shelf);
+  buildPanosPrateleira(r, k, shelf);
   k.box([0.4, 1.1, 0.04], k.mat('#4a3a2c', 'wood'), [x1 - 0.06, 0.9, -1.5], [0, 0, 0], [1, 1]).visible = false;
   const bench = [6.7, 0, 2.6];
-  k.box([0.5, 0.08, 2.2], k.mat('#7a5a3e', 'wood'), [bench[0], 0.45, bench[2]], [0, 0, 0], [1, 1]);
-  for (const dz of [-0.9, 0.9]) k.box([0.5, 0.45, 0.08], dark, [bench[0], 0.22, bench[2] + dz]);
-  for (const [dz, c] of [[-0.5, '#b0503c'], [0.2, '#b0503c']]) { k.sphere(0.16, k.mat(c, 'cloth'), [bench[0], 0.62, bench[2] + dz], [1.1, 0.8, 1.3]); }
+  buildBancoTreino(r, k, bench);
   // wooden pole rack
   const rackX = 3.0, rackZ = z0 + 0.3;
-  k.box([2.2, 0.08, 0.3], k.mat('#5a4430', 'wood'), [rackX, 1.0, rackZ]); k.box([2.2, 0.08, 0.3], k.mat('#5a4430', 'wood'), [rackX, 1.8, rackZ]);
-  for (let i = 0; i < 5; i++) k.cyl(0.03, 0.03, 1.9, 5, k.mat('#a07848', 'wood'), [rackX - 0.9 + i * 0.45, 1.0, rackZ + 0.02], [0, 0, 0.08]);
+  buildSuporteVaras(r, k, rackX, rackZ);
   // save terminal: a console with a lit screen and a memory-card slot
   const term = [-7.5, 0, -4.8];
-  k.box([0.7, 1.2, 1.3], k.mat('#5b6374', 'metal'), [term[0], 0.6, term[2]]);
-  const scr = k.add(new T.PlaneGeometry(0.9, 0.55), r.mat('#6affc8', { emissive: 1, fogged: 0.5 }), [term[0] + 0.36, 1.2, term[2]], [0, Math.PI / 2, 0]);
-  k.box([0.08, 0.04, 0.24], k.glow('#ffd23a'), [term[0] + 0.36, 0.9, term[2]]); // card slot
+  const scr = buildTerminalSalvar(r, k, term);
   void scr;
   // hazard lines around the tatami and ceiling lamps
   for (const lz of [-4, 0, 4]) { k.box([4.5, 0.08, 0.25], k.glow('#f4f8ff', { fogged: 0.25 }), [0, h - 0.4, lz]); }
   for (let z = -6; z <= 6; z += 4) k.box([x1 - x0, 0.3, 0.22], k.mat('#3c404a', 'metal'), [0, h - 0.15, z]);
   for (let x = -6; x <= 6; x += 6) k.box([0.22, 0.3, z1 - z0], k.mat('#3c404a', 'metal'), [x, h - 0.35, 0]);
   // a heavy cargo net of ropes in the corner (cheap: thin boxes)
-  for (let i = 0; i < 5; i++) k.box([0.03, 2.0, 0.03], k.mat('#b09870', 'burlap'), [x0 + 0.1, 3.4, -6.2 + i * 0.25], [0, 0, 0]);
+  buildRedeDeCarga(r, k, x0);
 
   // a dais where the instructor stands
-  k.box([3.0, 0.16, 1.8], k.mat('#6a6e7a', 'metal'), [2.2, 0.08, -4.9], [0, 0, 0], [1, 1]);
+  buildTablado(r, k);
 
   // ---- lights (4 points) and fog
   const L = rig(r, {

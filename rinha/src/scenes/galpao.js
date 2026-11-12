@@ -10,6 +10,7 @@
 import { kit, tex, rig } from '../textures/paint.js';
 import { mergeGeos } from '../render.js';
 import { mulberry32 } from '../rng.js';
+import { buildJaula, buildMesaNegociacao, buildBanqueta, buildLampadaGalpao, buildCaixote, buildBarril, buildCorrente } from '../props.js';
 
 export const SIZE = { x0: -9, x1: 9, z0: -12, z1: 12, h: 8 };
 
@@ -20,7 +21,7 @@ export function buildScene(r, { seed = 1 } = {}) {
   const { x0, x1, z0, z1, h } = SIZE;
 
   const conc = k.mat('#9a9a9c', 'concrete'), corr = k.mat('#a8a496', 'corrug'), floorM = k.mat('#8a8a8c', 'concrete');
-  const steel = k.mat('#7a808c', 'metal'), dark = k.mat('#3a3e48', 'metal'), crate = k.mat('#a08058', 'crate');
+  const steel = k.mat('#7a808c', 'metal'), dark = k.mat('#3a3e48', 'metal');
 
   // ---- floor, ceiling, walls (concrete base, corrugated metal above)
   k.floor({ x0, x1, z0, z1, y: 0, material: floorM, tile: [2, 2], step: 2 });
@@ -49,25 +50,13 @@ export function buildScene(r, { seed = 1 } = {}) {
     for (let x = -8; x < 8; x += 2) k.box([0.12, 1.1, 0.1], truss, [x + 0.5, h - 1.05, z], [0, 0, (x % 4 === 0 ? 0.6 : -0.6)], [1, 1]);
   }
   for (let x = -6; x <= 6; x += 6) k.box([0.2, 0.2, z1 - z0], truss, [x, h - 0.75, 0], [0, 0, 0], [1, 1]);
-  const chainM = k.mat('#6a6e78', 'metal');
-  for (const [cx, cz, len] of [[-5.5, 3, 3.8], [5.5, 5, 4.4], [4, -8, 3.2], [-3, 9.5, 3.4]]) {
-    k.cyl(0.03, 0.03, len, 4, chainM, [cx, h - len / 2 - 0.6, cz]);
-    k.box([0.4, 0.14, 0.14], steel, [cx, h - len - 0.65, cz]);
-    k.cyl(0.015, 0.015, 0.4, 3, chainM, [cx - 0.12, h - len - 0.9, cz]); k.cyl(0.015, 0.015, 0.4, 3, chainM, [cx + 0.12, h - len - 0.9, cz]);
-  }
+  for (const [cx, cz, len] of [[-5.5, 3, 3.8], [5.5, 5, 4.4], [4, -8, 3.2], [-3, 9.5, 3.4]]) buildCorrente(r, k, h, cx, cz, len);
 
   // ---- hanging lamps with hard cones of light
   const lamps = [[-5.6, 6.2, 5], [5.6, 6.2, 5], [0, 5.4, -2.2], [-3.5, 6.2, -8.5], [3.5, 6.2, -8.5]];
-  for (const [lx, ly, lz] of lamps) {
-    k.cyl(0.02, 0.02, h - ly - 0.1, 3, chainM, [lx, (h + ly) / 2, lz]);
-    k.cyl(0.18, 0.62, 0.42, 8, k.mat('#2a2e38', 'metal'), [lx, ly + 0.25, lz]);
-    k.cyl(0.56, 0.56, 0.05, 8, k.glow('#fffaf0', { fogged: 0.2 }), [lx, ly + 0.03, lz]);
-    k.shaft(lx, ly, lz, 0.55, 2.6, '#fff4dc', 0.06);
-  }
+  for (const [lx, ly, lz] of lamps) buildLampadaGalpao(r, k, h, lx, ly, lz);
 
   // ---- cages
-  const barM = k.mat('#c8ccd8', 'bars', { side: T.DoubleSide });
-  const uvScale = (g, su, sv) => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); return g; };
   const buckets = { c0: [], c1: [], c2: [], c3: [], skin: [], band: [] };
   const clothCols = ['#6a7a9a', '#9a8268', '#6a8274', '#a0a0b0'];
   const BA = new T.Matrix4(), BQ = new T.Quaternion(), BE = new T.Euler(), BV = new T.Vector3(), BS = new T.Vector3();
@@ -108,17 +97,7 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   const cages = [];
   function cage(cx, cz, ry, y, w = 2.4, d = 2.2, ch = 2.4, who = 1, poses = []) {
-    const g = new T.Group(); g.position.set(cx, y, cz); g.rotation.y = ry; group.add(g);
-    // local: back wall at z = -d/2, front bars at +d/2
-    const front = k.add(uvScale(new T.PlaneGeometry(w, ch), w / 0.8, ch / 0.8), barM, [0, ch / 2, d / 2], [0, 0, 0], g);
-    k.add(uvScale(new T.PlaneGeometry(d, ch), d / 0.8, ch / 0.8), barM, [-w / 2, ch / 2, 0], [0, Math.PI / 2, 0], g);
-    k.add(uvScale(new T.PlaneGeometry(d, ch), d / 0.8, ch / 0.8), barM, [w / 2, ch / 2, 0], [0, Math.PI / 2, 0], g);
-    k.box([w + 0.1, 0.1, 0.1], dark, [0, ch, d / 2], [0, 0, 0], [1, 1], g); k.box([w + 0.1, 0.1, 0.1], dark, [0, 0.05, d / 2], [0, 0, 0], [1, 1], g);
-    k.box([0.1, 0.1, d], dark, [-w / 2, ch, 0], [0, 0, 0], [1, 1], g); k.box([0.1, 0.1, d], dark, [w / 2, ch, 0], [0, 0, 0], [1, 1], g);
-    for (const sx of [-1, 1]) k.box([0.1, ch, 0.1], dark, [sx * w / 2, ch / 2, d / 2], [0, 0, 0], [1, 1], g);
-    k.box([0.06, ch, 0.06], dark, [0, ch / 2, d / 2], [0, 0, 0], [1, 1], g); // door post
-    k.box([0.16, 0.2, 0.1], k.glow('#ff7a40', { fogged: 0.5 }), [0.0, 1.1, d / 2 + 0.06], [0, 0, 0], [1, 1], g); // lock, on the door post
-    k.add(new T.PlaneGeometry(w, d), k.mat('#b09a70', 'burlap', { }), [0, 0.03, 0], [-Math.PI / 2, 0, 0], g);
+    const { g, front } = buildJaula(r, k, cx, cz, ry, y, w, d, ch);
     for (let i = 0; i < who; i++) {
       const pose = poses[i] ?? ['stand', 'sit', 'slump', 'lie'][(rand() * 4) | 0];
       const px = (i - (who - 1) / 2) * 0.9 + (rand() - 0.5) * 0.3;
@@ -149,28 +128,15 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   // ---- the negotiation table (high, for animals) and stools
   const tbl = [0, 0, -2.2];
-  const tm = k.mat('#8a6e4c', 'wood');
-  k.box([4.0, 0.18, 1.4], tm, [tbl[0], 1.12, tbl[2]], [0, 0, 0], [1.5, 1.5]);
-  for (const [dx, dz] of [[-1.8, -0.55], [1.8, -0.55], [-1.8, 0.55], [1.8, 0.55]]) k.box([0.22, 1.05, 0.22], k.mat('#5a4430', 'wood'), [tbl[0] + dx, 0.52, tbl[2] + dz], [0, 0, 0], [1, 1]);
-  k.box([3.6, 0.1, 0.1], dark, [tbl[0], 0.45, tbl[2] - 0.55], [0, 0, 0], [1, 1]); k.box([3.6, 0.1, 0.1], dark, [tbl[0], 0.45, tbl[2] + 0.55], [0, 0, 0], [1, 1]);
-  // things on the table: ledgers, a balance scale, a chain coil, a lamp
-  k.box([0.5, 0.06, 0.38], k.mat('#5a3a30', 'wood'), [-1.2, 1.24, tbl[2] + 0.1], [0, 0.3, 0], [1, 1]);
-  k.box([0.45, 0.04, 0.34], k.mat('#d8d0b8', 'sheet'), [-0.55, 1.23, tbl[2] - 0.2], [0, -0.2, 0], [0.5, 0.5]);
-  k.box([0.45, 0.04, 0.34], k.mat('#d8d0b8', 'sheet'), [-0.35, 1.25, tbl[2] - 0.25], [0, 0.1, 0], [0.5, 0.5]);
-  k.cyl(0.03, 0.05, 0.7, 5, steel, [0.8, 1.55, tbl[2]]); k.box([0.9, 0.03, 0.04], steel, [0.8, 1.9, tbl[2]], [0, 0, 0.08]);
-  for (const sx of [-0.42, 0.42]) { k.cyl(0.18, 0.18, 0.02, 8, steel, [0.8 + sx, 1.5 + (sx > 0 ? 0.04 : -0.04) + 0.15, tbl[2]]); }
-  for (let i = 0; i < 5; i++) k.cyl(0.14, 0.14, 0.03, 8, k.glow('#ffd23a', { fogged: 0.4 }), [1.4, 1.24 + i * 0.035, tbl[2] + 0.2]); // a stack of credit chips
+  buildMesaNegociacao(r, k, tbl);
   // big stools around it
   const stools = [[-1.4, -3.9, 0], [1.4, -3.9, 0], [-1.1, -0.5, Math.PI], [1.2, -0.5, Math.PI]];
-  for (const [sx, sz] of stools) {
-    k.cyl(0.4, 0.34, 0.1, 8, k.mat('#6a4e34', 'wood'), [sx, 0.78, sz]);
-    k.cyl(0.08, 0.1, 0.74, 5, dark, [sx, 0.37, sz]); k.cyl(0.34, 0.34, 0.04, 8, dark, [sx, 0.02, sz]);
-  }
+  for (const [sx, sz] of stools) buildBanqueta(r, k, sx, sz);
 
   // ---- crates, barrels, a hand cart, hazard strips on the floor
   const crates = [[-6.2, 7.6, 0.2, 1.2], [-6.6, 9.0, 0, 1], [-5.4, 8.4, 0.4, 1.1], [6.5, 8.0, 0.1, 1.4], [6.8, 9.6, -0.2, 1.1], [7.4, -9.2, 0.3, 1.3], [-8.1, 9.8, 0, 0.9]];
-  for (const [cx, cz, ry, s] of crates) { k.box([s, s, s], crate, [cx, s / 2, cz], [0, ry, 0], [1, 1]); if (s > 1.15) k.box([s * 0.7, s * 0.7, s * 0.7], crate, [cx + 0.05, s + s * 0.35, cz], [0, ry + 0.4, 0], [1, 1]); }
-  for (const [bx, bz] of [[-8.0, 6.3], [-7.9, 7.1], [8.2, 6.4]]) k.cyl(0.42, 0.42, 0.95, 8, k.mat('#4a5a6a', 'metal'), [bx, 0.47, bz]);
+  for (const [cx, cz, ry, s] of crates) buildCaixote(r, k, cx, cz, ry, s);
+  for (const [bx, bz] of [[-8.0, 6.3], [-7.9, 7.1], [8.2, 6.4]]) buildBarril(r, k, bx, bz);
   const hazMat = k.decal(k.mat('#ffffff', 'hazard', { fogged: 0.9 }));
   for (const sx of [-3.9, 3.9]) { const f = k.rectGeo(0, 0.35, -9, 9, [0.5, 0.5], 3); k.add(f, hazMat, [sx, 0.04, 0], [-Math.PI / 2, 0, 0]); }
 

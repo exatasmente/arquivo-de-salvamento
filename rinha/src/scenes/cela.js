@@ -8,8 +8,9 @@
 //  - parts: meshes the game moves (moeda, porta, compartimento) plus setters:
 //      setDoor(0..1), setCompartment(0..1), setPanel(mode, text), setCoin(visible).
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
-import { kit, tex, tallyTexture, keypadTexture, screenPanel, toWorld, rig } from '../textures/paint.js';
+import { kit, tex, tallyTexture, toWorld, rig } from '../textures/paint.js';
 import { mulberry32 } from '../rng.js';
+import { buildCamaCela, buildVasoCela, buildCompartimento, buildPortaCela, buildPainelCela, buildMoeda, buildBancoCela } from '../props.js';
 
 export const SIZE = { x0: -2.6, x1: 2.6, z0: -2.8, z1: 2.8, h: 3.0 };
 
@@ -21,7 +22,7 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   const grp = groups && groups.length ? groups : [5, 5, 5, 5, 5, 5];
 
   const wallM = k.mat('#c2c8d6', 'scifi'), floorM = k.mat('#aab2c4', 'scififloor');
-  const ceilM = k.mat('#6c7384', 'metal'), darkM = k.mat('#4a5060', 'metal'), steel = k.mat('#9aa2b4', 'metal');
+  const ceilM = k.mat('#6c7384', 'metal'), darkM = k.mat('#4a5060', 'metal');
   const concrete = k.mat('#8890a0', 'concrete');
 
   // floor and ceiling
@@ -53,27 +54,15 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- north wall: tally decal (S3) and the compartment
   const tallyM = r.mat('#ffffff', { map: tallyTexture(r, grp, seed), emissive: 0.5, fogged: 0.9 });
   const tally = k.add(new T.PlaneGeometry(4.0, 1.57, 1, 1), tallyM, [0, 1.72, z0 + 0.012]);
-  const comp = new T.Group(); comp.position.set(0, 0.48, z0 + 0.03); group.add(comp);
-  const compPanel = k.box([0.9, 0.62, 0.05], k.mat('#b4bccc', 'scifi'), [0, 0, 0], [0, 0, 0], [0.9, 0.9], comp);
-  k.box([0.2, 0.025, 0.03], darkM, [0, 0, 0.04], [0, 0, 0], [1, 1], comp);
-  // inside: a dark cavity with credit chips (shown when open)
-  k.box([0.9, 0.6, 0.35], k.mat('#262a34', 'metal', { side: T.BackSide }), [0, 0.48, z0 - 0.17]);
-  const chips = new T.Group(); chips.position.set(0, 0.25, z0 - 0.15); chips.visible = false; group.add(chips);
-  for (let i = 0; i < 6; i++) k.cyl(0.07, 0.07, 0.025, 8, k.glow('#ffd23a'), [-0.2 + (i % 3) * 0.2, 0.012 + ((i / 3) | 0) * 0.027, 0], [0, 0, 0], chips);
+  const { comp, chips, compPanel } = buildCompartimento(r, k, z0);
   const compartmentX = 0.95;
 
   // toilet block, north-east corner
-  k.box([0.55, 0.5, 0.5], steel, [2.1, 0.25, z0 + 0.3]); k.box([0.4, 0.12, 0.4], darkM, [2.1, 0.55, z0 + 0.3]);
-  k.box([0.45, 0.25, 0.1], steel, [2.1, 0.75, z0 + 0.05]);
+  buildVasoCela(r, k, z0);
 
   // ---- bed (west wall, south end)
   const bedC = [-2.05, 0, 1.6];
-  k.box([1.04, 0.32, 2.1], darkM, [bedC[0], 0.16, bedC[2]]);
-  k.box([0.96, 0.14, 2.0], k.mat('#d8d0bc', 'sheet', { }), [bedC[0], 0.39, bedC[2]], [0, 0, 0], [0.8, 0.8]);
-  k.box([0.62, 0.13, 0.4], k.mat('#e4dcc8', 'sheet'), [bedC[0], 0.52, bedC[2] + 0.72], [0.05, 0, 0], [0.5, 0.5]);
-  k.box([0.92, 0.1, 1.05], k.mat('#a08468', 'cloth'), [bedC[0] + 0.02, 0.51, bedC[2] - 0.35], [0, 0.06, 0.03], [0.8, 0.8]);
-  // a bundle of the blanket at the foot: lumps
-  k.box([0.8, 0.07, 0.5], k.mat('#b09878', 'cloth'), [bedC[0], 0.6, bedC[2] - 0.78], [0.03, 0.1, 0], [0.8, 0.8]);
+  buildCamaCela(r, k, bedC);
 
   // ---- vent shaft recess with bars (west wall) and the crow's perch behind them (S4)
   // local frame of the west wall: pos [x0,0,0], ry = pi/2, lx = -z
@@ -95,14 +84,7 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- door (east wall) with frame, and the corridor beyond
   const doorW = DOOR.l1 - DOOR.l0, doorZ = (DOOR.l0 + DOOR.l1) / 2;
   const doorM = k.mat('#aeb6c8', 'scifi');
-  const door = new T.Group(); door.position.set(x1 + 0.1, 0, doorZ); group.add(door);
-  k.box([0.1, DOOR.h, doorW], doorM, [0, DOOR.h / 2, 0], [0, 0, 0], [1.5, 1.5], door);
-  k.box([0.04, 0.25, 0.6], k.mat('#333b4c', 'metal'), [-0.07, 1.1, 0.0], [0, 0, 0], [1, 1], door);
-  k.box([0.04, 0.05, doorW], k.glow('#ff8a50'), [-0.06, 1.9, 0], [0, 0, 0], [1, 1], door);
-  const frameM = k.mat('#59606f', 'metal');
-  k.box([0.34, DOOR.h + 0.15, 0.1], frameM, [x1 + 0.05, (DOOR.h + 0.15) / 2, DOOR.l0 - 0.05]);
-  k.box([0.34, DOOR.h + 0.15, 0.1], frameM, [x1 + 0.05, (DOOR.h + 0.15) / 2, DOOR.l1 + 0.05]);
-  k.box([0.34, 0.15, doorW + 0.2], frameM, [x1 + 0.05, DOOR.h + 0.075, doorZ]);
+  const door = buildPortaCela(r, k, DOOR, x1, doorW, doorZ);
 
   // corridor (wide and tall for the big animals)
   const cx0 = x1 + 0.2, cx1 = cx0 + 3.9, cz0 = -3.6, cz1 = 5.6, ch = 4.2;
@@ -124,26 +106,14 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- panel beside the door (S1): body, screen, keypad
   const panelL = -0.55; // along the wall (lx = z), beside the door
   const pz = panelL, px = x1 - 0.09;
-  k.box([0.14, 1.12, 0.6], k.mat('#5b6374', 'metal'), [px + 0.02, 1.3, pz], [0, 0, 0], [0.6, 0.6]);
-  const scr = screenPanel(r);
-  const screenM = r.mat('#ffffff', { map: scr.texture, emissive: 1, fogged: 0.5 });
-  const screen = k.add(new T.PlaneGeometry(0.46, 0.23), screenM, [px - 0.052, 1.62, pz], [0, -Math.PI / 2, 0]);
-  const pad = k.add(new T.PlaneGeometry(0.36, 0.48), r.mat('#ffffff', { map: keypadTexture(r), emissive: 0.45, fogged: 0.8 }), [px - 0.052, 1.14, pz], [0, -Math.PI / 2, 0]);
-  k.box([0.03, 0.05, 0.5], k.glow('#5ee6d0'), [px - 0.04, 0.78, pz]);
+  const { scr, screen, pad } = buildPainelCela(r, k, px, pz);
 
   // ---- the coin (S4): a glowing disc on the floor with a spinning spark
   const coinPos = [0.7, 0.02, -0.9];
-  const coin = new T.Group(); coin.position.set(...coinPos); group.add(coin);
-  const gold = k.glow('#ffd23a', { fogged: 0.3 });
-  k.cyl(0.14, 0.14, 0.02, 10, gold, [0, 0.01, 0], [0, 0, 0], coin);
-  const spark = new T.Group(); coin.add(spark);
-  const sparkM = k.glow('#fff0a0', { fogged: 0.2 });
-  k.box([0.5, 0.01, 0.035], sparkM, [0, 0.03, 0], [0, 0, 0], [1, 1], spark);
-  k.box([0.035, 0.01, 0.5], sparkM, [0, 0.03, 0], [0, 0, 0], [1, 1], spark);
+  const { coin, spark } = buildMoeda(r, k, coinPos);
 
   // a bolted stool and a tray with leftovers: small things to make the floor read
-  k.cyl(0.2, 0.2, 0.42, 8, steel, [1.5, 0.21, 1.9]);
-  k.box([0.34, 0.03, 0.26], steel, [1.5, 0.45, 1.9], [0, 0.4, 0]);
+  buildBancoCela(r, k);
   void rand; void tex; void concrete; void tally; void ledge; void glowBack; void screen; void pad; void compPanel; void north;
 
   // ---- lights (4 points) and fog
