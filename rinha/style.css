@@ -99,3 +99,12 @@ body.stone-near #stonebtn { display: block; } body.free #stonebtn, body.ui #ston
 
 body.cut #stickzone, body.cut #btns, body.cut #lookzone, body.cut #stonebtn { display: none !important; }
 @media (max-width: 520px) { #pausebtn { top: 120px; } }
+/* the opening video: letterboxed, black around it; a title asks for a key so it can play with sound */
+#intro-video { position: absolute; inset: 0; background: #000; z-index: 50; display: flex; align-items: center; justify-content: center; }
+#intro-video video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+#intro-video .title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; letter-spacing: 3px; text-shadow: 2px 2px 0 #000; }
+#intro-video .title[hidden], #intro-video .skip[hidden] { display: none; }
+#intro-video .title p { margin: 0; font-size: 22px; color: #c9a24a; }
+#intro-video .title p.blink { font-size: 14px; color: #e8dfc4; animation: intro-blink 1s steps(1) infinite; }
+@keyframes intro-blink { 50% { opacity: 0; } }
+#intro-video .skip { position: absolute; right: 16px; bottom: 16px; font-size: 13px; padding: 6px 10px; border: 2px solid #c9a24a; background: rgba(0,0,0,.6); cursor: pointer; }

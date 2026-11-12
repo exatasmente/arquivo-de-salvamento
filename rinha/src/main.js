@@ -15,7 +15,7 @@ if (q.has('film')) {
 } else boot();
 
 function boot() {
-  const params = { skipintro: q.has('skipintro'), debug: q.has('debug'), seed: Number(q.get('seed')) || 1, touch: q.has('touch'), film: q.has('film'), free: q.has('free'), dummy: q.has('dummy'), nointro: q.has('nointro'), fight: Number(q.get('fight')) || 0, fresh: q.has('fresh') };
+  const params = { skipintro: q.has('skipintro'), debug: q.has('debug'), seed: Number(q.get('seed')) || 1, touch: q.has('touch'), film: q.has('film'), free: q.has('free'), dummy: q.has('dummy'), nointro: q.has('nointro'), fight: Number(q.get('fight')) || 0, fresh: q.has('fresh'), cutscenes: q.has('cutscenes') };
 
   const root = document.getElementById('app');
   const canvas = document.getElementById('c');

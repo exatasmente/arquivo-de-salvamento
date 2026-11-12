@@ -10,6 +10,7 @@ import { FIGHT_R } from './ring.js';
 import { buildScene as buildCell } from './scenes/cela.js';
 import { createCard } from './save.js';
 import { ITEMS, cycle } from './items.js';
+import { playIntroVideo } from './intro-video.js';
 import { createUI } from './ui.js';
 import { buildScene as buildTrain } from './scenes/treino.js';
 import { buildAnimal } from './models/animals.js'; // only for the crow, an ordinary bird
@@ -141,9 +142,20 @@ export function createGame({ render, ring, input, audio, hud, params }) {
     cue({ 'entrada-ringue': 'ringue', 'fim-campanha': 'vitoria', familia: 'cartao' }[name] ?? 'cela');
     cuts.play(name, { onEnd, skippable: true, extra });
   }
-  /** The first time: house, orchard, flashes, the cell on waking; then the player walks. */
+  /**
+   * The first time: the opening video (the house, the orchard, the first fight and the waking in the
+   * cell, see intro-video.js), then the player walks in the cell where it ends. Without the video file
+   * (or with ?cutscenes), the real-time cutscenes tell the start instead.
+   */
   function story() {
-    playCut('casa', () => playCut('pomar', () => playCut('flashes', () => playCut('cela-acordar', () => enterCell()))));
+    const cutscenes = () => playCut('casa', () => playCut('pomar', () => playCut('flashes', () => playCut('cela-acordar', () => enterCell()))));
+    if (params.cutscenes || params.film) { cutscenes(); return; }
+    state.phase = 'cutscene'; state.ui = null; state.paused = false;
+    ring.group.visible = false; cell.group.visible = false; train.group.visible = false; player.fpArms.root.visible = false;
+    if (opp) opp.root.visible = false;
+    hud.setCell(true); hud.setTut(null); hud.setApple(false); hud.result.hide(); hud.setTitle('');
+    input.setMode('cut', canvas);
+    playIntroVideo({ root: document.getElementById('app'), audio, onEnd: (info) => (info.failed ? cutscenes() : enterCell()) });
   }
 
   function enterCell() {
