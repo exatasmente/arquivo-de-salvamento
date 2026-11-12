@@ -111,6 +111,18 @@ export function armRig(THREE, arms) {
     sh.quaternion.setFromUnitVectors(r.d1, sol.E.clone().sub(r.S).normalize());
     const dF = sol.H.clone().sub(sol.E).normalize().applyQuaternion(sh.quaternion.clone().invert());
     el.quaternion.setFromUnitVectors(r.d2, dF);
+    // setFromUnitVectors leaves the roll of the forearm to chance (the palm could face the camera):
+    // turn the forearm about its own axis so the back of the (bare) hand faces up, toward the
+    // camera and a little outward. Gloves are not touched.
+    const b3 = arms.joints['wrist' + jn].children[0];
+    if (!arms.joints['curl' + jn] || !b3) return;
+    const base = el.quaternion.clone(), ax = dF; // the forearm axis, in the shoulder frame
+    const want = V(r.sg * 0.3, 0.75, 0.55).normalize(), Z = V(0, 0, 1), q = new THREE.Quaternion(), n = new THREE.Vector3();
+    const back = (phi) => { el.quaternion.setFromAxisAngle(ax, phi).multiply(base); return n.copy(Z).applyQuaternion(b3.quaternion).applyQuaternion(q.copy(sh.quaternion).multiply(el.quaternion)).dot(want); };
+    let best = 0, bestV = -2;
+    for (let i = 0; i < 72; i++) { const phi = (i / 72) * Math.PI * 2, v = back(phi); if (v > bestV) { bestV = v; best = phi; } }
+    for (let st = Math.PI / 72; st > 0.002; st /= 2) for (const phi of [best - st, best + st]) { const v = back(phi); if (v > bestV) { bestV = v; best = phi; } }
+    back(best);
   }
   const rig = {
     reach,
