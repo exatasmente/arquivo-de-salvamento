@@ -117,6 +117,22 @@ const I = {
 // ---- cues -----------------------------------------------------------------------------------
 // Each cue: block = seconds scheduled per call (whole bars for rhythmic ones); fn(A, t0, r, S)
 // fills [t0, t0 + block]. S.el = seconds since the cue started, S.blk = block index, S.q =
+// Live, a block of music is written ahead but its notes are built just before they sound: building
+// a whole 8 s block at once (hundreds of nodes, all wired to the mix) stalls the page and overloads
+// the audio thread. While a cue writes a block (A.defer set), each instrument call is queued with its
+// start time and played by the cue's clock about a second before it is due. Offline renders build
+// everything at once, as before.
+const TIME_ARG = { pad: 3, bell: 3, pluck: 3, flute: 3, choir: 3, bass: 3, stab: 3 };
+for (const k of Object.keys(I)) {
+  const impl = I[k], at = TIME_ARG[k] ?? 2;
+  I[k] = (A, ...args) => {
+    if (!A.defer) return impl(A, ...args);
+    // wind starts a second early to overlap the previous block
+    A.defer.push({ t: args[at - 1] - (k === 'wind' ? 1 : 0), run: impl, A: { ctx: A.ctx, noise: A.noise, bus: A.bus, el: A.el }, args });
+  };
+}
+const LEAD = 1.2;
+
 // per-seed constants (same melody in every block of one campaign), S.once = block 0 only.
 const bpmBar = (bpm) => 240 / bpm;
 const minorScale = (root) => [0, 3, 5, 7, 10, 12, 15].map((n) => root + n);
@@ -271,7 +287,10 @@ export function createMusic(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
   duckG.connect(master); master.connect(lp).connect(comp).connect(destination || ctx.destination);
   // Big reverb: noise that decays over 3.2 s, built at the context's own rate.
   const len = Math.floor(sr * 3.2), ir = ctx.createBuffer(2, len, sr), ri = rng(99);
-  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let l = 0; for (let i = 0; i < len; i++) { l += ((ri() * 2 - 1) - l) * Math.min(1, 0.35 * 22050 / sr * 2); d[i] = l * Math.exp(-i / (sr * 0.9)); } }
+  // The decay is a running product (one multiply a sample, not one exp): built inside the first click,
+  // so it has to be quick.
+  const kf = Math.min(1, 0.35 * 22050 / sr * 2), step = Math.exp(-1 / (sr * 0.9));
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let l = 0, dec = 1; for (let i = 0; i < len; i++) { l += ((ri() * 2 - 1) - l) * kf; d[i] = l * dec; dec *= step; } }
   const verb = ctx.createConvolver(); verb.buffer = ir;
   const wet = ctx.createGain(); wet.gain.value = 0.55; verb.connect(wet).connect(duckG);
   const noise = ctx.createBuffer(1, sr * 2, sr); const nd = noise.getChannelData(0); const nr = rng(7);
@@ -280,7 +299,7 @@ export function createMusic(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
   let cur = null, curSeed = seed, ducked = false;
 
   function fadeOut(c, secs) {
-    if (!c || c.dead) return; c.dead = true; clearInterval(c.timer);
+    if (!c || c.dead) return; c.dead = true; clearInterval(c.timer); clearInterval(c.jit);
     const t = ctx.currentTime;
     c.out.gain.cancelScheduledValues(t); c.out.gain.setValueAtTime(c.out.gain.value, t); c.out.gain.linearRampToValueAtTime(0, t + secs);
     c.send.gain.cancelScheduledValues(t); c.send.gain.setValueAtTime(c.send.gain.value, t); c.send.gain.linearRampToValueAtTime(0, t + secs);
@@ -306,11 +325,21 @@ export function createMusic(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
     const c = cur = { name, out, send, dead: false, timer: null };
     const A = { ctx, noise, bus, el: 0 };
     let blk = 0, next = t0;
+    const queue = [];
+    const due = () => { // build the notes that start within LEAD seconds
+      if (c.dead) { queue.length = 0; return; }
+      const until = ctx.currentTime + LEAD;
+      let n = 0;
+      while (n < queue.length && queue[n].t <= until) n++;
+      for (const e of queue.splice(0, n)) e.run(e.A, ...e.args);
+    };
     const schedule = (horizon) => {
       while (!c.dead && next < horizon) {
         const S = { el: blk * block, blk, q };
         A.el = S.el;
+        if (!offline) A.defer = [];
         def.fn(A, next, rng(sd * 31 + blk * 7 + 1 + name.length), S);
+        if (!offline) { queue.push(...A.defer); A.defer = null; queue.sort((a, b) => a.t - b.t); due(); }
         blk++; next += block;
         if (def.once) { // play once: fade out when the block ends
           const end = next - t0;
@@ -322,6 +351,7 @@ export function createMusic(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
     if (offline) { schedule(opts.length ?? ctx.length / sr); return { duration: def.once ? block : Infinity }; }
     schedule(ctx.currentTime + 8);
     if (!def.once) c.timer = setInterval(() => schedule(ctx.currentTime + 8), 1000);
+    c.jit = setInterval(due, 200);
     return { duration: def.once ? block : Infinity };
   }
 

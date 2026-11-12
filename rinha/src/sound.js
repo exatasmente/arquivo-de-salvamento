@@ -15,7 +15,9 @@ export function createSound() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try {
-      ctx = new AC();
+      // 22 kHz: the game's sound is cut above ~10.5 kHz anyway (the period's sampler), and half the
+      // rate halves the audio thread's work, reverbs included. Falls back where the rate is refused.
+      try { ctx = new AC({ sampleRate: 22050, latencyHint: 'interactive' }); } catch { ctx = new AC(); }
       master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(ctx.destination);
       music = createMusic(ctx, { seed, destination: master });
       sfx = createSfx(ctx, { seed, destination: master });

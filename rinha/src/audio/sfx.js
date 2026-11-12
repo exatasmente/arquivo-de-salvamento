@@ -293,6 +293,7 @@ const MOODS = {
 };
 
 function syllable(K, t, d, V, P, f0a, f0b, vow, gain, r, pan) {
+  if (K.later && t > K.ctx.currentTime + LEAD) { K.later(t, () => syllable(K, t, d, V, P, f0a, f0b, vow, gain, r, pan)); return; }
   const c = K.ctx, o = c.createOscillator(), env = c.createGain(), p = c.createStereoPanner(); p.pan.value = pan;
   o.type = 'sawtooth'; o.frequency.setValueAtTime(f0a, t); o.frequency.linearRampToValueAtTime(f0b, t + d);
   if (V.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = V.vib; lg.gain.value = f0a * 0.025; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + d + 0.03); }
@@ -513,6 +514,11 @@ const CROWD = {
   },
 };
 
+// Live, the short parts of a long sound (syllables, crackles, hits) are built about a second before
+// they sound, not all at once when the sound starts: a babble of a few seconds is hundreds of nodes,
+// and building them in one go stalls the page and overloads the audio thread. Offline, all at once.
+const LEAD = 1.2;
+
 export function createSfx(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
   const offline = isOffline(ctx), sr = ctx.sampleRate;
   const master = ctx.createGain(); master.gain.value = volume;
@@ -521,13 +527,30 @@ export function createSfx(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
   master.connect(lp).connect(comp).connect(destination || ctx.destination);
   const out = ctx.createGain(); out.connect(master);
   const len = Math.floor(sr * 1.3), ir = ctx.createBuffer(2, len, sr), ri = rng(31);
-  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let l = 0; for (let i = 0; i < len; i++) { l += ((ri() * 2 - 1) - l) * Math.min(1, 0.35 * 22050 / sr * 2); d[i] = l * Math.exp(-i / (sr * 0.28)); } }
+  const kf = Math.min(1, 0.35 * 22050 / sr * 2), step = Math.exp(-1 / (sr * 0.28)); // running decay: quick inside the first click
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let l = 0, dec = 1; for (let i = 0; i < len; i++) { l += ((ri() * 2 - 1) - l) * kf; d[i] = l * dec; dec *= step; } }
   const rev = ctx.createConvolver(); rev.buffer = ir; const revG = ctx.createGain(); revG.gain.value = 0.6; rev.connect(revG).connect(master);
   const noise = ctx.createBuffer(1, Math.floor(sr * 1.6), sr), nd = noise.getChannelData(0), nr = rng(5);
   for (let i = 0; i < nd.length; i++) nd[i] = nr() * 2 - 1;
   const K = makeKit(ctx, out, rev, noise); K.ctx = ctx; K.out = out; K.rev = rev; K.noise = noise;
 
   let curSeed = seed >>> 0; const counts = {};
+  const queue = []; let flushTimer = null;
+  function flush() {
+    const until = ctx.currentTime + LEAD;
+    queue.sort((a, b) => a.t - b.t);
+    let n = 0;
+    while (n < queue.length && queue[n].t <= until) n++;
+    for (const e of queue.splice(0, n)) e.run();
+    if (!queue.length) { clearInterval(flushTimer); flushTimer = null; }
+  }
+  const later = (t, run) => { queue.push({ t, run }); if (!flushTimer) flushTimer = setInterval(flush, 200); };
+  /** A kit whose short notes far ahead wait in the queue (live only). */
+  const deferring = (kit) => ({
+    ...kit, later,
+    tn: (t, ...a) => (t > ctx.currentTime + LEAD ? later(t, () => kit.tn(t, ...a)) : kit.tn(t, ...a)),
+    nz: (t, ...a) => (t > ctx.currentTime + LEAD ? later(t, () => kit.nz(t, ...a)) : kit.nz(t, ...a)),
+  });
   let crowd = null; // { level, timer, next, gain, nodes }
 
   function startCrowd() {
@@ -583,9 +606,9 @@ export function createSfx(ctx, { seed = 1, destination, volume = 0.8 } = {}) {
     const vol = o.vol ?? 1;
     if (vol !== 1) { // scale through a temporary gain
       const g = ctx.createGain(); g.gain.value = vol; g.connect(master);
-      const kit = makeKit(ctx, g, rev, noise); kit.ctx = ctx; kit.out = g; kit.rev = rev; kit.noise = noise; fx(kit, t, r, o); return;
+      const kit = makeKit(ctx, g, rev, noise); kit.ctx = ctx; kit.out = g; kit.rev = rev; kit.noise = noise; fx(offline ? kit : deferring(kit), t, r, o); return;
     }
-    fx(K, t, r, o);
+    fx(offline ? K : deferring(K), t, r, o);
   }
 
   return {

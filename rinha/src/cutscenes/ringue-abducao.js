@@ -35,14 +35,14 @@ export default {
   name: 'ringue-abducao', prefix: 'ringue', filmOnly: true, duration: R.duration, cue: 'ringue', views: R.views,
   anchors: { juiz: 'O juiz, que abre o cubo', cubo: 'O cubo que as criaturas carregam', lutador: 'O lutador grande que sai do cubo' },
   // The crowd and the drone hum under it all; the judge speaks as he lifts the cube (0.6 s); the beam of release (3 s); the first steps of the
-  // run (7 s); the blow with its flash (1.4 s of 'nocaute') and the fall; then the hush and the beam of the abduction.
+  // run (7 s); the blow with its flash (1.4 s of 'nocaute') and the fall (the body lands at 2.4 s; the jet is seen from 3.1 s); then the hush and the beam of the abduction.
   sfx: [
     { t: 0.2, crowd: 0.45 }, { t: R.views.nocaute[0] + 1.0, crowd: 0.85 }, { t: R.views.nocaute[0] + 2.2, crowd: 0.3 }, { t: R.views.abducao[0] + 0.5, crowd: 0.15 }, { t: R.views.abducao[0] + 4.0, crowd: 0 },
     { t: 0, name: 'drone_zumbido', opts: { dur: 8, vol: 0.5 } },
     { t: 0.6, name: 'fala', opts: { who: 'apito', dur: 1.3, mood: 'ordena' } },
-    { t: 2.9, name: 'feixe', opts: { mode: 'solta', dur: 3.2 } },
+    { t: 3.1, name: 'feixe', opts: { mode: 'solta', dur: 3.0 } },
     { t: 7.0, name: 'passo', opts: { vol: 1.6 } }, { t: 7.35, name: 'passo', opts: { vol: 1.6 } }, { t: 7.7, name: 'passo', opts: { vol: 1.6 } },
-    { t: R.views.nocaute[0] + 1.35, name: 'soco_testa' }, { t: R.views.nocaute[0] + 1.35, flash: true }, { t: R.views.nocaute[0] + 2.0, name: 'knockdown', opts: { vol: 0.8 } },
+    { t: R.views.nocaute[0] + 1.35, name: 'soco_testa' }, { t: R.views.nocaute[0] + 1.35, flash: true }, { t: R.views.nocaute[0] + 2.4, name: 'knockdown', opts: { vol: 0.8 } },
     { t: R.views.abducao[0] + 3.7, name: 'feixe', opts: { dur: 6.3 } },
   ],
   build(ctx) {
