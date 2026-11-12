@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+*.wav
+.env
+.env.*
+# offline render output and local captures
+out/
+captures/
