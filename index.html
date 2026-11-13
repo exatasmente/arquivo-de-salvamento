@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquivo de Salvamento</title>
+<meta name="description" content="Jogos de navegador com o visual 3D dos consoles do fim dos anos 90, para jogar no computador ou no celular.">
+<meta name="theme-color" content="#0b0b14">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Arquivo de Salvamento">
+<meta property="og:description" content="Jogos de navegador com o visual 3D dos consoles do fim dos anos 90, para jogar no computador ou no celular.">
+<meta property="og:image" content="https://exatasmente.github.io/arquivo-de-salvamento/assets/og.jpg">
+<meta property="og:url" content="https://exatasmente.github.io/arquivo-de-salvamento/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='1' width='12' height='14' fill='%23f5b700'/%3E%3Crect x='4' y='3' width='8' height='5' fill='%230b0b14'/%3E%3Crect x='4' y='10' width='2' height='3' fill='%230b0b14'/%3E%3Crect x='7' y='10' width='2' height='3' fill='%230b0b14'/%3E%3Crect x='10' y='10' width='2' height='3' fill='%230b0b14'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  /* Press Start 2P has no accented capitals (Ã, Ó, Á): text with accents is set in VT323. */
+  :root {
+    --bg: #0b0b14;
+    --panel: #14142a;
+    --panel-2: #1c1c3a;
+    --line: #2e2e5c;
+    --text: #e8e6f0;
+    --muted: #9a98b8;
+    --sun: #f5b700;
+    --apple: #e0362c;
+    --focus: #7fd4ff;
+    --pixel: 'Press Start 2P', monospace;
+    --term: 'VT323', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0; color: var(--text); background: var(--bg);
+    font: 22px/1.35 var(--term);
+    -webkit-font-smoothing: none;
+  }
+  /* A faint CRT: scanlines over everything, never over the click targets' meaning. */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 10;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.18) 2px 3px);
+  }
+  a { color: inherit; }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+  header { padding: 56px 0 28px; text-align: center; }
+  .card-label { font: 20px/1.1 var(--term); color: var(--muted); letter-spacing: .12em; }
+  h1 {
+    font: clamp(20px, 5.2vw, 40px)/1.25 var(--pixel); margin: 18px 0 16px; color: var(--sun);
+    text-shadow: 3px 3px 0 #7a3a00;
+  }
+  .blink { animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .slots { display: grid; gap: 24px; margin: 36px 0 8px; }
+  .slot {
+    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 0;
+    background: var(--panel); border: 3px solid var(--line);
+    box-shadow: 6px 6px 0 #05050a;
+  }
+  .slot:hover { border-color: #4a4a8c; }
+  .cover { position: relative; display: block; background: #000; min-height: 100%; }
+  .cover img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; aspect-ratio: 16 / 9; }
+  .cover .block {
+    position: absolute; left: 10px; top: 10px; padding: 6px 8px;
+    font: 9px/1 var(--pixel); background: rgba(11,11,20,.85); color: var(--muted); border: 2px solid var(--line);
+  }
+  .info { padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 12px; }
+  h2 { font: 16px/1.4 var(--pixel); margin: 0; }
+  .hook { margin: 0; color: var(--sun); font-size: 24px; }
+  .desc { margin: 0; color: var(--muted); }
+  .status { font: 19px/1.2 var(--term); color: var(--muted); letter-spacing: .06em; }
+  .status b { color: var(--text); font-weight: normal; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 4px; }
+  .btn {
+    display: inline-block; text-decoration: none; padding: 12px 16px;
+    font: 12px/1 var(--pixel); color: #1a1000; background: var(--sun);
+    border: 3px solid #1a1000; box-shadow: 4px 4px 0 #7a3a00;
+  }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #7a3a00; }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 #7a3a00; }
+  .btn.alt { background: transparent; color: var(--text); border-color: var(--line); box-shadow: 4px 4px 0 #05050a; }
+  details { margin-top: 2px; }
+  summary { cursor: pointer; color: var(--text); list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '▸ '; color: var(--sun); }
+  details[open] summary::before { content: '▾ '; }
+  .videos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+  .videos a { text-decoration: none; color: var(--muted); }
+  .videos a:hover { color: var(--text); text-decoration: underline; }
+  .videos a::before { content: '▶ '; color: var(--apple); }
+
+  .social { margin: 48px 0 16px; text-align: center; }
+  .social h3 { font: 22px/1 var(--term); color: var(--muted); letter-spacing: .12em; margin: 0 0 18px; font-weight: normal; }
+  .social ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+  .social a {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px; text-decoration: none;
+    background: var(--panel); border: 3px solid var(--line); box-shadow: 4px 4px 0 #05050a;
+  }
+  .social a:hover { border-color: var(--sun); }
+  .social svg { width: 22px; height: 22px; fill: currentColor; flex: none; }
+  .social span { font-size: 22px; }
+
+  footer { padding: 32px 0 48px; text-align: center; color: var(--muted); font-size: 20px; }
+  footer p { margin: 6px 0; }
+
+  @media (max-width: 760px) {
+    body { font-size: 20px; }
+    header { padding: 40px 0 20px; }
+    .slot { grid-template-columns: 1fr; }
+    .info { padding: 18px 16px 20px; }
+    h2 { font-size: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blink { animation: none; }
+    .btn:hover, .btn:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="card-label">CARTÃO DE MEMÓRIA · 2 BLOCOS USADOS</div>
+    <h1>ARQUIVO DE SALVAMENTO</h1>
+  </header>
+
+  <main>
+    <div class="slots">
+      <article class="slot">
+        <a class="cover" href="rinha/" aria-label="Jogar Rinha">
+          <img src="assets/rinha.jpg" width="960" height="540" alt="De noite, num pomar de maçãs, uma criatura cinzenta caminha em direção a quem segura uma maçã vermelha.">
+          <span class="block">BLOCO 01</span>
+        </a>
+        <div class="info">
+          <h2>RINHA</h2>
+          <p class="hook">As criaturas que a gente capturava para lutar agora capturam a gente.</p>
+          <p class="desc">Você saiu de casa com fome, atrás de maçãs, e acordou numa cela. Sete lutas até o Campeão da Rinha.</p>
+          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>COMPLETO</b></div>
+          <div class="actions">
+            <a class="btn" href="rinha/">JOGAR ▶</a>
+            <a class="btn alt" href="https://youtu.be/JX5kI8xQINc">ASSISTIR</a>
+          </div>
+          <details>
+            <summary>Vídeos deste jogo</summary>
+            <ul class="videos">
+              <li><a href="https://youtu.be/JX5kI8xQINc">Quanto custa uma maçã?</a></li>
+              <li><a href="https://youtube.com/shorts/x_AhxWZpyrE">Quanto custa uma maçã? (parte 1, Short)</a></li>
+            </ul>
+          </details>
+        </div>
+      </article>
+
+      <article class="slot">
+        <a class="cover" href="o-dia-que-sobra/" aria-label="Jogar O Dia que Sobra">
+          <img src="assets/o-dia-que-sobra.jpg" width="960" height="540" alt="No escuro, a placa alta de um posto de gasolina: um sol amarelo com um sorriso largo, sobre o painel de preços aceso.">
+          <span class="block">BLOCO 02</span>
+        </a>
+        <div class="info">
+          <h2>O DIA QUE SOBRA</h2>
+          <p class="hook">Quatro semanas de turno da madrugada num posto de gasolina.</p>
+          <p class="desc">Abasteça, atenda, reponha, feche o caixa às seis. Algo no Posto Bom Dia não quer que a folga chegue. E não olhe muito tempo para a placa.</p>
+          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>SEMANA 1</b> <span class="blink">▮</span> EM CONSTRUÇÃO</div>
+          <div class="actions">
+            <a class="btn" href="o-dia-que-sobra/">JOGAR ▶</a>
+            <a class="btn alt" href="https://youtube.com/shorts/BiqFRosYJT8">ASSISTIR</a>
+          </div>
+          <details>
+            <summary>Vídeos deste jogo</summary>
+            <ul class="videos">
+              <li><a href="https://youtube.com/shorts/BiqFRosYJT8">Acende</a></li>
+              <li><a href="https://youtube.com/shorts/pBOI3cmGj-8">Cinco coisas paradas</a></li>
+              <li><a href="https://youtube.com/shorts/_aPtL1p4i0U">Quarenta metros</a></li>
+              <li><a href="https://youtube.com/shorts/GxH8R4-DjTA">Bomba 3</a></li>
+              <li><a href="https://youtube.com/shorts/JFuOz8tpUfI">A lâmpada</a></li>
+              <li><a href="https://youtube.com/shorts/BtKkVvfoWeo">Telas</a></li>
+            </ul>
+          </details>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <section class="social" aria-labelledby="redes">
+    <h3 id="redes">ONDE O CANAL ESTÁ</h3>
+    <ul>
+      <li><a href="https://www.youtube.com/@rd1o_br"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg><span>YouTube</span></a></li>
+      <li><a href="https://www.instagram.com/rad1o_br/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.8.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.6.1-4.8.1s-3.6 0-4.8-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.8c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 1.8c-3.1 0-3.5 0-4.7.1-1.1.1-1.7.2-2.1.4-.5.2-.9.4-1.3.8-.4.4-.6.8-.8 1.3-.2.4-.3 1-.4 2.1C2.6 8.5 2.6 8.9 2.6 12s0 3.5.1 4.7c.1 1.1.2 1.7.4 2.1.2.5.4.9.8 1.3.4.4.8.6 1.3.8.4.2 1 .3 2.1.4 1.2.1 1.6.1 4.7.1s3.5 0 4.7-.1c1.1-.1 1.7-.2 2.1-.4.5-.2.9-.4 1.3-.8.4-.4.6-.8.8-1.3.2-.4.3-1 .4-2.1.1-1.2.1-1.6.1-4.7s0-3.5-.1-4.7c-.1-1.1-.2-1.7-.4-2.1-.2-.5-.4-.9-.8-1.3-.4-.4-.8-.6-1.3-.8-.4-.2-1-.3-2.1-.4C15.5 4 15.1 4 12 4zm0 3.1a4.9 4.9 0 1 1 0 9.8 4.9 4.9 0 0 1 0-9.8zm0 8a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2zm6.3-8.2a1.2 1.2 0 1 1-2.3 0 1.2 1.2 0 0 1 2.3 0z"/></svg><span>Instagram</span></a></li>
+      <li><a href="https://www.tiktok.com/@rad1o_br"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.6 2h-3.4v13.3a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V9.1a6.4 6.4 0 1 0 5.4 6.3V8.6a8 8 0 0 0 4.6 1.5V6.7a4.7 4.7 0 0 1-4.6-4.7z"/></svg><span>TikTok</span></a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Os jogos rodam no navegador, no computador ou no celular, sem instalar nada. O progresso fica no cartão de memória do próprio navegador.</p>
+    <p><a href="https://github.com/exatasmente/arquivo-de-salvamento">Código aberto no GitHub</a> · licença MIT</p>
+  </footer>
+</div>
+</body>
+</html>
