@@ -24,6 +24,8 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
   const done = (id) => { const t = list.find((x) => x.id === id); if (t && !t.done) { t.done = true; t.failed = false; bus.emit('tasks:change'); } };
   const fail = (id) => { const t = list.find((x) => x.id === id); if (t && !t.done) { t.failed = true; bus.emit('tasks:change'); } };
   const setText = (id, text) => { const t = list.find((x) => x.id === id); if (t) { t.text = text; bus.emit('tasks:change'); } };
+  /** Takes a task off the list and counts it as not done (a customer who was lost at closing time). */
+  function drop(id) { const i = list.findIndex((x) => x.id === id); if (i < 0) return false; const t = list[i]; list.splice(i, 1); if (!t.done) progression.undone(1); bus.emit('tasks:change'); return true; }
   const pending = () => list.filter((t) => !t.done);
 
   // ------------------------------------------------------------------ the cart
@@ -269,6 +271,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     add('cli' + c.id, c.kind === 'car' ? fill(cfg.textos.carro, { n: c.pump }) : fill(cfg.textos.cliente, {}), c.kind === 'car' ? 'carro' : 'cliente');
   });
   bus.on('customer:done', (c) => done('cli' + c.id));
+  bus.on('customer:lost', (c) => { if (c.kind === 'car' || c.kind === 'walk') drop('cli' + c.id); });
   bus.on('customer:gone-angry', (c) => fail('cli' + c.id));
   bus.on('customer:gone', (c) => { const t = list.find((x) => x.id === 'cli' + c.id); if (t && !t.done) t.failed = true; });
 
@@ -300,6 +303,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
 
   return {
     list, add, done, fail, setText, pending, addFixed,
+    drop,
     attach(c, cu) { chores = c; customers = cu; },
     clear() { clearBoxes(); list.length = 0; plan = []; lastSpawn = -99; bus.emit('tasks:change'); },
     /** Starts the night's list. tutorial: only the till is listed (the call teaches the rest). */

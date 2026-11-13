@@ -34,7 +34,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   const reserved = new Set();           // pumps an event is using
   const taken = new Set();              // nozzles out of their holster, "pump-type"
   const followQ = [];                   // customers who walk in after the pump
-  let recQueue = [], chores = null;
+  let recQueue = [], chores = null, tasksApi = null;
   let counter = 0, simNow = 0;
   let rng = mulberry32(1);
   let timer = 30, enabled = false;
@@ -112,6 +112,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
 
   // ------------------------------------------------------------------ the car customer (pump)
   function spawnCar({ pump = 0, seed, tutorial = false, valor, combustivel, tipo = null, rec = null, scene = null, entry = null } = {}) {
+    if (!tutorial && lateNight()) return null;           // nobody new after 05:40
     const truck = (rec || tipo)?.veiculo?.tipo === 'caminhao';
     let n = pump && !list.some((c) => c.pump === pump) ? pump : freePump(0, truck ? 6.4 : (rec || tipo)?.veiculo?.tipo === 'moto' ? 2.0 : 4.3, truck ? 1.05 : -1.4);
     if (truck) n = [1, 3].find((i) => !list.some((c) => c.pump === i) && !reserved.has(i) && !chores?.pumpStuck(i) && traffic.bayFree(i, 6.4, 1.05)) || 0;
@@ -492,7 +493,9 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   }
   /** The shelves and fridges a shop customer goes to: 1 to 4 stops, the ones that hold what they came for and, to fill the visit, others. */
   function chooseStops(c, rr) {
-    const rows = world.shelves.filter((q) => q && !q.atras && world.anchor(q.id));
+    // the units behind the counter are the clerk's side: customers do not go there
+    const clerk = (a) => a.pos.x > 9.8 && a.pos.z > 8.6;
+    const rows = world.shelves.filter((q) => q && !q.atras && world.anchor(q.id) && !clerk(world.anchor(q.id)));
     const fridges = ['geladeira1', 'geladeira2'].filter((n) => world.anchor(n));
     const stops = [];
     const stopAt = (key, p, row) => {
@@ -586,6 +589,59 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     remove(c); return true;
   }
 
+  // ------------------------------------------------------------------ nobody stays stuck, nobody holds the night
+  /** A walker that has not got anywhere for a while: first a new way (the cars have moved), then skip the stretch, then go away. */
+  function recover(c, lvl) {
+    const h = c.human.root;
+    nav.unstick(c.agent);
+    c.agent.wait = 0; c.nr = null;
+    if (lvl === 1) return;
+    if (lvl >= 3) { if (c.state === 'leaving') warpOut(c); else giveUpWalk(c); return; }
+    if (c.state === 'entering') { if (c.legI < c.legs.length - 1) { c.legI++; c.atLeg = false; } return; }
+    if (c.state === 'leaving') { if (c.lv && c.lv.stage === 0) c.lv.stage = 1; return; }
+    if (c.state === 'route') { c.routeDone(); return; }
+    if (c.state === 'linger') { c.state = 'leaving'; c.leaveAfter = 0; c.lv = null; }
+    void h;
+  }
+  /** It cannot be got to the car on foot: it is simply there (the car, the pump's side or the road). */
+  function warpOut(c) {
+    const p = exitPoint(c), h = c.human.root;
+    h.position.set(p.x, 0, p.z);
+    if (!c.lv) c.lv = { stage: 1 };
+    if (c.lv.stage === 0) c.lv.stage = 1;
+    leaveStep(c, simNow);
+  }
+  /** Someone who could not get where they were going leaves: the visit is lost. */
+  function giveUpWalk(c) {
+    if (!c.done && c.role === 'normal') giveUp(c);
+    forceLeave(c);
+    if (c.mon) c.mon.lvl = 2;                    // if it is stuck on the way out too, the next time it is simply at the exit
+  }
+  function forceLeave(c) {
+    if (c.insideT !== undefined) { chores?.setBathroomBusy(false); c.insideT = undefined; }
+    if (c.state !== 'leaving') { c.state = 'leaving'; c.leaveAfter = 0; c.lv = null; c.nr = null; c.atLeg = false; }
+    c.noService = true;
+  }
+  let closeT = 0;
+  /** Six o'clock: whoever is still on the premises goes. Pump customers are lost, the ones at the counter too, and they are off the list. */
+  function closeDown() {
+    enabled = false; recQueue = []; followQ.length = 0;
+    for (const c of [...list]) {
+      if (c.kind === 'empty') continue;
+      c.hold = false;
+      if (c.kind === 'car') { if (!c.done && c.state !== 'leaving') abandon(c); else c.leaveAfter = Math.min(c.leaveAfter ?? 0, 0.5); }
+      else if (c.kind === 'dark') { if (c.state !== 'leaving') { c.state = 'leaving'; departCar(c); } }
+      else if (c.kind === 'walk') {
+        if (!c.done && c.role === 'normal' && c.state !== 'leaving') giveUp(c);
+        forceLeave(c);
+      }
+      bus.emit('customer:lost', c);                 // off the list (tasks.js), counted as not done
+    }
+    closeT = 30;
+  }
+  const blocking = () => list.filter((c) => !(c.kind === 'empty' || c.noService || c.done || c.state === 'leaving'));
+  const lateNight = () => time.minutes >= time.parse(data.progression.expediente.semClientesApos);
+
   const walkerBusy = () => list.some((c) => c.kind === 'walk' && c.state !== 'leaving' && !c.noCounter);
 
   function productList(ids, rr) {
@@ -597,6 +653,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     }).filter(Boolean);
   }
   function spawnWalker({ seed, tutorial = false, produtos, pagamento, tipo = null, rec = null, scene = null, entry = null, role = 'normal', name, owner = null } = {}) {
+    if (!tutorial && lateNight()) return null;
     const s = seed ?? Math.floor(rng() * 1e6);
     const src = rec || tipo;
     const V = src?.veiculo || {};
@@ -946,6 +1003,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function update(dt, t) {
     simNow = t;
     nav.tick(dt, t);
+    if (closeT > 0) { closeT -= dt; if (closeT <= 0) for (const c of [...list]) if (c.kind !== 'empty') remove(c); }   // the hard limit: whoever is left is gone
     // recurring people, on their hour
     if (enabled && progression.st.tutorialDone) {
       while (recQueue.length && time.minutes >= recQueue[0].until) recQueue.shift();
@@ -954,7 +1012,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     }
     for (let i = followQ.length - 1; i >= 0; i--) {
       followQ[i].t -= dt;
-      if (followQ[i].t <= 0 && !walkerBusy()) {
+      if (followQ[i].t <= 0 && !walkerBusy() && enabled) {
         const f = followQ.splice(i, 1)[0];
         if (f.owner && !list.includes(f.owner)) continue;
         if (!spawnWalker({ tipo: f.tipo, seed: f.seed, name: f.name, owner: f.owner }) && f.owner) f.owner.hold = false;
@@ -976,7 +1034,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
           if (c.fueling) autoPump(c, dt);
           if (c.state === 'leaving') {
             c.leaveAfter -= dt;
-            if (c.hold) { c.holdT += dt; if (c.holdT > 240) c.hold = false; }       // never keep the pump for ever
+            if (c.hold) { c.holdT += dt; if (c.holdT > 120) c.hold = false; }       // never keep the pump for ever
             if (c.leaveAfter <= 0 && !c.hold) departCar(c);
           }
           else if (c.state !== 'arriving' && c.age > c.patience && !c.paying && !c.fueling && !c.talking && !c.panel) abandon(c);
@@ -1058,6 +1116,14 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
             if (r.done && leaveStep(c, t)) continue;
           }
         }
+        // stuck monitor: a walker that has not got anywhere for 6 s plans again, then skips the stretch, then goes away
+        const walking = c.state === 'entering' ? !c.atLeg : ['route', 'linger'].includes(c.state) || (c.state === 'leaving' && c.leaveAfter <= 0);
+        if (walking) {
+          const m = c.mon || (c.mon = { x: h.position.x, z: h.position.z, t: 0, lvl: 0 });
+          if (Math.hypot(h.position.x - m.x, h.position.z - m.z) > 0.35) { m.x = h.position.x; m.z = h.position.z; m.t = 0; if (m.lvl && m.t === 0) m.lvl = Math.max(0, m.lvl - 1); }
+          else { m.t += dt; if (m.t >= 6) { m.t = 0; m.lvl++; recover(c, m.lvl); if (!list.includes(c)) continue; } }
+        } else c.mon = null;
+        if (c.state === 'queue') { c.queueT = (c.queueT || 0) + dt; if (c.queueT > 75) giveUpWalk(c); } else c.queueT = 0;
         animate(c, t, moving);
         if (c.comp) {
           const q = c.comp.root, yaw = h.rotation.y, side = c.state === 'scanning' || c.state === 'ready' ? 1.3 : 0.8;
@@ -1113,10 +1179,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   // the walking graph and the parking routes are built behind the title screen, not at the first customer
   setTimeout(() => { nav.build(); traffic.lotAvailable(); }, 0);
   return {
-    list, update, fastForward, spawnRecurring, spawnCar, spawnWalker, spawnEmptyCar, releaseEmptyCar, spawnDark, freePump, beginNight,
-    attach(ch) { chores = ch; },
+    list, update, fastForward, closeDown, blocking, spawnRecurring, spawnCar, spawnWalker, spawnEmptyCar, releaseEmptyCar, spawnDark, freePump, beginNight,
+    attach(ch, tk) { chores = ch; if (tk) tasksApi = tk; },
     reserve: (n) => reserved.add(n), unreserve: (n) => reserved.delete(n),
-    enable(on, seed) { if (on) nav.build(); enabled = on; if (seed !== undefined) rng = mulberry32(seed); timer = cfg.chegada.primeiro; },
+    enable(on, seed) { if (on) nav.build(); else { followQ.length = 0; for (const c of list) c.hold = false; } enabled = on; if (seed !== undefined) rng = mulberry32(seed); timer = cfg.chegada.primeiro; },
     clear() { for (const c of [...list]) remove(c); ui.setTotal(null); followQ.length = 0; recQueue = []; taken.clear(); chores?.setBathroomBusy(false); for (const [i, it] of world.interactables.entries()) { void i; if (it.kind === 'bico' && it.object3D) it.object3D.visible = true; } },
     watcher: () => list.find((c) => c.rec?.id === 'homem0333' && c.state === 'watch' && !c.done) || null,
     activeCount: () => list.filter((c) => !c.done).length,

@@ -28,13 +28,13 @@ export function createShift(bus, d) {
   });
   bus.on('time:cap', () => {
     if (!open || closing) return;
-    customers.enable(false);
+    customers.enable(false); customers.closeDown();        // whoever is still here goes; the closing is never held by a customer
     ui.setObjective('Seis horas. Termine os atendimentos e feche o caixa, na registradora.');
     bus.emit('sfx', 'ui_ok', {});
   });
   bus.on('cash:close-request', () => closeCash());
 
-  const servedAll = () => customers.list.every((c) => c.kind === 'empty' || c.noService || c.done || c.state === 'leaving');
+  const servedAll = () => customers.blocking().length === 0;
 
   /** Counts the drawer: first the player's count, then the register's report against it. */
   async function closeCash() {

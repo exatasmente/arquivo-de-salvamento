@@ -167,6 +167,17 @@ export function createNav(world, player) {
     const a = pt(from), b = pt(to); if (!a || !b) return null;
     const locked = opts.ignoreLocked ? null : lockedFn();
     const mayUse = (id) => !(locked && locked.has(id)) && (opts.doors ? opts.doors(id) : true);
+    // the vehicles (parked or moving) are not in the static graph: the way goes round them as they stand now
+    const veh = [];
+    for (const c of cols) if (c.vehicle && c.enabled !== false) veh.push(c);
+    const vr = R + 0.12;
+    const inVeh = (x, z) => { for (const c of veh) if (hit(c, x, z, vr)) return true; return false; };
+    const segVeh = (ax, az, bx, bz) => {
+      if (!veh.length) return false;
+      const d = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(d / 0.4));
+      for (let i = 0; i <= n; i++) if (inVeh(ax + (bx - ax) * i / n, az + (bz - az) * i / n)) return true;
+      return false;
+    };
     const N = nodes.length, S = N, G = N + 1;
     const extra = new Map();                     // temp edges: node -> [{to, w, doors}]
     const tempAdj = [[], []];
@@ -187,7 +198,7 @@ export function createNav(world, player) {
     attach(S, a); attach(G, b);
     // straight line
     const direct = line(a.x, a.z, b.x, b.z);
-    if (direct && direct.every(mayUse)) return [{ x: b.x, z: b.z, doors: direct.length ? direct : undefined }];
+    if (direct && direct.every(mayUse) && !segVeh(a.x, a.z, b.x, b.z)) return [{ x: b.x, z: b.z, doors: direct.length ? direct : undefined }];
 
     const g = new Float32Array(N + 2).fill(Infinity), came = new Int32Array(N + 2).fill(-1), seen = new Uint8Array(N + 2);
     const pos = (i) => (i === S ? a : i === G ? b : nodes[i]);
@@ -197,6 +208,7 @@ export function createNav(world, player) {
     const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let c = 0; for (;;) { const l = 2 * c + 1, r = l + 1; let m = c; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === c) break; [heap[m], heap[c]] = [heap[c], heap[m]]; c = m; } } return top; };
     const relax = (u, e) => {
       if (e.doors.length && !e.doors.every(mayUse)) return;
+      if (veh.length && e.to !== G && e.to !== S && segVeh(pos(u).x, pos(u).z, pos(e.to).x, pos(e.to).z) && !(u === S)) return;
       let w = e.w;
       if (opts.cost) w += opts.cost(pos(e.to).x, pos(e.to).z);
       const ng = g[u] + w;
@@ -215,15 +227,15 @@ export function createNav(world, player) {
     const chain = [];
     for (let i = G; i !== -1; i = came[i]) chain.push(pos(i));
     chain.reverse();
-    return smooth(chain);
+    return smooth(chain, segVeh);
   }
   /** Drops the waypoints that are not needed (a clear straight line, never through a door) and says which doors each leg crosses. */
-  function smooth(chain) {
+  function smooth(chain, segVeh = () => false) {
     const out = [];
     let i = 0;
     while (i < chain.length - 1) {
       let j = chain.length - 1;
-      while (j > i + 1 && !line(chain[i].x, chain[i].z, chain[j].x, chain[j].z, R, true)) j--;
+      while (j > i + 1 && (!line(chain[i].x, chain[i].z, chain[j].x, chain[j].z, R, true) || segVeh(chain[i].x, chain[i].z, chain[j].x, chain[j].z))) j--;
       const doors = line(chain[i].x, chain[i].z, chain[j].x, chain[j].z) || [];
       out.push({ x: chain[j].x, z: chain[j].z, doors: doors.length ? doors : undefined });
       i = j;
@@ -328,10 +340,20 @@ export function createNav(world, player) {
     if (d < (last ? 0.12 : 0.28) || (last && a.stuck > 1.2 && d < 0.8)) { route.i++; a.stuck = 0; }
     return { done: route.i >= route.pts.length, moved: res.moved, waiting: res.waiting, hx: res.hx, hz: res.hz };
   }
+  /** A walker that ended up inside something (a car that moved onto it): out to the nearest free spot. Returns true if it moved. */
+  function unstick(a) {
+    const r = a.r ?? R, p = a.pos;
+    if (!blockedLive(p.x, p.z, r, a)) return false;
+    for (let d = 0.3; d <= 2.4; d += 0.3) for (let k = 0; k < 12; k++) {
+      const ang = k * Math.PI / 6, x = p.x + Math.cos(ang) * d, z = p.z + Math.sin(ang) * d;
+      if (!blockedLive(x, z, r, a)) { p.x = x; p.z = z; return true; }
+    }
+    return false;
+  }
   const route = (pts) => (pts ? { pts, i: 0 } : null);
 
   return {
-    build, tick, path, route, follow, step, length, line: (ax, az, bx, bz, r) => { build(); return line(ax, az, bx, bz, r); },
+    build, tick, path, route, follow, step, length, unstick, line: (ax, az, bx, bz, r) => { build(); return line(ax, az, bx, bz, r); },
     add: (a) => { agents.add(a); return a; }, remove: (a) => { agents.delete(a); },
     agents, names, nodes: () => nodes,
     node: (name) => (names.has(name) ? nodes[names.get(name)] : null),
