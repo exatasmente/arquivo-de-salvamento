@@ -1,14 +1,15 @@
 // The memory card: 15 blocks in localStorage, the same card the channel uses in every game.
 // Block 1 is the run (night, money, what was seen), blocks 2 to 8 the finished nights, block 9 the
-// record. Block 11 shows the other game's block when its card is in this browser (read only: this
-// file never writes the other key). Block 13 is corrupted: it shows a broken icon and nothing readable.
+// record (and the endings seen, the secrets found). Block 11 shows the other game's block when its card is in this browser (read only: this
+// file never writes the other key). Block 13 is corrupted: it shows a broken icon and nothing readable, until the first ending
+// ("O Dia que Sobra") has been seen: then it can be opened (the hook of the next game, in ui.js).
 export const KEY = 'o-dia-que-sobra.card.v1';
 export const RINHA_KEY = 'rinha.card.v1';
 export const BLOCKS = 15;
 export const CORRUPT_BLOCK = 13;
 export const RINHA_BLOCK = 11;
 
-const empty = () => ({ v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], meta: { intro: false } });
+const empty = () => ({ v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], endings: [], meta: { intro: false } });
 
 /** What the other game left in this browser, or null. Read only. */
 export function readRinha(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
@@ -52,14 +53,19 @@ export function createCard(storage = (typeof localStorage !== 'undefined' ? loca
     wipeRun() { data.run = null; data.nights = {}; return write(); },
     get introSeen() { return Boolean(data.meta && data.meta.intro); },
     setIntroSeen() { data.meta = { ...(data.meta || {}), intro: true }; write(); },
+    /** Endings seen (1..5), across every run: the card keeps them when a new game starts. */
+    get endings() { return [...(data.endings || [])]; },
+    hasEnding(id) { return (data.endings || []).includes(id); },
+    addEnding(id) { data.endings = data.endings || []; if (!data.endings.includes(id)) { data.endings.push(id); write(); return true; } return false; },
     hasSecret(id) { return data.secrets.includes(id); },
     addSecret(id) { if (!data.secrets.includes(id)) { data.secrets.push(id); write(); return true; } return false; },
     /** What each of the 15 blocks holds, for the card screen. */
     blocks() {
       const out = Array.from({ length: BLOCKS }, (_, i) => ({ n: i + 1, kind: 'empty' }));
       if (data.run) out[0] = { n: 1, kind: 'run', ...data.run };
-      for (let d = 1; d <= 7; d++) if (data.nights[d]) out[d] = { n: d + 1, kind: 'night', ...data.nights[d] };
-      if (data.record.nights > 0 || data.secrets.length) out[8] = { n: 9, kind: 'record', best: data.record.best, nights: data.record.nights, secrets: data.secrets.length };
+      // the nights of the campaign (1..24) share the blocks 2 to 7: the latest night of each stretch of four
+      for (let d = 1; d <= 24; d++) if (data.nights[d]) { const slot = Math.min(6, Math.floor((d - 1) / 4)) + 1; out[slot] = { n: slot + 1, kind: 'night', ...data.nights[d] }; }
+      if (data.record.nights > 0 || data.secrets.length || (data.endings || []).length) out[8] = { n: 9, kind: 'record', best: data.record.best, nights: data.record.nights, secrets: data.secrets.length, endings: (data.endings || []).length };
       const rinha = readRinha(storage);
       if (rinha) out[RINHA_BLOCK - 1] = { n: RINHA_BLOCK, kind: 'rinha', ...rinha };
       out[CORRUPT_BLOCK - 1] = { n: CORRUPT_BLOCK, kind: 'corrupt' };

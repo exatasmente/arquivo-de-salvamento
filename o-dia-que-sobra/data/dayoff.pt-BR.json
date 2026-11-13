@@ -1,0 +1,120 @@
+{
+  "_nota": "Textos e números da folga (casa e farmácia). Valores em reais, como a carteira. Sem segredo aqui: o recado do gerente é só ambiente.",
+  "regras": {
+    "sanidadeDormir": 40,
+    "sanidadeSecretaria": -6,
+    "horaInicial": 19.5,
+    "horaMaxima": 23.9,
+    "segundosPorHora": 50,
+    "toca": { "semana": 3, "depois": 9, "dura": 3 }
+  },
+  "farmacia": {
+    "precos": { "remedio": 22, "pilha": 9 },
+    "limite": { "remedio": 2, "pilha": 3 }
+  },
+  "contas": {
+    "aluguel": "Aluguel",
+    "luz": "Conta de luz",
+    "geladeira": "Parcela da geladeira"
+  },
+  "objetivo": {
+    "falta": "Falta: {lista}",
+    "tudo": "Pronto. Durma na cama para encerrar a folga.",
+    "contas": "contas",
+    "recados": "recados",
+    "farmacia": "farmácia",
+    "cama": "dormir"
+  },
+  "dica": {
+    "keyboard": "WASD anda · mouse olha · E usa",
+    "gamepad": "Analógicos andam e olham · A usa",
+    "touch": "Direcional anda · arraste olha · toque usa"
+  },
+  "acorda": [
+    "Folga. A luz da janela já foi embora.",
+    "Folga. Acordei com a casa escura e a rua quieta.",
+    "Folga. A casa está do jeito que deixei. Quase."
+  ],
+  "vara": {
+    "1": ["A vara do pai. No primeiro dia de folga eu vou ao lago.", "Depois que eu dormir. Primeiro as contas."],
+    "2": ["O lago fica a uma hora daqui. A folga acaba antes de eu chegar.", "Ela continua encostada. Eu continuo sem ir."],
+    "3": ["Três semanas e eu ainda não saí com ela.", "O pai dizia que peixe não tem pressa. Eu tenho."],
+    "4": ["Quando isso passar, a primeira coisa é o lago.", "A vara está esperando. Que bom que alguém espera."]
+  },
+  "janela": ["A rua está quieta. A farmácia, acesa.", "Nenhum carro. Só o poste."],
+  "geladeira": {
+    "limpa": ["A geladeira zumbe. Ainda faltam parcelas.", "Tem pouca coisa aí dentro."],
+    "adesivo": ["Um adesivo do Sol. Eu não pus isso aí.", "Colado reto, sem bolha. Eu não pus isso aí."]
+  },
+  "cama": {
+    "titulo": "DORMIR",
+    "linha": "Encerra a folga. Heitor recupera o ânimo.",
+    "contasAbertas": "Ainda há contas na mesa.",
+    "sim": "DORMIR AGORA",
+    "nao": "AINDA NÃO"
+  },
+  "dormir": "Heitor apaga a luz. O sono vem de uma vez.",
+  "mesa": {
+    "titulo": "CONTAS NA MESA",
+    "linha": "Carteira: {carteira}. Pague o que der; o resto fica para depois.",
+    "paga": "PAGA",
+    "pagar": "PAGAR",
+    "recusa": "Não dá. Falta dinheiro.",
+    "voltar": "VOLTAR",
+    "vazia": "A mesa está limpa. Só rabiscos.",
+    "pagou": "Pago: {conta}."
+  },
+  "telefone": {
+    "sem": "Nenhum recado novo.",
+    "atende": "Secretária eletrônica.",
+    "recado": "Recado {n} · {hora}",
+    "irma": "Irmã",
+    "gerente": "Seu Amaro",
+    "fim": "Fim dos recados."
+  },
+  "recados": {
+    "1": [
+      { "de": "irma", "hora": "17:10", "texto": "Heitor, sou eu. Como foi a mudança? Me liga quando acordar." },
+      { "de": "irma", "hora": "17:12", "texto": "A mãe perguntou da vara do pai. Eu disse que você ia ao lago. Vai, né?" }
+    ],
+    "2": [
+      { "de": "irma", "hora": "16:40", "texto": "Você quase não atende mais. Está dormindo direito?" },
+      { "de": "irma", "hora": "16:41", "texto": "Tem comido? Passa aqui no domingo. Eu faço aquela sopa." }
+    ],
+    "3": [
+      { "de": "irma", "hora": "15:20", "texto": "Faz dias, Heitor. Só me diz que está bem." },
+      { "de": "gerente", "hora": "03:33", "texto": "Heitor, é o Amaro. Fica no posto até eu ligar. Não sai da loja. Está tudo certo.", "evento": "secretaria" }
+    ],
+    "4": [
+      { "de": "irma", "hora": "18:05", "texto": "Você disse que a escala muda amanhã. Depois do lago, me liga." }
+    ]
+  },
+  "balcao": {
+    "boasVindas": "Boa noite. O que vai ser?",
+    "titulo": "FARMÁCIA DO BAIRRO",
+    "linha": "Carteira: {carteira}.",
+    "remedio": "REMÉDIO (frasco branco)",
+    "pilha": "PILHA",
+    "sair": "SAIR",
+    "comprou": { "remedio": "Levou o frasco branco.", "pilha": "Levou uma pilha." },
+    "recusa": "Sem dinheiro para isso.",
+    "limite": "Já levou o que cabe no bolso.",
+    "esgotado": "ESGOTADO",
+    "pilhas": "Pilhas. Quem atende é o balcão."
+  },
+  "rotulos": {
+    "vara": "Vara de pesca do pai",
+    "telefone": "Secretária eletrônica",
+    "mesa": "Contas na mesa",
+    "geladeira": "Geladeira",
+    "geladeiraAdesivo": "Geladeira (o adesivo)",
+    "cama": "Cama",
+    "janela": "Janela",
+    "portaAbrir": "Abrir a porta",
+    "portaFechar": "Fechar a porta",
+    "balcao": "Balcão da farmácia",
+    "atendente": "Falar com o atendente",
+    "frasco": "Frasco branco",
+    "pilhas": "Prateleira de pilhas"
+  }
+}

@@ -2,11 +2,12 @@
 // Each record says when it may happen: week, hour window, chance, conditions (sanity, where the player is,
 // what is on the task list), what it depends on, and whether it repeats. Its script
 // (src/systems/events/<id>.js) does the happening. Three kinds, all by condition and never by a bare draw:
-//   story    `fixoNoite` is the night: it happens at the start of its window, when the conditions allow;
+//   story    `fixoNoite` is the night (a number, or a list of nights): it happens at the start of its window, when the conditions allow;
 //   drawn    a roll at the start of the night (the seed) puts it at an hour of its window;
 //   repeat   `repetivel` with `intervaloMin` and `maxPorNoite` (the hallucinations): while the conditions hold,
 //            it is rolled again every few game minutes, and the weaker the sanity the likelier the roll.
-// A record with no `roteiro` is registered for a later phase (cameras, the campaign) and never runs.
+// A record with no `roteiro` is registered for another system (`gerente-mudo` is the narrative's silent 05:50 call) and never runs.
+// `gatilho: 'shift'`: the shift starts it (`trigger(id)`), never the clock (`turno-dobrado`, the 05:59 of the last night).
 // `?event=<id>` forces one to run shortly after the night opens, ignoring its conditions.
 import { mulberry32 } from '../rng.js';
 import { createKit } from './events/kit.js';
@@ -40,13 +41,17 @@ export async function createEvents(bus, ctx) {
     rr = mulberry32(seed * 977 + day * 31 + 5);
     kit = createKit(ctx);
     est.placa = est.placaBase(day);
+    // the stickers the player has already seen on earlier nights stay on the walls
+    const stk = ctx.world.posto.stickers;
+    if (stk) { stk.hideAll(); for (const f of progression.st.flags) if (f.startsWith('adesivo:')) stk.show(f.slice(8), true); }
     for (const ev of records) {
       if (!ev.roteiro) continue;
       if (ev.semanaMin > progression.st.week && forced !== ev.id) continue;
       if (!ev.repetivel && progression.hasSeen(ev.id) && forced !== ev.id) continue;
       load(ev);
+      if (ev.gatilho === 'shift') continue;
       const [a, b] = ev.horario.map((s) => time.parse(s));
-      const roll = rr(), draw = rr(), story = ev.fixoNoite === day;
+      const roll = rr(), draw = rr(), story = [].concat(ev.fixoNoite ?? []).includes(day);
       if (forced === ev.id) { plan.push({ ev, at: 0, forced: true }); continue; }
       if (ev.repetivel) { plan.push({ ev, at: a, until: b, pool: true, next: a, count: 0 }); continue; }
       const at = story ? a : a + draw * (b - a);   // a story event happens at the start of its window
@@ -84,7 +89,8 @@ export async function createEvents(bus, ctx) {
   function update(dt, t) {
     clock += dt;
     if (active) {
-      if (active.run.update(dt, t)) { active.run.dispose?.(); bus.emit('event:end', active.ev.id); active = null; lastEnd = clock; }
+      const cur = active;   // an event may end the night (an ending) and reset this system from inside its own update
+      if (cur.run.update(dt, t)) { if (active === cur) { cur.run.dispose?.(); bus.emit('event:end', cur.ev.id); active = null; lastEnd = clock; } }
       return;
     }
     if (readyAt === null || !calm()) return;
@@ -103,10 +109,16 @@ export async function createEvents(bus, ctx) {
       break;
     }
   }
+  /** Starts a `gatilho: 'shift'` event now, whatever else is going on (the last night's 05:59). Returns true when it started. */
+  function trigger(id) {
+    const ev = records.find((e) => e.id === id); if (!ev || !ev.roteiro) return false;
+    if (active) { active.run.dispose?.(); bus.emit('event:end', active.ev.id); active = null; }
+    return start({ ev, forced: true });
+  }
   /** The sign's smile: wider every night, and once more for good after the night it was seen. */
   est.placaBase = (day) => Math.min(0.9, 0.07 * (day - 1) + (progression.hasSeen('a-placa') ? 0.3 : 0));
   return {
-    schedule, update, state: est, get run() { return active ? active.run : null; }, get active() { return active ? active.ev.id : null; },
+    schedule, update, trigger, state: est, get run() { return active ? active.run : null; }, get active() { return active ? active.ev.id : null; },
     get plan() { return plan.map((p) => ({ id: p.ev.id, at: Math.round(p.at), pool: Boolean(p.pool) })); },
     get placaSorriso() { return est.placa; },
     reset() { if (active) { active.run.dispose?.(); active = null; } plan = []; est.naoSair = null; },

@@ -54,7 +54,33 @@
     "relatos": {
       "cliente-balcao": "Chegou reclamação de ontem à noite: um cliente disse que ficou no balcão e o frentista olhou direto para ele e não falou nada.",
       "apagou": "Vi nas câmeras que o posto ficou uma hora sem ninguém ontem. Heitor, onde você estava?",
-      "telefone": "Liguei ontem de madrugada e ninguém atendeu. Duas vezes."
+      "telefone": "Liguei ontem de madrugada e ninguém atendeu. Duas vezes.",
+      "secretaria": "Deixei um recado na sua secretária? Eu não deixei, Heitor. Esquece isso."
+    },
+    "semana": {
+      "1": [
+        "Semana de aprender o posto. Pergunta se tiver dúvida, mas não me liga de dia.",
+        "Quatro semanas, Heitor. Depois a escala muda e eu pago a mais um."
+      ],
+      "2": [
+        "Segunda semana. A meta subiu e o cliente não sobe junto.",
+        "Alguns clientes comentaram que o posto está estranho de madrugada. Cliente comenta tudo."
+      ],
+      "3": [
+        "Terceira semana. A meta sobe de novo. Não me peça para baixar.",
+        "O pessoal de segurança vai olhar as câmeras. Se tiver algo que eu precise saber, registra no sistema."
+      ],
+      "4": [
+        "Última semana. Faz o de sempre que passa.",
+        "A meta é a mais alta de todas. Falta pouco, mas meta é meta."
+      ]
+    },
+    "meta": {
+      "bateu": "Pela conta daqui, a meta da semana já está batida: {pts} de {meta}.",
+      "ritmo": "A semana está no ritmo: {pts} de {meta} pontos até agora.",
+      "atrasado": "A semana está atrasada: {pts} de {meta}. Faltam {falta} pontos.",
+      "ultimaNoite": "Hoje fecha a semana. Eu conto os pontos amanhã cedo.",
+      "dobrado": "Amanhã é o último dia. O calendário novo já está na gaveta."
     }
   },
   "caixa": {
@@ -75,6 +101,23 @@
   },
   "telefoneMudo": [
     "Alô?",
-    "(Só o zumbido da fluorescente, do outro lado.)"
-  ]
+    "(Só o zumbido da fluorescente, do outro lado.)",
+    "(Alguém respira. Ou é a lâmpada.)"
+  ],
+  "semana": {
+    "quadro": "Semana {w} · {nome}",
+    "meta": "Meta da semana: {meta} pontos",
+    "salario": "Salário: {sal}",
+    "dia": "{dia} · dia {cal} de 28"
+  },
+  "balanco": {
+    "titulo": "FIM DA SEMANA {w}",
+    "meta": "Meta {meta} pontos. Você fez {pts}.",
+    "bateu": "Meta batida. O salário vem cheio: {sal}.",
+    "perdeu": "Meta perdida. O salário vem cortado: {sal} (cheio seria {cheio}).",
+    "perdidas1": "Metas perdidas até agora: 1. A segunda é demissão.",
+    "perdidas2": "Segunda meta perdida.",
+    "folga": "Amanhã é folga. As contas estão na mesa.",
+    "perdidas1Ultima": "Metas perdidas: 1. Esta era a última semana."
+  }
 }

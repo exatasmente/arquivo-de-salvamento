@@ -22,10 +22,10 @@ const BY_STAGE = [
   { aim: 0.055, hand: 0.011, key: 0.26, breath: 0.006, shake: 2.2, color: 1, mind: 1, blur: 0.7 },
 ];
 
-export function startOfNight(rules, day) {
-  // every shift without a day off starts 2 points below the one before; the day off (phase 5) zeroes that
+export function startOfNight(rules, day, base = rules.sanidade.inicio) {
+  // every shift without a day off starts 2 points below the one before; the day off restores `base` (what the sleep gave back)
   const sinceRest = (day - 1) % 6;
-  return Math.max(0, rules.sanidade.inicio - rules.sanidade.porExpedienteSemFolga * sinceRest);
+  return Math.max(0, Math.min(100, base) - rules.sanidade.porExpedienteSemFolga * sinceRest);
 }
 
 export function createSanity(bus, { opts }) {
@@ -40,6 +40,7 @@ export function createSanity(bus, { opts }) {
     bus.emit('sanity:change', value, value - old, why);
     const s = stageOf(value);
     if (s !== lastStage) { bus.emit('sanity:stage', s, lastStage); lastStage = s; }
+    if (value === 0 && old > 0) bus.emit('sanity:zero');
     bus.emit('audio:sanity', value);
   }
   let lastFilter = '';

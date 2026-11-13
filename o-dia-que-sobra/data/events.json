@@ -380,7 +380,7 @@
     ],
     "chance": 0.3,
     "condicoes": {
-      "sanidadeMax": 85,
+      "sanidadeMax": 100,
       "naoAntes": [
         "tutorial"
       ],
@@ -394,7 +394,8 @@
     "repetivel": false,
     "depende": [],
     "roteiro": "events/figura-camera.js",
-    "fase": 4
+    "fase": 4,
+    "fixoNoite": 12
   },
   {
     "id": "voce-na-camera",
@@ -426,7 +427,7 @@
   {
     "id": "apagao-cobertura",
     "nome": "O apagão da cobertura",
-    "descricao": "A cobertura apaga numa noite da semana 3; um carro com farol alto espera na bomba 4. (Fase 5: campanha.)",
+    "descricao": "A cobertura apaga inteira. Um carro de farol alto espera na bomba 4, sem ninguém dentro. O disjuntor da cobertura está no quadro de força, nos fundos.",
     "semanaMin": 3,
     "horario": [
       "02:00",
@@ -434,22 +435,26 @@
     ],
     "chance": 0,
     "fixoNoite": 14,
-    "condicoes": {},
-    "local": "bomba-4",
-    "sanidade": -8,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "cobertura",
+    "sanidade": -6,
     "alucinacao": false,
     "consequencias": [
       "registrar:falta-de-energia"
     ],
     "repetivel": false,
     "depende": [],
-    "roteiro": null,
+    "roteiro": "events/apagao-cobertura.js",
     "fase": 5
   },
   {
     "id": "deposito-aberto",
     "nome": "O depósito aberto",
-    "descricao": "A porta do depósito está aberta; dentro, o material da promoção e um crachá. (Fase 5: campanha.)",
+    "descricao": "A porta do depósito amanhece aberta. Dentro, o material da promoção de 1998.",
     "semanaMin": 3,
     "horario": [
       "03:00",
@@ -457,14 +462,20 @@
     ],
     "chance": 0,
     "fixoNoite": 17,
-    "condicoes": {},
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
     "local": "deposito",
-    "sanidade": -8,
+    "sanidade": -4,
     "alucinacao": false,
-    "consequencias": [],
+    "consequencias": [
+      "deposito:aberto"
+    ],
     "repetivel": false,
     "depende": [],
-    "roteiro": null,
+    "roteiro": "events/deposito-aberto.js",
     "fase": 5
   },
   {
@@ -493,7 +504,7 @@
   {
     "id": "gerente-mudo",
     "nome": "O gerente mudo",
-    "descricao": "O telefone das 05:50 toca e do outro lado só há o zumbido da fluorescente. (Fase 5: campanha.)",
+    "descricao": "O telefone das 05:50 toca e do outro lado só há o zumbido da fluorescente. É a narrativa que atende (narrative.js), não um roteiro de evento.",
     "semanaMin": 4,
     "horario": [
       "05:50",
@@ -503,7 +514,7 @@
     "fixoNoite": 22,
     "condicoes": {},
     "local": "escritorio",
-    "sanidade": -8,
+    "sanidade": -6,
     "alucinacao": false,
     "consequencias": [],
     "repetivel": false,
@@ -514,7 +525,7 @@
   {
     "id": "turno-dobrado",
     "nome": "O turno dobrado",
-    "descricao": "O relógio da loja chega às 06:00 e volta para as 00:00. (Fase 5: campanha.)",
+    "descricao": "Às 05:59 do último dia o relógio da loja não passa. Do estacionamento alguém chama. O relógio chega às 06:00 e volta para as 00:00, uma vez.",
     "semanaMin": 4,
     "horario": [
       "05:59",
@@ -524,12 +535,139 @@
     "fixoNoite": 24,
     "condicoes": {},
     "local": "loja",
-    "sanidade": -10,
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [
+      "relogio:volta"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/turno-dobrado.js",
+    "fase": 5,
+    "gatilho": "shift"
+  },
+  {
+    "id": "adesivo-estoque",
+    "nome": "O adesivo novo",
+    "descricao": "Um adesivo do Sol na porta do estoque que ontem não estava lá, e o rosto no reflexo da geladeira. Fica daí em diante.",
+    "semanaMin": 2,
+    "horario": [
+      "01:30",
+      "03:30"
+    ],
+    "chance": 0,
+    "fixoNoite": 7,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "estoque",
+    "sanidade": -3,
+    "alucinacao": false,
+    "consequencias": [
+      "adesivo:porta-estoque"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/adesivo-estoque.js"
+  },
+  {
+    "id": "sol-por-dentro",
+    "nome": "O Sol por dentro",
+    "descricao": "O Sol aparece dentro da loja: nos copos, na tela do monitor do escritório. Ninguém pôs.",
+    "semanaMin": 3,
+    "horario": [
+      "01:30",
+      "03:30"
+    ],
+    "chance": 0,
+    "fixoNoite": 13,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "loja",
+    "sanidade": -4,
+    "alucinacao": false,
+    "consequencias": [
+      "adesivo:monitor"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/sol-por-dentro.js"
+  },
+  {
+    "id": "figura-vaga",
+    "nome": "A figura no estacionamento",
+    "descricao": "Uma figura de uniforme antigo parada ao lado de um carro, no estacionamento, de costas. Quando se olha de novo, ninguém.",
+    "semanaMin": 3,
+    "horario": [
+      "01:30",
+      "04:00"
+    ],
+    "chance": 0,
+    "fixoNoite": 18,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "estacionamento",
+    "sanidade": -5,
     "alucinacao": false,
     "consequencias": [],
     "repetivel": false,
     "depende": [],
-    "roteiro": null,
-    "fase": 5
+    "roteiro": "events/figura-vaga.js"
+  },
+  {
+    "id": "luz-oscila",
+    "nome": "A luz que oscila",
+    "descricao": "Uma lâmpada da loja cai e volta, devagar, três vezes. Sem sanidade nenhuma envolvida: só o prédio.",
+    "semanaMin": 1,
+    "horario": [
+      "00:50",
+      "05:20"
+    ],
+    "chance": 0.45,
+    "intervaloMin": 45,
+    "maxPorNoite": 2,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -1,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/luz-oscila.js"
+  },
+  {
+    "id": "passos-fora",
+    "nome": "Passos lá fora",
+    "descricao": "Passos de quem anda no cascalho, longe, do lado do estacionamento. Ninguém aparece.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "05:30"
+    ],
+    "chance": 0.4,
+    "intervaloMin": 50,
+    "maxPorNoite": 2,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -2,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/passos-fora.js"
   }
 ]

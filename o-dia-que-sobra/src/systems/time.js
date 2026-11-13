@@ -1,7 +1,7 @@
 // TimeSystem: the game clock. One game hour lasts `secondsPerHour` real seconds (90). The clock
 // starts at 00:00; it moves only when the simulation steps, never by the real clock.
 export function createTime(bus, { secondsPerHour = 90 } = {}) {
-  let minutes = 0, running = false, lastWhole = 0, cap = Infinity, capped = false;
+  let minutes = 0, running = false, lastWhole = 0, cap = Infinity, capped = false, rate = 1;
   const fmt = (m) => { const h = Math.floor(m / 60) % 24, mm = Math.floor(m % 60); return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`; };
   const parse = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
   function advanceTo(m) {
@@ -17,10 +17,14 @@ export function createTime(bus, { secondsPerHour = 90 } = {}) {
     /** The clock stops here (the end of the shift): it never goes past this minute, even after a pause. */
     setCap(m) { cap = m; capped = false; },
     pause() { running = false; }, resume() { running = true; },
+    /** The clock goes `k` times faster (the doubled shift of the last night runs its second round quicker). */
+    setRate(k) { rate = k; },
+    /** The shop clock goes back to 00:00 (the doubled shift): the hours tick again from the start. */
+    rewind() { minutes = 0; lastWhole = 0; capped = false; },
     set(m) { minutes = m; lastWhole = Math.floor(m); },
     step(dt) {
       if (!running) return;
-      advanceTo(minutes + dt * 60 / secondsPerHour);
+      advanceTo(minutes + dt * 60 / secondsPerHour * rate);
     },
     /** The clock jumps ahead (the player passed out): every minute still ticks, so nothing that waits for a minute is missed. */
     skip(n) { advanceTo(minutes + n); },

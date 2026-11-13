@@ -1,6 +1,6 @@
 // InventorySystem: 4 slots (hands and pockets), the flashlight and its batteries, and the one
 // thing carried in the hands (a nozzle, a box). The carried thing is drawn in front of the camera.
-export function createInventory(bus, { world, render, items }) {
+export function createInventory(bus, { world, render, items, stock = {} }) {
   const THREE = render.THREE;
   const slots = ['lanterna', 'pilha', 'pilha', null];
   let sel = 0;
@@ -28,6 +28,14 @@ export function createInventory(bus, { world, render, items }) {
     }
     bus.emit('carry', carry);
   }
+  // what the day off (or the station) hands to the player: { item: 'pilha' | 'remedio' | 'cracha' }
+  bus.on('inventory:add', ({ item } = {}) => {
+    if (item === 'pilha') {
+      const i = slots.indexOf(null);
+      if (i >= 0) slots[i] = 'pilha'; else stock.pilhasExtra = (stock.pilhasExtra || 0) + 1;
+      bus.emit('inventory:change');
+    } else if (item === 'cracha') { if (stock.flags && !stock.flags.includes('cracha')) stock.flags.push('cracha'); }
+  });
   return {
     slots, flash, hand, dropHandlers, useHandlers,
     /** Tapping on nothing: puts back what the hands hold, if it can be put back. */
@@ -45,7 +53,9 @@ export function createInventory(bus, { world, render, items }) {
       const it = slots[sel];
       if (useHandlers[it]) return useHandlers[it]();
       if (it === 'pilha') {
-        slots[sel] = null; flash.charge = flash.max; bus.emit('sfx', 'pilha_troca', {}); bus.emit('hint', 'Pilha trocada.'); bus.emit('inventory:change'); return true;
+        slots[sel] = null; flash.charge = flash.max; bus.emit('sfx', 'pilha_troca', {}); bus.emit('hint', 'Pilha trocada.');
+        if ((stock.pilhasExtra || 0) > 0) { slots[sel] = 'pilha'; stock.pilhasExtra--; }   // the batteries bought on the day off wait in the bag
+        bus.emit('inventory:change'); return true;
       }
       return false;
     },

@@ -13,6 +13,8 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   const phoneMin = time.parse(data.progression.expediente.telefone);
 
   const obj = (text) => ui.setObjective(text);
+  /** The night of `gerente-mudo` (the record's `fixoNoite`): the 05:50 call is the silent one. */
+  const muteNight = () => (data.events || []).some((e) => e.id === 'gerente-mudo' && e.fixoNoite === progression.st.day);
   function phonePos() { return world.at('telefone', 0.9); }
 
   function registerPhone() {
@@ -56,6 +58,15 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       if (tipo === 'cliente-balcao') progression.complaint('cliente-balcao');
     }
     progression.consumirRelatos();
+    // the week: its own line, and where the score stands against the goal (the manager reads it at 05:50)
+    const cal = progression.calendar(), r = progression.weekRules(), got = progression.st.weekPts + pts;
+    const wl = d.semana?.[cal.week]; if (wl) lines.push(wl[(cal.noite - 1) % wl.length]);
+    if (d.meta) {
+      if (cal.noite === 6) lines.push(cal.last ? d.meta.dobrado : d.meta.ultimaNoite);
+      else if (got >= r.meta) lines.push(fill(d.meta.bateu, { pts: got, meta: r.meta }));
+      else if (got >= r.meta * cal.noite / 6) lines.push(fill(d.meta.ritmo, { pts: got, meta: r.meta }));
+      else lines.push(fill(d.meta.atrasado, { pts: got, meta: r.meta, falta: Math.max(0, r.meta - got) }));
+    }
     lines.push(...d.fecha);
     return lines;
   }
@@ -83,7 +94,10 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       obj('Tem um cliente na loja. Vá ao balcão.');
     } else if (kind === 'gerente') {
       answered550 = true; tasks.done('telefone'); obj(null);
-      await dialogue(DG.gerente, managerLines(), 80);
+      if (muteNight()) {   // `gerente-mudo` (week 4): nobody speaks on the other side, only the hum of the tube
+        progression.seen('gerente-mudo'); bus.emit('event:seen', 'gerente-mudo'); bus.emit('sanity:add', -6, 'gerente-mudo');
+        await dialogue('Telefone', DG.telefoneMudo, 81);
+      } else await dialogue(DG.gerente, managerLines(), 80);
       bus.emit('sfx', 'telefone_desliga', { pos: phonePos().toArray() });
       obj(cash.closed ? null : 'Às seis horas, feche o caixa na registradora.');
     }

@@ -36,7 +36,7 @@
         ],
         "tres": [
           { "q": "cliente", "t": "Três noites seguidas. Ninguém me serve três noites." },
-          { "q": "cliente", "t": "O Valdir saiu do turno em {s4.data}. Não voltou." },
+          { "q": "cliente", "t": "O Valdir saiu do turno {s4.data}. Não voltou." },
           { "q": "cliente", "t": "O carro dele ficou {s4.carro}. Ninguém mexeu." },
           { "q": "cliente", "t": "Obrigado pelo café. Agora eu posso ir." }
         ]

@@ -3,7 +3,7 @@
 // 3 game hours, and a third dose in one shift puts Heitor on the floor for an hour of the game.
 //
 // The bottle is found in the office closet (a leftover of someone's; no name, brand or dose: the chemist's is for
-// the day off, phase 5). The five side effects (data/medication.json) are drawn by the seed of the week, in an order
+// the day off: `inventory:add { item: 'remedio' }` adds the bought pills). The five side effects (data/medication.json) are drawn by the seed of the week, in an order
 // that stays the same inside the week: dose n has the first n of them.
 import { mulberry32 } from '../rng.js';
 
@@ -20,7 +20,11 @@ export function createMedication(bus, { data, progression, sanity, time, invento
   const active = (id) => (st.until[id] ?? -1) > time.minutes;
   const sync = () => {
     const i = inventory.slots.indexOf('frasco');
-    if (pills() > 0 && i < 0) { const f = inventory.slots.indexOf(null); inventory.slots[f >= 0 ? f : 3] = 'frasco'; }
+    if (pills() > 0 && i < 0) {
+      const f = inventory.slots.indexOf(null);
+      if (f < 0 && inventory.slots[3] === 'pilha') progression.st.pilhasExtra = (progression.st.pilhasExtra || 0) + 1;   // the battery waits in the bag
+      inventory.slots[f >= 0 ? f : 3] = 'frasco';
+    }
     if (pills() <= 0 && i >= 0) inventory.slots[i] = null;
     bus.emit('inventory:change');
   };
@@ -92,6 +96,12 @@ export function createMedication(bus, { data, progression, sanity, time, invento
     return true;
   }
   inventory.useHandlers.frasco = use;
+  // a bottle bought at the chemist's on the day off: more pills in the same bottle
+  bus.on('inventory:add', ({ item } = {}) => {
+    if (item !== 'remedio') return;
+    progression.st.frasco = { pilulas: (progression.st.frasco?.pilulas || 0) + (cfg.frasco.compra || cfg.frasco.comprimidos) };
+    sync();
+  });
 
   // the closet in the office: where the bottle is found (once per run)
   const P = world.posto.props || {};

@@ -8,7 +8,8 @@
   },
   "sanidade": {
     "inicio": 100,
-    "porExpedienteSemFolga": 2
+    "porExpedienteSemFolga": 2,
+    "pisoSemana": 55
   },
   "carteiraInicial": 40,
   "pontos": {
@@ -26,7 +27,114 @@
   },
   "semanas": {
     "1": {
-      "nome": "Normalidade"
+      "nome": "Normalidade",
+      "meta": 450,
+      "salario": 480,
+      "contas": [
+        {
+          "id": "aluguel",
+          "nome": "Aluguel",
+          "valor": 150
+        },
+        {
+          "id": "luz",
+          "nome": "Conta de luz",
+          "valor": 45
+        },
+        {
+          "id": "geladeira",
+          "nome": "Parcela da geladeira",
+          "valor": 60
+        }
+      ]
+    },
+    "2": {
+      "nome": "Desconfiança",
+      "meta": 540,
+      "salario": 500,
+      "contas": [
+        {
+          "id": "aluguel",
+          "nome": "Aluguel",
+          "valor": 150
+        },
+        {
+          "id": "luz",
+          "nome": "Conta de luz",
+          "valor": 50
+        },
+        {
+          "id": "geladeira",
+          "nome": "Parcela da geladeira",
+          "valor": 60
+        }
+      ]
+    },
+    "3": {
+      "nome": "Esgotamento",
+      "meta": 620,
+      "salario": 520,
+      "contas": [
+        {
+          "id": "aluguel",
+          "nome": "Aluguel",
+          "valor": 150
+        },
+        {
+          "id": "luz",
+          "nome": "Conta de luz",
+          "valor": 55
+        },
+        {
+          "id": "geladeira",
+          "nome": "Parcela da geladeira",
+          "valor": 60
+        }
+      ]
+    },
+    "4": {
+      "nome": "O Dia que Sobra",
+      "meta": 700,
+      "salario": 540,
+      "contas": [
+        {
+          "id": "aluguel",
+          "nome": "Aluguel",
+          "valor": 150
+        },
+        {
+          "id": "luz",
+          "nome": "Conta de luz",
+          "valor": 60
+        },
+        {
+          "id": "geladeira",
+          "nome": "Parcela da geladeira",
+          "valor": 60
+        }
+      ]
     }
+  },
+  "campanha": {
+    "noitesPorSemana": 6,
+    "semanas": 4,
+    "ultimaNoite": 24,
+    "diaFinal": 28,
+    "metasPerdidasDemissao": 2,
+    "salarioMetaPerdida": 0.55,
+    "colapso": {
+      "total": 3,
+      "naSemana": 2,
+      "esperaSegundos": 30
+    },
+    "nomesDia": [
+      "SEG",
+      "TER",
+      "QUA",
+      "QUI",
+      "SEX",
+      "SÁB"
+    ],
+    "atrasoSanidade": 4
   }
 }

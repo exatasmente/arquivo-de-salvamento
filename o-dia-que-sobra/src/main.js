@@ -1,10 +1,13 @@
 import { createRender } from './render.js';
 import { createInput } from './input.js';
-import { createGame, DT, loadOpts } from './game.js';
+import { createGame, DT, loadOpts, LOCAL } from './game.js';
 
 const q = new URLSearchParams(location.search);
 
-boot().catch((e) => {
+if (q.has('film')) {
+  // film mode: the picture comes from film.js, which installs itself; no game and no loop
+  await import('./film.js');
+} else boot().catch((e) => {
   console.error(e);
   const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#e8dfc4;font:bold 16px monospace;text-align:center;padding:20px';
   d.textContent = 'O posto não abriu: ' + e.message; document.body.appendChild(d);
@@ -12,7 +15,7 @@ boot().catch((e) => {
 
 async function boot() {
   const params = {
-    seed: Number(q.get('seed')) || 1, silent: q.has("silent"), manual: q.has('manual'), debug: q.has('debug'), touch: q.has('touch'),
+    seed: Number(q.get('seed')) || 1, silent: q.has("silent"), manual: q.has('manual'), debug: q.has('debug') && LOCAL.has(location.hostname), touch: q.has('touch'),
     skiptutorial: q.has('skiptutorial'), event: q.get('event') || null, sol: q.get('sol') || null,
   };
   const root = document.getElementById('app');

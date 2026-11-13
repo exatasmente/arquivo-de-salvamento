@@ -4,10 +4,12 @@
 //
 // The computer wakes on its entry screen: two accounts, the manager's (one press and you are in) and "VALDIR"
 // with an empty "SENHA:" and a blinking cursor. Choosing VALDIR opens a password field. In this phase the field
-// answers "SENHA INCORRETA" to anything: the password works in phase 5 (checked by its hash, never written here).
+// is checked by its PBKDF2 hash (vault.js; the phrase is written nowhere in this repository). The right phrase opens VALDIR's account: the
+// report of the 1998 promotion and his schedule (sealed text, opened with the phrase itself) and an occurrence that asks for the date (also a hash).
 // The camera monitor is the CameraSystem's (systems/cameras.js); it asks `openRegister` to register an occurrence
 // from a camera.
 import { money } from '../util.js';
+import { check, openAccount } from './vault.js';
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const mono = (px, bold = true) => `${bold ? 'bold ' : ''}${Math.round(px)}px "Courier New", monospace`;
@@ -173,13 +175,57 @@ export function createOffice(bus, { world, render, interaction, ui, time, progre
     else if (login.typed.length < MAX_TYPED) login.typed += k;
     sfx('tecla'); paintLogin();
   }
-  function submit() {
-    // Phase 5: the phrase is checked here against its hash. Nothing in this file says what it is, and in this phase nothing opens.
+  let checking = false, account = null;     // account: VALDIR's screens once the phrase is right
+  async function submit() {
+    // the phrase is checked against its hash; nothing in this file says what it is
+    if (checking || !login.typed) return;
+    checking = true; const phrase = login.typed; login.msg = 'CONFERINDO...'; paintLogin();
+    let ok = false;
+    try { ok = await check('senha', phrase); if (ok) account = await openAccount(phrase); } catch { ok = false; }
+    checking = false;
+    if (!lw || !lw.isConnected) return;    // left the screen while it was checking
+    if (ok && account) { enterValdir(); return; }
     login.msg = 'SENHA INCORRETA'; login.typed = '';
     sfx('ui_voltar');
     paintLogin();
     if (msgTimer) clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { login.msg = ''; msgTimer = null; paintLogin(); }, 2200);
+  }
+  function enterValdir() {
+    stopLogin(); lw = null; sfx('ui_ok');
+    bus.emit('secret:found', 's1');
+    valdirHome();
+  }
+  function valdirHome() {
+    using = true;
+    ui.menu({
+      title: 'COMPUTADOR · VALDIR', subtitle: 'conta antiga',
+      lines: ['Último acesso: 1998.'],
+      items: [
+        { label: () => 'RELATÓRIO DA PROMOÇÃO', act: () => valdirPage('RELATÓRIO DA PROMOÇÃO', account.relatorio) },
+        { label: () => 'ESCALA DE VALDIR', act: () => valdirPage('ESCALA', account.escala) },
+        { label: () => 'REGISTRAR OCORRÊNCIA (VALDIR)', act: valdirOccurrence },
+        { label: () => 'TROCAR DE CONTA', act: () => { account = null; lock(); } },
+        { label: () => 'SAIR', act: () => { account = null; leave(); } },
+      ],
+      onBack: () => { account = null; leave(); },
+    });
+  }
+  function valdirPage(title, lines) {
+    ui.menu({ title, lines, items: [{ label: () => 'VOLTAR', act: valdirHome }], onBack: valdirHome });
+  }
+  /** VALDIR's account asks for the date: the occurrence of the shift that was never closed. The date is checked by its hash. */
+  async function valdirOccurrence() {
+    if (progression.hasFlag('valdir:ocorrencia')) { bus.emit('hint', 'A ocorrência de Valdir já está registrada.'); return valdirHome(); }
+    const typed = await ui.textPrompt({ title: 'OCORRÊNCIA · TURNO NÃO ENCERRADO', lines: ['Informe a data em que o turno de Valdir ficou aberto.', 'Formato: DD/MM/AAAA'], max: 24, okLabel: 'REGISTRAR' });
+    if (typed === null) return valdirHome();
+    let ok = false; try { ok = await check('data', typed); } catch { ok = false; }
+    if (ok) {
+      progression.flag('valdir:ocorrencia'); bus.emit('secret:found', 'valdir'); bus.emit('sfx', 'tecla', {});
+      return ui.menu({ title: 'OCORRÊNCIA REGISTRADA', lines: ['O sistema aceitou a data.', 'O turno de Valdir continua aberto.'], items: [{ label: () => 'VOLTAR', act: valdirHome }], onBack: valdirHome });
+    }
+    bus.emit('sfx', 'ui_voltar', {});
+    ui.menu({ title: 'DATA NÃO CONFERE', lines: ['O sistema não reconhece essa data para o turno.'], items: [{ label: () => 'TENTAR DE NOVO', act: valdirOccurrence }, { label: () => 'VOLTAR', act: valdirHome }], onBack: valdirHome });
   }
   function enterManager() { stopLogin(); unlocked = true; sfx('ui_ok'); drawScreen(); home(); }
   function loginPress(p) {
@@ -274,7 +320,8 @@ export function createOffice(bus, { world, render, interaction, ui, time, progre
   }
   function record(tipo, at) {
     const hit = incidents.find((i) => !i.registered && i.tipo === tipo.id && Math.abs(i.at - at) <= 25);
-    const valid = Boolean(hit);
+    const seventh = regCtx.cam === 'cam7';          // the figure is always there, on the camera the monitor does not list: it counts
+    const valid = Boolean(hit) || seventh;
     if (hit) hit.registered = true;
     const rec = { tipo: tipo.id, nome: tipo.nome, hora: lab(at), at, valida: valid };
     if (regCtx.cam) rec.cam = regCtx.cam;   // registered from a camera (counts for the story as well)
@@ -282,6 +329,7 @@ export function createOffice(bus, { world, render, interaction, ui, time, progre
     progression.st.occurrences.push(rec);
     progression.occurrence(valid);
     if (valid) progression.flag('ocorrencia:' + tipo.id);
+    if (seventh) { progression.flag('cam7:ocorrencia'); bus.emit('secret:found', 's3'); }
     bus.emit('sfx', 'tecla', {}); bus.emit('occurrence', rec);
     bus.emit('hint', valid ? 'Ocorrência registrada.' : 'Registrada, mas não achei nada disso no que aconteceu.');
     drawScreen();
@@ -306,7 +354,7 @@ export function createOffice(bus, { world, render, interaction, ui, time, progre
   });
   return {
     incidents, registered,
-    reset() { stopLogin(); incidents.length = 0; registered.length = 0; using = false; unlocked = false; lw = null; regCtx = { back: null, cam: null }; Object.assign(login, { sel: 1, mode: 'ask', typed: '', msg: '' }); drawScreen(); },
+    reset() { stopLogin(); incidents.length = 0; registered.length = 0; using = false; unlocked = false; account = null; checking = false; lw = null; regCtx = { back: null, cam: null }; Object.assign(login, { sel: 1, mode: 'ask', typed: '', msg: '' }); drawScreen(); },
     drawScreen, openRegister, drawLogin,
     /** What using the computer does: the entry screen, or the menu when the manager's account is already open. */
     open() { if (unlocked) home(); else loginScreen(); },

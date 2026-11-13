@@ -87,3 +87,14 @@ body.touch #say { bottom: 26%; }
 .tr { display: inline-block; animation: trem .36s steps(2) infinite; }
 @keyframes trem { 0% { transform: translate(0, 0); } 50% { transform: translate(var(--sh, 0px), calc(var(--sh, 0px) * -0.6)); } 100% { transform: translate(calc(var(--sh, 0px) * -0.7), 0); } }
 @media (prefers-reduced-motion: reduce) { .tr { animation: none; } }
+
+/* campaign: the week on the clipboard, the text prompt, the hook of block 13 */
+#sheet .week { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; margin: 2px 0 4px; font-size: 12px; color: #cfc6a8; } #sheet .week b { color: #e0b24a; }
+#sheet .week i { display: block; width: 100%; height: 5px; background: #2a2a32; border: 1px solid #000; } #sheet .week u { display: block; height: 100%; background: #c9a24a; text-decoration: none; }
+.keypad .kdisp { min-height: 28px; text-align: left; letter-spacing: 2px; } .keypad .kdisp .cur { color: #7acb7a; animation: blinkc 1s steps(2) infinite; }
+.keypad small { display: block; margin-top: 6px; color: #8a9a7e; font-weight: normal; font-size: 11px; text-align: center; }
+@keyframes blinkc { 50% { opacity: 0; } }
+.hookbox .hookimg { margin: 8px auto; width: min(100%, 420px); aspect-ratio: 16 / 9; border: 4px solid #22201a; background: #000; }
+.hookbox canvas.hook { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; }
+.menu .lines p.end { color: #e0b24a; }
+#calhud { position: absolute; left: max(10px, env(safe-area-inset-left)); top: max(8px, env(safe-area-inset-top)); font: bold 11px "Courier New", monospace; color: #cfc6a8; background: rgba(8,10,16,.5); padding: 3px 7px; border: 1px solid rgba(201,162,74,.5); letter-spacing: 1px; pointer-events: none; }

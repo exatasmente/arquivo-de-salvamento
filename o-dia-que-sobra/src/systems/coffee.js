@@ -2,8 +2,10 @@
 //  - tap on nothing drinks it: +5 sanity, once per game hour (a second cup in the same hour only warms);
 //  - the counter takes it: put on the counter while the man of 03:33 is in the shop, it is the coffee for him.
 //    That counts the streak (`cafeSeguidas`) and the kindness `cafe`; his first two lines (cafe.um, cafe.dois) play.
-//    The third one is the secret S4: nothing is said and nothing is filled in (phase 5 brings it).
+//    The third one is the secret S4: the man says the date and where the car is. Those two words are sealed in vault.js (AES-GCM) and
+//    filled into the markers {s4.data} and {s4.carro} of data/recurring.pt-BR.json only when the third cup is put on the counter.
 import { fill } from '../util.js';
+import { openCoffee } from './vault.js';
 
 export function createCoffee(bus, { world, render, interaction, inventory, progression, sanity, time, ui, customers, data }) {
   const THREE = render.THREE;
@@ -62,9 +64,14 @@ export function createCoffee(bus, { world, render, interaction, inventory, progr
     progression.flag('gentileza:cafe');
     bus.emit('kindness', 'cafe', c);
     const n = progression.st.cafe.streak;
-    const key = n === 1 ? 'um' : n === 2 ? 'dois' : null;      // the third night is S4: not here
-    if (key && lines[key]) await ui.dialogue(c.name, lines[key].map((f) => (f.q === 'pensamento' ? `(${fill(f.t, {})})` : f.t)), c.seed + 40 + n);
-    else bus.emit('hint', 'Ele segura o copo. Não bebe.');
+    const key = n === 1 ? 'um' : n === 2 ? 'dois' : n === 3 ? 'tres' : null;
+    let s4 = null;
+    if (key === 'tres') s4 = await openCoffee();                // secret S4: unsealed now, never kept in the clear
+    if (key && lines[key] && (key !== 'tres' || s4)) {
+      const put = (t) => (s4 ? t.replace('{s4.data}', s4.data).replace('{s4.carro}', s4.carro) : t);
+      await ui.dialogue(c.name, lines[key].map((f) => (f.q === 'pensamento' ? `(${fill(f.t, {})})` : put(f.t))), c.seed + 40 + n);
+      if (key === 'tres') { bus.emit('secret:found', 's4'); progression.flag('s4:cafe'); }
+    } else bus.emit('hint', 'Ele segura o copo. Não bebe.');
   }
   // the flashlight battery: bought at the shelf behind the counter, from the player's own money
   const pilha = data.items.atras?.pilha;

@@ -215,11 +215,12 @@ export function createChores(bus, { world, render, interaction, inventory, progr
   // ------------------------------------------------------------------ breakers (the board in the back; the dark)
   const board = { open: 0 };
   const down = [];                       // areas tripped, oldest first
-  function spawnBreaker() {
+  /** `which`: a given area to trip (the blackout of the canopy), or null to draw one. */
+  function spawnBreaker(which = null) {
     const br = posto.breakers; if (!br) return false;
-    const pool = TRIPPABLE.filter((a) => br.isOn(a) && !down.includes(a));
+    const pool = TRIPPABLE.filter((a) => br.isOn(a) && !down.includes(a) && (!which || a === which));
     if (!pool.length) return false;
-    const a = pool[Math.floor(rr() * pool.length)], taskId = 'disjuntor-' + a;
+    const a = which || pool[Math.floor(rr() * pool.length)], taskId = 'disjuntor-' + a;
     br.setOn(a, false); down.push(a);
     const S = { p: 0 }, owner = { ids: [] };
     register(workTarget({
@@ -360,6 +361,8 @@ export function createChores(bus, { world, render, interaction, inventory, progr
         default: return false;
       }
     },
+    /** Trips the breaker of one area on purpose (an event). Returns true if it tripped. */
+    trip: (area) => spawnBreaker(area),
     pumpStuck: (n) => stuck.has(n),
     setBathroomBusy(v) { busyBathroom = v; },
     get bathroom() { return bathroom; },

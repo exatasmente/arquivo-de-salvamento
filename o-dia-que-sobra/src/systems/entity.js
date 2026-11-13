@@ -234,6 +234,8 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   }
   return {
     S, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = null; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
+    /** The Sun reaches the player now (the last night's call answered by going outside): the silent cut and the black, as in any attack. */
+    catchNow() { if (S.state === 'ataque') return; if (S.hidden) leaveHide(); ent.setStage(4); attack(); },
     leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; },
     reset() { S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
     darkTick(dt, inRiskDark) { S.darkT = inRiskDark ? S.darkT + dt : Math.max(0, S.darkT - dt); },

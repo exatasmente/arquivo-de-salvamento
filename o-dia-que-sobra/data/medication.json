@@ -1,17 +1,42 @@
 {
   "_nota": "Remédio sem nome: frasco branco, sem marca, sem dose, sem bula. Os números são do jogo, não de bula.",
-  "frasco": { "achado": "armario-escritorio", "comprimidos": 6 },
+  "frasco": {
+    "achado": "armario-escritorio",
+    "comprimidos": 6,
+    "compra": 4
+  },
   "cura": 30,
   "toleranciaPorDose": 8,
   "efeitoHoras": 3,
   "maxPorExpediente": 2,
   "apagaHoras": 1,
   "efeitos": [
-    { "id": "valores", "nome": "Confusão com valores", "sentido": "Os números se embaralham." },
-    { "id": "lentidao", "nome": "Lentidão", "sentido": "As mãos pesam.", "fator": 1.4 },
-    { "id": "concentracao", "nome": "Dificuldade de concentração", "sentido": "As linhas escorregam." },
-    { "id": "cor", "nome": "Percepção visual", "sentido": "As cores se parecem." },
-    { "id": "sono", "nome": "Sono", "sentido": "As pálpebras pesam." }
+    {
+      "id": "valores",
+      "nome": "Confusão com valores",
+      "sentido": "Os números se embaralham."
+    },
+    {
+      "id": "lentidao",
+      "nome": "Lentidão",
+      "sentido": "As mãos pesam.",
+      "fator": 1.4
+    },
+    {
+      "id": "concentracao",
+      "nome": "Dificuldade de concentração",
+      "sentido": "As linhas escorregam."
+    },
+    {
+      "id": "cor",
+      "nome": "Percepção visual",
+      "sentido": "As cores se parecem."
+    },
+    {
+      "id": "sono",
+      "nome": "Sono",
+      "sentido": "As pálpebras pesam."
+    }
   ],
   "falas": {
     "toma": "Um comprimido, a seco. O frasco não diz o que é.",
@@ -20,7 +45,13 @@
     "fraco": "Quase não faz efeito. O corpo já se acostumou.",
     "apaga": "O chão vem devagar. Depois, nada.",
     "acorda": "Heitor acorda no chão do posto. O relógio andou.",
-    "efeito": { "valores": "Os números parecem trocar de lugar.", "lentidao": "Tudo leva mais tempo.", "concentracao": "É difícil prender o pensamento.", "cor": "As cores estão todas meio iguais.", "sono": "As pálpebras pesam. Piscar ajuda." },
+    "efeito": {
+      "valores": "Os números parecem trocar de lugar.",
+      "lentidao": "Tudo leva mais tempo.",
+      "concentracao": "É difícil prender o pensamento.",
+      "cor": "As cores estão todas meio iguais.",
+      "sono": "As pálpebras pesam. Piscar ajuda."
+    },
     "acha": "Atrás de uns papéis velhos, um frasco branco sem rótulo. Sobra de alguém.",
     "armarioVazio": "Papéis velhos e uma caneca sem alça."
   }

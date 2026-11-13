@@ -18,6 +18,7 @@ export function createUI(root, api) {
       <div id="dot"></div>
       <div id="objective" hidden></div>
       <div id="total" hidden></div>
+      <div id="calhud" hidden></div>
       <div id="prompt" hidden><b></b><span></span><em><i></i></em></div>
       <div id="toast" hidden></div>
       <div id="say" hidden><b></b><p></p></div>
@@ -27,7 +28,7 @@ export function createUI(root, api) {
     <div id="dlg" hidden><div class="box"><b></b><p></p><small></small></div></div>
     <div id="modal" hidden></div>`);
   const $ = (s) => root.querySelector(s);
-  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), prompt: $('#prompt'), toast: $('#toast'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
+  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), cal: $('#calhud'), prompt: $('#prompt'), toast: $('#toast'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
   const pk = { b: el.prompt.querySelector('b'), span: el.prompt.querySelector('span'), bar: el.prompt.querySelector('i'), em: el.prompt.querySelector('em') };
   let sheetOpen = false, trayOpen = false;
 
@@ -51,6 +52,7 @@ export function createUI(root, api) {
   }
   function setObjective(t) { if (!t) { el.obj.hidden = true; return; } el.obj.hidden = false; if (el.obj.textContent !== t) el.obj.textContent = t; }
   function setTotal(t) { if (!t) { el.total.hidden = true; return; } el.total.hidden = false; el.total.textContent = 'LEITOR  ' + t; }
+  function setCalendar(t) { if (!t) { el.cal.hidden = true; return; } el.cal.hidden = false; if (el.cal.textContent !== t) el.cal.textContent = t; }
   let toastT = 0;
   function toast(t) { el.toast.textContent = t; el.toast.hidden = false; toastT = 2.6; }
   let lastFilter = null, lastLid = -1, lastBlack = -1;
@@ -252,7 +254,8 @@ export function createUI(root, api) {
     const fuels = d.fuels.map((f) => `<span><i style="background:${f.cor}"></i>${esc(f.nome)}</span>`).join('');
     const p = d.perf;
     el.sheet.innerHTML = `<h3>PRANCHETA</h3>
-      <div class="top"><b>${d.time}</b><span>Noite ${d.day} · Semana ${d.week}</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
+      <div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
+      <div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div>
       <h4>Tarefas</h4><ul>${tasks}${doneRows}</ul>${fin.length > 3 ? `<div class="dim">+ ${fin.length - 3} feitas antes</div>` : ''}
       ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}
       <h4>Bicos</h4><div class="fuels">${fuels}</div>
@@ -268,7 +271,7 @@ export function createUI(root, api) {
   let invT = 0, lastKey = '';
   function showInventory() {
     const inv = api.inventory();
-    el.inv.innerHTML = inv.slots.map((s, i) => `<div class="slot ${i === inv.sel ? 'sel' : ''}"><small>${i + 1}</small><b>${s ? (s === 'lanterna' ? `Lanterna ${inv.flash.on ? 'ligada' : 'apagada'}` : s === 'frasco' ? 'Frasco branco' : 'Pilha') : ''}</b>${s === 'lanterna' ? `<em><i style="width:${Math.round(inv.flash.charge / inv.flash.max * 100)}%"></i></em>` : ''}</div>`).join('') +
+    el.inv.innerHTML = inv.slots.map((s, i) => `<div class="slot ${i === inv.sel ? 'sel' : ''}"><small>${i + 1}</small><b>${s ? (s === 'lanterna' ? `Lanterna ${inv.flash.on ? 'ligada' : 'apagada'}` : s === 'frasco' ? 'Frasco branco' : s === 'cracha' ? 'Crachá' : 'Pilha') : ''}</b>${s === 'lanterna' ? `<em><i style="width:${Math.round(inv.flash.charge / inv.flash.max * 100)}%"></i></em>` : ''}</div>`).join('') +
       (inv.slots[inv.sel] === 'pilha' ? `<div class="use">${api.glyph('tap')} no vazio: trocar a pilha</div>` : inv.slots[inv.sel] === 'frasco' ? `<div class="use">${api.glyph('tap')} no vazio, duas vezes: tomar um comprimido</div>` : '');
     el.inv.hidden = false; invT = 3.2;
   }
@@ -312,9 +315,9 @@ export function createUI(root, api) {
     let r = 0, c = 0;
     const cols = 5;
     const detail = (b) => {
-      if (b.kind === 'run') return `BLOCO ${b.n}: NOITE ${b.day}. Semana ${b.week}. Carteira ${money(b.wallet * 100)}. Semente ${b.seed}.`;
+      if (b.kind === 'run') return `BLOCO ${b.n}: ${b.fase === 'folga' ? 'FOLGA DA SEMANA ' + (b.week - 1) : b.fase === 'fim' ? 'FIM DA CAMPANHA' : 'NOITE ' + b.day}. Semana ${b.fase === 'folga' ? b.week - 1 : b.week}. Carteira ${money(b.wallet * 100)}. Sanidade ${b.sanidade ?? '-'}. Metas perdidas ${b.misses ?? 0}. Quedas de sanidade ${b.collapse?.total ?? 0}. Eventos vistos ${(b.eventsSeen || []).length}. Semente ${b.seed}.`;
       if (b.kind === 'night') return `BLOCO ${b.n}: NOITE ${b.day}. ${b.points} pontos, ${b.erros} erros, ${b.abastecimentos} abastecimentos, ${b.vendas} vendas, ${b.tarefas ?? 0} tarefas feitas e ${b.naoFeitas ?? 0} não, ${b.ocorrencias ?? 0} ocorrências, caixa ${b.divergencia ? 'com divergência de ' + money(b.divergencia) : 'batendo'}${b.recorrentes?.length ? ', viu ' + b.recorrentes.join(', ') : ''}. Semente ${b.seed}.`;
-      if (b.kind === 'record') return `BLOCO ${b.n}: RECORDE. Melhor noite ${b.best} pontos, ${b.nights} noites feitas.`;
+      if (b.kind === 'record') return `BLOCO ${b.n}: RECORDE. Melhor noite ${b.best} pontos, ${b.nights} noites feitas, ${b.endings ?? 0} de 5 finais, ${b.secrets} segredos achados.`;
       if (b.kind === 'rinha') return `BLOCO ${b.n}: OUTRO JOGO DO CANAL (Rinha). ${b.fights} lutas guardadas, recorde ${b.best}, ${b.secrets} segredos achados.`;
       if (b.kind === 'corrupt') return `BLOCO ${b.n}: ARQUIVO DANIFICADO. Não dá para ler.`;
       return `BLOCO ${b.n}: vazio.`;
@@ -327,13 +330,19 @@ export function createUI(root, api) {
         <ul><li data-cell data-i="back" class="${r === BLOCKS / cols ? 'sel' : ''}">VOLTAR</li></ul></div></div>`;
     };
     const rows = BLOCKS / cols;
+    // block 13: broken, until the first ending has been seen; then it opens on a short scene (the hook of the next game)
+    const openBlock = (b) => {
+      if (b.kind !== 'corrupt') return;
+      if (!card.hasEnding?.(1)) { api.sfx('ui_voltar'); return; }
+      api.sfx('ui_ok'); hookScreen(() => cardScreen(card, back));
+    };
     const h = {
       handle(p) {
         if (p.k === 'nav') { api.sfx('ui_mover'); if (p.dy) r = Math.max(0, Math.min(rows, r + p.dy)); if (p.dx && r < rows) c = (c + p.dx + cols) % cols; draw(); }
-        else if (p.k === 'confirm') { if (r === rows) back(); }
+        else if (p.k === 'confirm') { if (r === rows) back(); else openBlock(blocks[r * cols + c]); }
         else if (p.k === 'back' || p.k === 'esc') back();
       },
-      click(cell) { if (cell.dataset.i === 'back') return back(); const i = Number(cell.dataset.i); r = Math.floor(i / cols); c = i % cols; draw(); },
+      click(cell) { if (cell.dataset.i === 'back') return back(); const i = Number(cell.dataset.i); const again = r === Math.floor(i / cols) && c === i % cols; r = Math.floor(i / cols); c = i % cols; draw(); if (again) openBlock(blocks[i]); },
     };
     showModal('', h);
     // the "back" row is row 3 (index rows): reuse r === rows
@@ -349,13 +358,94 @@ export function createUI(root, api) {
       ];
       const extra = [];
       if (s.recorrentes?.length) extra.push(`Recorrentes vistos: ${s.recorrentes.join(', ')}.`);
-      const h = menu({
-        title: `NOITE ${s.day} FECHADA`, subtitle: '06:00',
-        lines: [...rows.map(([a, b]) => `${a}: ${b}`), ...extra, s.saved ? `Salvo no cartão de memória. Semente da noite: ${s.seed}.` : 'Não foi possível salvar no cartão.', `Próxima: noite ${s.next}.`],
-        items: [{ label: () => 'VOLTAR AO TÍTULO', act: () => { closeModal(); resolve(); } }],
+      const cal = s.cal;
+      const week = s.weekClosed ? `Semana ${cal.week} fechada: ${s.weekPts} de ${s.meta} pontos.` : `Semana ${cal.week}: ${s.weekPts} de ${s.meta} pontos até agora.`;
+      const next = s.weekClosed ? (s.last ? 'Depois desta noite, só o dia 28.' : `Amanhã é folga (dia ${cal.calDay + 1}).`) : `Próxima: noite ${s.next} (semana ${Math.floor((s.next - 1) / 6) + 1}).`;
+      const done = (v) => () => { closeModal(); resolve(v); };
+      const items = s.weekClosed ? [{ label: () => 'CONTINUAR', act: done('next') }, { label: () => 'VOLTAR AO TÍTULO', act: done('title') }]
+        : [{ label: () => 'PRÓXIMA NOITE', act: done('next') }, { label: () => 'VOLTAR AO TÍTULO', act: done('title') }];
+      menu({
+        title: `NOITE ${s.day} FECHADA`, subtitle: `${cal.dia} · dia ${cal.calDay} de 28 · 06:00`,
+        lines: [...rows.map(([a, b]) => `${a}: ${b}`), ...extra, week, s.saved ? `Salvo no cartão de memória. Semente da noite: ${s.seed}.` : 'Não foi possível salvar no cartão.', next],
+        items, onBack: undefined,
       });
-      void h;
     });
+  }
+  /** The end of the week: the goal, the salary, what the next step is. Resolves when the player goes on. */
+  function showBalance(b) {
+    return new Promise((resolve) => {
+      menu({
+        title: b.title, subtitle: b.sub,
+        lines: b.lines,
+        items: [{ label: () => b.ok || 'CONTINUAR', act: () => { closeModal(); resolve(); } }],
+      });
+    });
+  }
+  /** The screen of an ending: the title of the ending, a line, the count of endings, and the ways on. items: [{ label, act }]. */
+  function endingScreen({ title, subtitle, lines, items }) {
+    return menu({ title, subtitle, lines, items });
+  }
+  /** A line of text typed on the on-screen keyboard (or the real one). Resolves to the text, or null when the player goes back. */
+  function textPrompt({ title, lines = [], max = 24, okLabel = 'CONFIRMAR', hint = '' }) {
+    return new Promise((resolve) => {
+      const ROWS = [['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], ['K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'], ['U', 'V', 'W', 'X', 'Y', 'Z', '/', ' ', '<']];
+      let typed = '', r = 0, c = 0, keyH = null;
+      const done = (v) => { if (keyH) document.removeEventListener('keydown', keyH, true); keyH = null; closeModal(); resolve(v); };
+      const draw = () => {
+        el.modal.innerHTML = `<div class="screen"><div class="box keypad"><h1>${esc(title)}</h1>
+          ${lines.map((l) => `<p class="kl">${esc(l)}</p>`).join('')}
+          <div class="kdisp"><b>${esc(typed)}</b><span class="cur">_</span></div>
+          ${ROWS.map((row, ri) => `<div class="row">${row.map((k, ci) => `<button data-cell data-k="${k}" class="${r === ri && c === ci ? 'sel' : ''}">${k === '<' ? '&lt;' : k === ' ' ? '&#9141;' : k}</button>`).join('')}</div>`).join('')}
+          <div class="row"><button data-cell data-k="back" class="${r === 4 && c === 0 ? 'sel' : ''}">VOLTAR</button><button data-cell data-k="ok" class="go ${r === 4 && c === 1 ? 'sel' : ''}">${esc(okLabel)}</button></div>
+          ${hint ? `<small>${esc(hint)}</small>` : ''}</div></div>`;
+      };
+      const press = (k) => {
+        if (k === 'ok') { api.sfx('ui_ok'); done(typed); return; }
+        if (k === 'back') { api.sfx('ui_voltar'); done(null); return; }
+        if (k === '<') typed = typed.slice(0, -1); else if (typed.length < max) typed += k;
+        api.sfx('tecla'); draw();
+      };
+      const len = (row) => (row === 4 ? 2 : ROWS[row].length);
+      const h = {
+        handle(p) {
+          if (p.k === 'nav') { if (p.dy) { r = (r + p.dy + 5) % 5; c = Math.min(c, len(r) - 1); } if (p.dx) c = (c + p.dx + len(r)) % len(r); api.sfx('ui_mover'); draw(); }
+          else if (p.k === 'confirm') press(r === 4 ? ['back', 'ok'][c] : ROWS[r][c]);
+          else if (p.k === 'back' || p.k === 'esc') press('back');
+        },
+        click(cell) { const k = cell.dataset.k; if (k === 'ok' || k === 'back') { r = 4; c = ['back', 'ok'].indexOf(k); } press(k); },
+        redraw: draw,
+      };
+      // a real keyboard types straight into the field and never reaches the game's keys
+      keyH = (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Backspace') press('<');
+        else if (e.key === 'Enter') press('ok');
+        else if (e.key.length === 1 && /[A-Za-zÀ-ÿ 0-9/]/.test(e.key)) press(e.key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase());
+        else return;
+        e.stopPropagation(); e.preventDefault();
+      };
+      document.addEventListener('keydown', keyH, true);
+      showModal('', h); draw();
+    });
+  }
+  /** The hook of the next game (block 13 of the card, after the first ending): a short scene, an image and almost no text. */
+  function hookScreen(back) {
+    const cv = document.createElement('canvas'); cv.width = 160; cv.height = 90; cv.className = 'hook';
+    const g = cv.getContext('2d');
+    // a lake before dawn, in a few flat bands, and a rod's line that goes in and does not come back
+    const sky = ['#10141f', '#1a2030', '#2a2c3c', '#4a3a40', '#7a5a48'];
+    sky.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, i * 11, 160, 12); });
+    g.fillStyle = '#e0b86a'; g.fillRect(104, 46, 10, 8); g.fillStyle = '#ffd88a'; g.fillRect(106, 48, 6, 4);
+    g.fillStyle = '#0c1018'; g.fillRect(0, 56, 160, 34);
+    for (let i = 0; i < 9; i++) { g.fillStyle = i % 2 ? '#1a2234' : '#222c40'; g.fillRect(8 + i * 17, 60 + (i * 7) % 24, 12 + (i * 5) % 14, 1); }
+    g.fillStyle = '#05070b'; g.fillRect(0, 50, 160, 6); g.fillRect(20, 40, 3, 12); g.fillRect(14, 36, 14, 2);
+    g.strokeStyle = '#c9c0a0'; g.lineWidth = 1; g.beginPath(); g.moveTo(112, 18); g.lineTo(112, 64); g.stroke();
+    g.fillStyle = '#c9c0a0'; g.fillRect(111, 64, 3, 1);
+    g.strokeStyle = '#3a2c20'; g.lineWidth = 2; g.beginPath(); g.moveTo(112, 18); g.lineTo(150, 6); g.stroke();
+    const h = { handle(p) { if (p.k === 'confirm' || p.k === 'back' || p.k === 'esc') back(); }, click() { back(); }, redraw() {} };
+    showModal('', h);
+    el.modal.innerHTML = '<div class="screen"><div class="box menu hookbox"><h1>ARQUIVO 13</h1><div class="hookimg"></div><div class="lines"><p>A água não se mexe.</p><p>A linha desceu e não voltou.</p></div><ul><li data-cell data-i="0" class="sel">VOLTAR</li></ul></div></div>';
+    el.modal.querySelector('.hookimg').appendChild(cv);
   }
 
   function handle(p) {
@@ -364,7 +454,7 @@ export function createUI(root, api) {
     return false;
   }
   return {
-    el, setPrompt, setObjective, setTotal, toast, setFx, say, dialogue, openChange, keypad, menu, controlsScreen, cardScreen, showSummary, closeModal,
+    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
     toggleSheet, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },

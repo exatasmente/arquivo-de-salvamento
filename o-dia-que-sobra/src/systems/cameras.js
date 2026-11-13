@@ -32,6 +32,8 @@ export const CAMERAS = [
 ];
 export const CAMERA_IDS = CAMERAS.map((c) => c.id);
 const COUNT = CAMERAS.length;
+/** The seventh camera hangs in the old storeroom and the monitor does not list it: typing 7 on the monitor shows it (secret S3). */
+const SECRET_CAM = { id: 'cam7', n: 7, nome: 'DEPOSITO', curto: 'DEPOSITO', area: 'servico', fov: 66, secret: true };
 
 const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -65,12 +67,13 @@ const textWidth = (str, scale = 1) => str.length * 4 * scale - scale;
 
 export function createCameras(bus, { render, world, ui, time, sanity = null, input = null, data = null, player = null, interaction = null, office = null, lighting = null, progression = null }) {
   const THREE = render.THREE;
-  const cams = CAMERAS.filter((c) => world.has(c.id));
-  const N = cams.length;
+  const cams = [...CAMERAS, SECRET_CAM].filter((c) => world.has(c.id));
+  const N = cams.filter((c) => !c.secret).length;   // the cameras the monitor lists; cams[N] is the secret one
+  const NA = cams.length;
   const props = world.posto?.props || {};
   const breakers = world.posto?.breakers || null;
   const idxOf = (id) => (id === 'all' ? -1 : typeof id === 'number' ? id - 1 : cams.findIndex((c) => c.id === id));
-  const valid = (i) => i >= 0 && i < N;
+  const valid = (i) => i >= 0 && i < NA;
 
   // ------------------------------------------------------------------ the render target and the shared uniforms
   const rt = new THREE.WebGLRenderTarget(CAM_W, CAM_H, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
@@ -384,6 +387,7 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
       .odqcam .ov i { cursor: pointer; }
       .odqcam .bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
       .odqcam .bar button { font: inherit; font-size: 14px; padding: 9px 12px; min-width: 52px; min-height: 44px; background: #1f1d18; color: #cfe8c8; border: 2px solid #4a4638; cursor: pointer; touch-action: manipulation; }
+      .odqcam .bar.digs button { min-width: 34px; padding: 6px 8px; font-size: 12px; opacity: .8; }
       .odqcam .bar button.reg { color: #ffe3a0; border-color: #8a7a3a; }
       .odqcam .bar button:active { background: #3a3628; }
       .odqcam small { margin-top: 8px; color: #8a9a7e; font-size: 11px; }
@@ -399,16 +403,16 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
   function build() {
     wrap = document.createElement('div'); wrap.className = 'screen odqcam';
     wrap.innerHTML = `<div class="box"><h1>MONITOR · <span data-t></span></h1>
-      <div class="vw"><div class="ov" data-ov>${cams.map((_, i) => `<i data-cell data-a="cell" data-i="${i}"></i>`).join('')}</div></div>
+      <div class="vw"><div class="ov" data-ov>${cams.slice(0, N).map((_, i) => `<i data-cell data-a="cell" data-i="${i}"></i>`).join('')}</div></div>
       <div class="bar">
         <button data-cell data-a="prev" aria-label="Câmera anterior">&#9664;</button>
         <button data-cell data-a="next" aria-label="Próxima câmera">&#9654;</button>
         <button data-cell data-a="view" data-v></button>
         ${office ? '<button class="reg" data-cell data-a="reg">REGISTRAR OCORRÊNCIA</button>' : ''}
         <button data-cell data-a="close">SAIR</button>
-      </div><small data-h></small></div>`;
+      </div><div class="bar digs" data-digs hidden>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button data-cell data-a="dig" data-d="${d}">${d}</button>`).join('')}</div><small data-h></small></div>`;
     wrap.querySelector('.vw').insertBefore(scr, wrap.querySelector('[data-ov]'));
-    btnEls = { title: wrap.querySelector('[data-t]'), view: wrap.querySelector('[data-v]'), ov: wrap.querySelector('[data-ov]'), hint: wrap.querySelector('[data-h]') };
+    btnEls = { digs: wrap.querySelector('[data-digs]'), title: wrap.querySelector('[data-t]'), view: wrap.querySelector('[data-v]'), ov: wrap.querySelector('[data-ov]'), hint: wrap.querySelector('[data-h]') };
   }
   function refresh() {
     if (!wrap) return;
@@ -416,26 +420,35 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     btnEls.view.textContent = mode === 'grid' ? `VER CAM ${cams[cur].n}` : 'GRADE';
     btnEls.ov.style.display = mode === 'grid' ? 'grid' : 'none';
     btnEls.hint.textContent = hint();
+    btnEls.digs.hidden = (input?.device?.() || 'keyboard') !== 'touch';   // the touch screen has no digit keys: it gets a row of them
     dirty = true;
   }
   const sfx = (n) => bus.emit('sfx', n, {});
   function select(i, single = true) { cur = (i + N) % N; if (single) mode = 'single'; sfx('ui_mover'); refresh(); }
   function press(p) {
     if (p.k === 'nav') {
-      if (mode === 'grid') cur = (cur + (p.dx || 0) + 3 * (p.dy || 0) + N) % N; else cur = (cur + (p.dx || p.dy || 0) + N) % N;
+      if (mode === 'grid' && p.dy > 0 && cur >= 3 && (input?.device?.() === 'gamepad') && NA > N) { digit(7); return; }   // the pad has no digits: down from the last row
+      if (cur >= N) cur = 0;                                  // from the secret camera, back to the list
+      else if (mode === 'grid') cur = (cur + (p.dx || 0) + 3 * (p.dy || 0) + N) % N; else cur = (cur + (p.dx || p.dy || 0) + N) % N;
       sfx('ui_mover'); refresh();
-    } else if (p.k === 'tab') select(cur + (p.d || 1), mode === 'single');
-    else if (p.k === 'digit') { if (p.d >= 1 && p.d <= N) select(p.d - 1); }
+    } else if (p.k === 'tab') select(cur >= N ? 0 : cur + (p.d || 1), mode === 'single');
+    else if (p.k === 'digit') digit(p.d);
     else if (p.k === 'confirm') toggle();
     else if (p.k === 'sheet') register();
     else if (p.k === 'back' || p.k === 'esc') close();
   }
-  function toggle() { mode = mode === 'grid' ? 'single' : 'grid'; sfx('ui_ok'); refresh(); }
+  /** A digit typed on the monitor (or on the keys of the touch screen): 1 to 6 pick a camera; 7 is the one the list does not show. */
+  function digit(d) {
+    if (d >= 1 && d <= N) select(d - 1);
+    else if (d === 7 && NA > N) { cur = N; mode = 'single'; sfx('ui_ok'); bus.emit('sfx', 'tecla', {}); refresh(); }
+  }
+  function toggle() { mode = mode === 'grid' ? 'single' : 'grid'; if (mode === 'grid' && cur >= N) cur = 0; sfx('ui_ok'); refresh(); }
   function click(cell) {
     const a = cell.dataset.a;
     if (a === 'cell') { cur = Number(cell.dataset.i); mode = 'single'; sfx('ui_ok'); refresh(); }
-    else if (a === 'prev') select(cur - 1, mode === 'single');
-    else if (a === 'next') select(cur + 1, mode === 'single');
+    else if (a === 'dig') digit(Number(cell.dataset.d));
+    else if (a === 'prev') select(cur >= N ? N - 1 : cur - 1, mode === 'single');
+    else if (a === 'next') select(cur >= N ? 0 : cur + 1, mode === 'single');
     else if (a === 'view') toggle();
     else if (a === 'reg') register();
     else if (a === 'close') close();
@@ -455,7 +468,7 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     if (!N) return;
     if (!wrap) build();
     for (const hh of hist) hh.length = 0;
-    open = true; dirty = true; frameN = 0; rr = 0;
+    open = true; dirty = true; frameN = 0; rr = 0; if (cur >= N) { cur = 0; mode = 'grid'; }
     if (player) { player.st.frozen = true; faceMonitor(); }
     // `ui.menu` is the only way into the modal layer the ui offers: take its handlers over.
     h = ui.menu({ title: 'MONITOR', items: [{ label: () => '', act() {} }], onBack: close });
@@ -521,7 +534,7 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     stats.lastDrawMs = performance.now() - t0;
   }
 
-  bus.on('shift:open', (day) => { reset(); seed = progression?.st?.seed ?? day ?? 1; });   // the night's seed (visible in the pause menu) drives the failures
+  bus.on('shift:open', (day) => { reset(); seed = progression?.st?.seed ?? day ?? 1; if (NA > N) ghost('cam7', { kind: 'figura', x: 22.35, z: 17.4, yaw: 0, pose: 'fixo', seed: 12 }); });   // always there, back to the camera   // the night's seed (visible in the pause menu) drives the failures
   function reset() {
     for (const g of [...ghosts]) g.remove();
     faults.length = 0; trail.length = 0; walked = 0; lastSamplePos = null; recAcc = 0; now = 0;

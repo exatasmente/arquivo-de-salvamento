@@ -25,8 +25,13 @@ import telefone from './telefone.js';
 import corte from './corte.js';
 import cartao from './cartao.js';
 import serie from './serie.js';
+import final1 from './final1.js';
+import final2 from './final2.js';
+import final3 from './final3.js';
+import final4 from './final4.js';
+import final5 from './final5.js';
 
-export const CUTSCENES = { abertura, chegada, gerente, rotina, noites, bomba4, telefone, corte, cartao, serie };
+export const CUTSCENES = { abertura, chegada, gerente, rotina, noites, bomba4, telefone, corte, cartao, serie, final1, final2, final3, final4, final5 };
 /** The cutscenes the game plays (the ones with `filmOnly` are reels for the film mode only). */
 export const cutsceneNames = () => Object.keys(CUTSCENES).filter((n) => !CUTSCENES[n].filmOnly);
 export function cutsceneDuration(nome) {
