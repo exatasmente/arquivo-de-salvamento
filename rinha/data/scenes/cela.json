@@ -1,0 +1,13 @@
+{
+  "scene": "cela",
+  "version": 1,
+  "entities": [
+    {"id":"compartimento","type":"compartimento","pos":[0,0,-2.77],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"vaso-cela","type":"vaso-cela","pos":[2.1,0,-2.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"cama-cela","type":"cama-cela","pos":[-2.05,0,1.6],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"porta-cela","type":"porta-cela","pos":[2.7,0,1],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"painel-cela","type":"painel-cela","pos":[2.5100000000000002,0,-0.55],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"moeda","type":"moeda","pos":[0.7,0.02,-0.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"banco-cela","type":"banco-cela","pos":[1.5,0,1.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}}
+  ]
+}

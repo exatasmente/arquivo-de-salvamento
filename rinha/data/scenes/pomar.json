@@ -1,0 +1,8 @@
+{
+  "scene": "pomar",
+  "version": 1,
+  "entities": [
+    {"id":"casa-fundos","type":"casa-fundos","pos":[0,0,9.4],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"cerca","type":"cerca","pos":[0,0,0],"rot":[0,0,0],"scale":[1,1,1],"params":{}}
+  ]
+}

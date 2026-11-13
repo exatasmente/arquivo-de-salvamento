@@ -7,6 +7,8 @@
 //  - anchors: name -> [x, y, z] (world metres). `javali`, `lobo` are standing spots on the
 //    ground, facing +z (toward the player start); `clareira` is the middle of the gap.
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
+import { sceneEntities } from '../scene-entities.js';
+import LAYOUT from '../../data/scenes/pomar.json' with { type: 'json' };
 import { kit, tex, rig } from '../textures/paint.js';
 import { mergeGeos } from '../render.js';
 import { mulberry32 } from '../rng.js';
@@ -14,10 +16,13 @@ import { part, macieiraVariant, buildCasaFundos, buildCerca, buildEscada, buildC
 
 export const SIZE = { x0: -22, x1: 22, z0: -24, z1: 12 };
 
-export function buildScene(r, { seed = 1 } = {}) {
+export function buildScene(r, { seed = 1, layout = LAYOUT, editor = false } = {}) {
   const T = r.THREE, rand = mulberry32(seed * 1301 + 11);
   const group = new T.Group(); group.name = 'pomar';
   const k = kit(r, group);
+  // The props are the scene's entities (scene-entities.js): built here as before, editable in the scene editor.
+  const props = sceneEntities(r, group, k, layout, editor);
+  const place = props.place;
   const { x0, x1, z0, z1 } = SIZE;
 
   // ---- sky, sun, clouds, far hills
@@ -46,7 +51,7 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   // ---- the house (back, lit door and window)
   const hz = 9.4;
-  buildCasaFundos(r, k, hz);
+  place('casa-fundos', [0, 0, hz], (kk) => buildCasaFundos(r, kk, hz));
 
   // ---- trees (three variants, instanced) and apples
   const exr = mulberry32(seed * 7 + 3);
@@ -115,9 +120,10 @@ export function buildScene(r, { seed = 1 } = {}) {
   }
 
   // ---- the fence and the ladder with a basket at the target tree
-  buildCerca(r, k, x0, x1, z0, z1, rand);
+  place('cerca', [0, 0, 0], (kk) => buildCerca(r, kk, x0, x1, z0, z1, rand));
   // the tree beside the clearing: ladder and basket
   const target = trees.filter((t) => t.x < 0 && t.x > -6).sort((a, b) => Math.abs(a.z + 7) - Math.abs(b.z + 7))[0];
+  // the ladder and the basket stand by a tree the seed picks: not entities (their place changes with the seed)
   const lad = buildEscada(r, k, target);
   const basket = [target.x + 1.4, 0, target.z - 0.4];
   buildCesto(r, k, basket, appleM);
@@ -166,5 +172,6 @@ export function buildScene(r, { seed = 1 } = {}) {
   function update(t) { placeTrees(t); }
   update(0);
   void sky; void sun;
+  props.finish(); // props the layout adds (made in the scene editor)
   return { group, anchors, views, parts: { sky, sun, setTargetLeaf(k) { leafK = k; placeTrees(0); } }, lights: L, update, size: SIZE, treeCount: trees.length };
 }

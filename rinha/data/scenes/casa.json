@@ -1,0 +1,18 @@
+{
+  "scene": "casa",
+  "version": 1,
+  "entities": [
+    {"id":"cama","type":"cama","pos":[-3.3,0,1.25],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"criado-mudo","type":"criado-mudo","pos":[-2.5,0,1.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"guarda-roupa","type":"guarda-roupa","pos":[-3.7,0,-1.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"tapete","type":"tapete","pos":[-2.2,0,-0.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"roupas-no-chao","type":"roupas-no-chao","pos":[-2.8,0,-0.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"fogao","type":"fogao","pos":[0.75,0,-1.98],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"bancada-pia","type":"bancada-pia","pos":[1.75,0,-1.98],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"prateleira-latas","type":"prateleira-latas","pos":[1.45,0,-2.15],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"mesa-tigela","type":"mesa-tigela","pos":[2.2,0,0.55],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"cadeira","type":"cadeira","pos":[2.1,0,1.17],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"geladeira","type":"geladeira","pos":[3.65,0,0.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"lampada","type":"lampada","pos":[2,0,-0.1],"rot":[0,0,0],"scale":[1,1,1],"params":{}}
+  ]
+}

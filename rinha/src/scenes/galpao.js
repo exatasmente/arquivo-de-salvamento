@@ -7,6 +7,8 @@
 //    `facing[name]` gives the yaw (radians, 0 = looking toward +z) to face the table.
 //  - the people are dark, clothed silhouettes (some with white bandages), never wounded.
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
+import { sceneEntities } from '../scene-entities.js';
+import LAYOUT from '../../data/scenes/galpao.json' with { type: 'json' };
 import { kit, tex, rig } from '../textures/paint.js';
 import { mergeGeos } from '../render.js';
 import { mulberry32 } from '../rng.js';
@@ -14,10 +16,13 @@ import { buildJaula, buildMesaNegociacao, buildBanqueta, buildLampadaGalpao, bui
 
 export const SIZE = { x0: -9, x1: 9, z0: -12, z1: 12, h: 8 };
 
-export function buildScene(r, { seed = 1 } = {}) {
+export function buildScene(r, { seed = 1, layout = LAYOUT, editor = false } = {}) {
   const T = r.THREE, rand = mulberry32(seed * 733 + 17);
   const group = new T.Group(); group.name = 'galpao';
   const k = kit(r, group);
+  // The props are the scene's entities (scene-entities.js): built here as before, editable in the scene editor.
+  const props = sceneEntities(r, group, k, layout, editor);
+  const place = props.place;
   const { x0, x1, z0, z1, h } = SIZE;
 
   const conc = k.mat('#9a9a9c', 'concrete'), corr = k.mat('#a8a496', 'corrug'), floorM = k.mat('#8a8a8c', 'concrete');
@@ -50,11 +55,11 @@ export function buildScene(r, { seed = 1 } = {}) {
     for (let x = -8; x < 8; x += 2) k.box([0.12, 1.1, 0.1], truss, [x + 0.5, h - 1.05, z], [0, 0, (x % 4 === 0 ? 0.6 : -0.6)], [1, 1]);
   }
   for (let x = -6; x <= 6; x += 6) k.box([0.2, 0.2, z1 - z0], truss, [x, h - 0.75, 0], [0, 0, 0], [1, 1]);
-  for (const [cx, cz, len] of [[-5.5, 3, 3.8], [5.5, 5, 4.4], [4, -8, 3.2], [-3, 9.5, 3.4]]) buildCorrente(r, k, h, cx, cz, len);
+  [[-5.5, 3, 3.8], [5.5, 5, 4.4], [4, -8, 3.2], [-3, 9.5, 3.4]].forEach(([cx, cz, len], i) => place('corrente', [cx, 0, cz], (kk) => buildCorrente(r, kk, h, cx, cz, len), `corrente-${i + 1}`));
 
   // ---- hanging lamps with hard cones of light
   const lamps = [[-5.6, 6.2, 5], [5.6, 6.2, 5], [0, 5.4, -2.2], [-3.5, 6.2, -8.5], [3.5, 6.2, -8.5]];
-  for (const [lx, ly, lz] of lamps) buildLampadaGalpao(r, k, h, lx, ly, lz);
+  lamps.forEach(([lx, ly, lz], i) => place('lampada-galpao', [lx, 0, lz], (kk) => buildLampadaGalpao(r, kk, h, lx, ly, lz), `lampada-galpao-${i + 1}`));
 
   // ---- cages
   const buckets = { c0: [], c1: [], c2: [], c3: [], skin: [], band: [] };
@@ -97,7 +102,7 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   const cages = [];
   function cage(cx, cz, ry, y, w = 2.4, d = 2.2, ch = 2.4, who = 1, poses = []) {
-    const { g, front } = buildJaula(r, k, cx, cz, ry, y, w, d, ch);
+    const { g, front } = place('jaula', [cx, y, cz], (kk) => buildJaula(r, kk, cx, cz, ry, y, w, d, ch), `jaula-${cages.length + 1}`);
     for (let i = 0; i < who; i++) {
       const pose = poses[i] ?? ['stand', 'sit', 'slump', 'lie'][(rand() * 4) | 0];
       const px = (i - (who - 1) / 2) * 0.9 + (rand() - 0.5) * 0.3;
@@ -128,15 +133,15 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   // ---- the negotiation table (high, for animals) and stools
   const tbl = [0, 0, -2.2];
-  buildMesaNegociacao(r, k, tbl);
+  place('mesa-negociacao', tbl, (kk) => buildMesaNegociacao(r, kk, tbl));
   // big stools around it
   const stools = [[-1.4, -3.9, 0], [1.4, -3.9, 0], [-1.1, -0.5, Math.PI], [1.2, -0.5, Math.PI]];
-  for (const [sx, sz] of stools) buildBanqueta(r, k, sx, sz);
+  stools.forEach(([sx, sz], i) => place('banqueta', [sx, 0, sz], (kk) => buildBanqueta(r, kk, sx, sz), `banqueta-${i + 1}`));
 
   // ---- crates, barrels, a hand cart, hazard strips on the floor
   const crates = [[-6.2, 7.6, 0.2, 1.2], [-6.6, 9.0, 0, 1], [-5.4, 8.4, 0.4, 1.1], [6.5, 8.0, 0.1, 1.4], [6.8, 9.6, -0.2, 1.1], [7.4, -9.2, 0.3, 1.3], [-8.1, 9.8, 0, 0.9]];
-  for (const [cx, cz, ry, s] of crates) buildCaixote(r, k, cx, cz, ry, s);
-  for (const [bx, bz] of [[-8.0, 6.3], [-7.9, 7.1], [8.2, 6.4]]) buildBarril(r, k, bx, bz);
+  crates.forEach(([cx, cz, ry, s], i) => place('caixote', [cx, 0, cz], (kk) => buildCaixote(r, kk, cx, cz, ry, s), `caixote-${i + 1}`));
+  [[-8.0, 6.3], [-7.9, 7.1], [8.2, 6.4]].forEach(([bx, bz], i) => place('barril', [bx, 0, bz], (kk) => buildBarril(r, kk, bx, bz), `barril-${i + 1}`));
   const hazMat = k.decal(k.mat('#ffffff', 'hazard', { fogged: 0.9 }));
   for (const sx of [-3.9, 3.9]) { const f = k.rectGeo(0, 0.35, -9, 9, [0.5, 0.5], 3); k.add(f, hazMat, [sx, 0.04, 0], [-Math.PI / 2, 0, 0]); }
 
@@ -181,5 +186,6 @@ export function buildScene(r, { seed = 1 } = {}) {
   }
   update(0);
   void rand; void tex; void people; void door;
+  props.finish(); // props the layout adds (made in the scene editor)
   return { group, anchors, facing, views, parts: { cages }, lights: L, update, size: SIZE };
 }

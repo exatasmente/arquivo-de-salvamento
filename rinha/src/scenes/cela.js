@@ -8,16 +8,21 @@
 //  - parts: meshes the game moves (moeda, porta, compartimento) plus setters:
 //      setDoor(0..1), setCompartment(0..1), setPanel(mode, text), setCoin(visible).
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
+import { sceneEntities } from '../scene-entities.js';
+import LAYOUT from '../../data/scenes/cela.json' with { type: 'json' };
 import { kit, tex, tallyTexture, toWorld, rig } from '../textures/paint.js';
 import { mulberry32 } from '../rng.js';
 import { buildCamaCela, buildVasoCela, buildCompartimento, buildPortaCela, buildPainelCela, buildMoeda, buildBancoCela } from '../props.js';
 
 export const SIZE = { x0: -2.6, x1: 2.6, z0: -2.8, z1: 2.8, h: 3.0 };
 
-export function buildScene(r, { seed = 1, groups } = {}) {
+export function buildScene(r, { seed = 1, groups, layout = LAYOUT, editor = false } = {}) {
   const T = r.THREE, rand = mulberry32(seed * 977 + 3);
   const group = new T.Group(); group.name = 'cela';
   const k = kit(r, group);
+  // The props are the scene's entities (scene-entities.js): built here as before, editable in the scene editor.
+  const props = sceneEntities(r, group, k, layout, editor);
+  const place = props.place;
   const { x0, x1, z0, z1, h } = SIZE;
   const grp = groups && groups.length ? groups : [5, 5, 5, 5, 5, 5];
 
@@ -54,15 +59,15 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- north wall: tally decal (S3) and the compartment
   const tallyM = r.mat('#ffffff', { map: tallyTexture(r, grp, seed), emissive: 0.5, fogged: 0.9 });
   const tally = k.add(new T.PlaneGeometry(4.0, 1.57, 1, 1), tallyM, [0, 1.72, z0 + 0.012]);
-  const { comp, chips, compPanel } = buildCompartimento(r, k, z0);
+  const { comp, chips, compPanel } = place('compartimento', [0, 0, -2.77], (kk) => buildCompartimento(r, kk, z0));
   const compartmentX = 0.95;
 
   // toilet block, north-east corner
-  buildVasoCela(r, k, z0);
+  place('vaso-cela', [2.1, 0, -2.5], (kk) => buildVasoCela(r, kk, z0));
 
   // ---- bed (west wall, south end)
   const bedC = [-2.05, 0, 1.6];
-  buildCamaCela(r, k, bedC);
+  place('cama-cela', bedC, (kk) => buildCamaCela(r, kk, bedC));
 
   // ---- vent shaft recess with bars (west wall) and the crow's perch behind them (S4)
   // local frame of the west wall: pos [x0,0,0], ry = pi/2, lx = -z
@@ -84,7 +89,7 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- door (east wall) with frame, and the corridor beyond
   const doorW = DOOR.l1 - DOOR.l0, doorZ = (DOOR.l0 + DOOR.l1) / 2;
   const doorM = k.mat('#aeb6c8', 'scifi');
-  const door = buildPortaCela(r, k, DOOR, x1, doorW, doorZ);
+  const door = place('porta-cela', [x1 + 0.1, 0, doorZ], (kk) => buildPortaCela(r, kk, DOOR, x1, doorW, doorZ));
 
   // corridor (wide and tall for the big animals)
   const cx0 = x1 + 0.2, cx1 = cx0 + 3.9, cz0 = -3.6, cz1 = 5.6, ch = 4.2;
@@ -106,14 +111,14 @@ export function buildScene(r, { seed = 1, groups } = {}) {
   // ---- panel beside the door (S1): body, screen, keypad
   const panelL = -0.55; // along the wall (lx = z), beside the door
   const pz = panelL, px = x1 - 0.09;
-  const { scr, screen, pad } = buildPainelCela(r, k, px, pz);
+  const { scr, screen, pad } = place('painel-cela', [px, 0, pz], (kk) => buildPainelCela(r, kk, px, pz));
 
   // ---- the coin (S4): a glowing disc on the floor with a spinning spark
   const coinPos = [0.7, 0.02, -0.9];
-  const { coin, spark } = buildMoeda(r, k, coinPos);
+  const { coin, spark } = place('moeda', coinPos, (kk) => buildMoeda(r, kk, coinPos));
 
   // a bolted stool and a tray with leftovers: small things to make the floor read
-  buildBancoCela(r, k);
+  place('banco-cela', [1.5, 0, 1.9], (kk) => buildBancoCela(r, kk));
   void rand; void tex; void concrete; void tally; void ledge; void glowBack; void screen; void pad; void compPanel; void north;
 
   // ---- lights (4 points) and fog
@@ -175,5 +180,6 @@ export function buildScene(r, { seed = 1, groups } = {}) {
     setPanel: scr.set,
     setCoin(v) { coin.visible = !!v; },
   };
+  props.finish(); // props the layout adds (made in the scene editor)
   return { group, anchors, views, parts, lights: L, update, size: SIZE };
 }

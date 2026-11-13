@@ -6,6 +6,8 @@
 //  - anchors: name -> [x, y, z]; `facing[name]` is a yaw (0 = looking toward +z).
 //  - parts.bonecoUm / bonecoDois: dummy groups (rotate them on a hit); parts.saco: the bag.
 //  - lights.apply(): put this scene's fog/ambient/point lights on the shared renderer.
+import { sceneEntities } from '../scene-entities.js';
+import LAYOUT from '../../data/scenes/treino.json' with { type: 'json' };
 import { kit, tex, rig } from '../textures/paint.js';
 import { mulberry32 } from '../rng.js';
 import { buildTatame, buildMarcasFita, buildBoneco, buildSacoDePancada, buildArmarios, buildRelogio, buildPrateleira, buildItensLoja,
@@ -13,10 +15,13 @@ import { buildTatame, buildMarcasFita, buildBoneco, buildSacoDePancada, buildArm
 
 export const SIZE = { x0: -8, x1: 8, z0: -7, z1: 7, h: 6.5 };
 
-export function buildScene(r, { seed = 1 } = {}) {
+export function buildScene(r, { seed = 1, layout = LAYOUT, editor = false } = {}) {
   const T = r.THREE, rand = mulberry32(seed * 431 + 29);
   const group = new T.Group(); group.name = 'treino';
   const k = kit(r, group);
+  // The props are the scene's entities (scene-entities.js): built here as before, editable in the scene editor.
+  const props = sceneEntities(r, group, k, layout, editor);
+  const place = props.place;
   const { x0, x1, z0, z1, h } = SIZE;
 
   const woodFloor = k.mat('#c8ac84', 'wood'), panel = k.mat('#6c7c74', 'plaster'), plaster = k.mat('#a0a4ae', 'concrete');
@@ -56,46 +61,46 @@ export function buildScene(r, { seed = 1 } = {}) {
 
   // ---- tatami with a border, and the taped marks
   const tx = 5.6, tz = 4.3;
-  buildTatame(r, k, tx, tz);
-  buildMarcasFita(r, k);
+  place('tatame', [0, 0, 0], (kk) => buildTatame(r, kk, tx, tz));
+  place('marcas-de-fita', [1, 0, 1], (kk) => buildMarcasFita(r, kk));
 
   // ---- dummies
-  const d1 = buildBoneco(r, k, -2.0, -2.2, 0), d2 = buildBoneco(r, k, -4.6, 1.4, Math.PI / 2);
+  const d1 = place('boneco', [-2.0, 0, -2.2], (kk) => buildBoneco(r, kk, -2.0, -2.2, 0), 'boneco-1'), d2 = place('boneco', [-4.6, 0, 1.4], (kk) => buildBoneco(r, kk, -4.6, 1.4, Math.PI / 2), 'boneco-2');
 
   // hanging heavy bag and a speed ball
-  const bag = buildSacoDePancada(r, k, h);
+  const bag = place('saco-de-pancada', [4.8, 0, -1.5], (kk) => buildSacoDePancada(r, kk, h));
   const bagBaseY = bag.position.y;
 
   // ---- walls dressing: night window, wooden pole rack, lockers, clock, shelf with bandages, terminal
   const mir = k.add(new T.PlaneGeometry(5.0, 2.2), k.mat('#ffffff', 'nightsky', { emissive: 1, fogged: 0.5 }), [x0 + 0.04, 2.4, -1], [0, Math.PI / 2, 0]);
   k.box([0.06, 2.3, 5.2], dark, [x0 + 0.03, 2.4, -1]);
   mir.position.x = x0 + 0.075; // window pane in front of its frame (night outside, like everywhere in the game)
-  buildArmarios(r, k, x0);
-  buildRelogio(r, k, z0);
+  place('armarios', [-7.8, 0, 5.95], (kk) => buildArmarios(r, kk, x0));
+  place('relogio', [0, 0, -6.94], (kk) => buildRelogio(r, kk, z0));
   // shelf with bandage rolls (east wall) and a bench
   const shelf = [x1 - 0.3, 1.1, -1.5];
-  buildPrateleira(r, k, shelf);
-  buildItensLoja(r, k, shelf);
-  buildPanosPrateleira(r, k, shelf);
+  place('prateleira', [shelf[0], 0, shelf[2]], (kk) => buildPrateleira(r, kk, shelf));
+  // the shop's items and the cloth piled on the shelf, in the order the scene always built them
+  place('itens-loja', [shelf[0], 0, shelf[2]], (kk) => { buildItensLoja(r, kk, shelf); buildPanosPrateleira(r, kk, shelf); });
   k.box([0.4, 1.1, 0.04], k.mat('#4a3a2c', 'wood'), [x1 - 0.06, 0.9, -1.5], [0, 0, 0], [1, 1]).visible = false;
   const bench = [6.7, 0, 2.6];
-  buildBancoTreino(r, k, bench);
+  place('banco-treino', bench, (kk) => buildBancoTreino(r, kk, bench));
   // wooden pole rack
   const rackX = 3.0, rackZ = z0 + 0.3;
-  buildSuporteVaras(r, k, rackX, rackZ);
+  place('suporte-varas', [rackX, 0, rackZ], (kk) => buildSuporteVaras(r, kk, rackX, rackZ));
   // save terminal: a console with a lit screen and a memory-card slot
   const term = [-7.5, 0, -4.8];
-  const scr = buildTerminalSalvar(r, k, term);
+  const scr = place('terminal-salvar', term, (kk) => buildTerminalSalvar(r, kk, term));
   void scr;
   // hazard lines around the tatami and ceiling lamps
   for (const lz of [-4, 0, 4]) { k.box([4.5, 0.08, 0.25], k.glow('#f4f8ff', { fogged: 0.25 }), [0, h - 0.4, lz]); }
   for (let z = -6; z <= 6; z += 4) k.box([x1 - x0, 0.3, 0.22], k.mat('#3c404a', 'metal'), [0, h - 0.15, z]);
   for (let x = -6; x <= 6; x += 6) k.box([0.22, 0.3, z1 - z0], k.mat('#3c404a', 'metal'), [x, h - 0.35, 0]);
   // a heavy cargo net of ropes in the corner (cheap: thin boxes)
-  buildRedeDeCarga(r, k, x0);
+  place('rede-de-carga', [-7.9, 0, -5.6], (kk) => buildRedeDeCarga(r, kk, x0));
 
   // a dais where the instructor stands
-  buildTablado(r, k);
+  place('tablado', [2.2, 0, -4.9], (kk) => buildTablado(r, kk));
 
   // ---- lights (4 points) and fog
   const L = rig(r, {
@@ -146,5 +151,6 @@ export function buildScene(r, { seed = 1 } = {}) {
   }
   update(0);
   void rand; void tex; void bagBaseY;
+  props.finish(); // props the layout adds (made in the scene editor)
   return { group, anchors, facing, views, parts: { bonecoUm: d1.g, bonecoDois: d2.g, saco: bag, openDoor }, lights: L, update, size: SIZE };
 }

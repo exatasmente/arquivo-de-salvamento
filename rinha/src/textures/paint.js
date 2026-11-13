@@ -286,9 +286,8 @@ export function screenPanel(r) {
 // ---------------------------------------------------------------------------------------------
 // Geometry kit. `kit(r, parent)` returns helpers that build with r.mat only.
 
-export function kit(r, parent) {
+export function kit(r, parent, mats = new Map()) {
   const T = r.THREE;
-  const mats = new Map();
   function mat(color, map, o = {}) {
     const key = [color, map ?? '', JSON.stringify(o)].join('|');
     if (mats.has(key)) return mats.get(key);
@@ -376,7 +375,9 @@ export function kit(r, parent) {
   /** Mark a material as a decal laid over a surface (vertex snapping breaks coplanar depth). */
   function decal(material, n = -4) { material.polygonOffset = true; material.polygonOffsetFactor = n; material.polygonOffsetUnits = n; return material; }
 
-  return { T, shaft, decal, mat, glow, rectGeo, add, wall, floor, boxGeo, box, cyl, sphere, group: parent };
+  // `into(group)`: the same kit putting its meshes into another group, with the same materials (one
+  // material per colour and texture across the scene, so the order the renderer draws them in stays).
+  return { T, shaft, decal, mat, glow, rectGeo, add, wall, floor, boxGeo, box, cyl, sphere, group: parent, into: (g) => kit(r, g, mats) };
 }
 
 /** Rotate local wall coordinates to world, for anchors: wall at pos with yaw ry. */

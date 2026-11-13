@@ -12,6 +12,10 @@ const q = new URLSearchParams(location.search);
 if (q.has('film')) {
   // film mode: the picture comes from film.js, which installs itself; no game and no loop
   await import('./film.js');
+} else if (q.has('editor')) {
+  // the scene editor: one scene alone, its props editable (scene-view.js)
+  const { viewScene } = await import('./scene-view.js');
+  await viewScene(q.get('editor') || 'cela');
 } else boot();
 
 function boot() {

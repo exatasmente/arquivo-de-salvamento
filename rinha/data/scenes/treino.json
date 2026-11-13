@@ -1,0 +1,20 @@
+{
+  "scene": "treino",
+  "version": 1,
+  "entities": [
+    {"id":"tatame","type":"tatame","pos":[0,0,0],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"marcas-de-fita","type":"marcas-de-fita","pos":[1,0,1],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"boneco-1","type":"boneco","pos":[-2,0,-2.2],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"boneco-2","type":"boneco","pos":[-4.6,0,1.4],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"saco-de-pancada","type":"saco-de-pancada","pos":[4.8,0,-1.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"armarios","type":"armarios","pos":[-7.8,0,5.95],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"relogio","type":"relogio","pos":[0,0,-6.94],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"prateleira","type":"prateleira","pos":[7.7,0,-1.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"itens-loja","type":"itens-loja","pos":[7.7,0,-1.5],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"banco-treino","type":"banco-treino","pos":[6.7,0,2.6],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"suporte-varas","type":"suporte-varas","pos":[3,0,-6.7],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"terminal-salvar","type":"terminal-salvar","pos":[-7.5,0,-4.8],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"rede-de-carga","type":"rede-de-carga","pos":[-7.9,0,-5.6],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"tablado","type":"tablado","pos":[2.2,0,-4.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}}
+  ]
+}
