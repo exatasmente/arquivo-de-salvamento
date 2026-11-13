@@ -9,6 +9,19 @@ vídeo.
 | Pasta | Jogo | Jogar |
 |---|---|---|
 | `rinha/` | **Rinha**: as criaturas que a gente capturava para lutar agora capturam a gente | [exatasmente.github.io/arquivo-de-salvamento/rinha/](https://exatasmente.github.io/arquivo-de-salvamento/rinha/) |
+| `o-dia-que-sobra/` | **O Dia que Sobra**: quatro semanas de turno da madrugada num posto de gasolina, e algo no posto que não quer que a folga chegue | [exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/](https://exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/) |
+
+## O Dia que Sobra
+
+Você é o frentista da madrugada do Posto Bom Dia, na saída de uma cidade pequena. Faltam quatro
+semanas para acabar a escala seis por um. Abasteça, atenda, reponha, feche o caixa às seis. E
+não olhe muito tempo para a placa.
+
+O jogo roda no navegador, no computador ou no celular, sem instalar nada. Teclado e mouse
+(`W` `A` `S` `D`, mouse para olhar, `E` para usar e segurar `E` para manipular, `F` lanterna,
+`Q` prancheta, `Esc` pausa), controle ou toque. O progresso fica salvo no cartão de memória do
+próprio navegador. Em construção: a primeira semana está completa; as semanas seguintes, as folgas
+e os finais estão chegando.
 
 ## Rinha
 

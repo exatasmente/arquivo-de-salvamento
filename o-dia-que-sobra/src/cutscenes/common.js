@@ -288,13 +288,14 @@ function drawNoise(g, w, h, amount, t) {
 
 /** The dialogue box of the game (#dlg): who talks (or nothing for a thought), the text as far as it has been said. */
 function drawDialog(g, w, h, d) {
-  const bw = Math.round(Math.min(w * 0.9, h * 1.55)), fs = h * 0.052, pad = h * 0.03;
+  const tall = h > w * 1.1; // vertical picture: the type follows the width, the box sits lower
+  const bw = Math.round(Math.min(w * 0.94, h * 1.55)), fs = tall ? Math.min(h * 0.052, w * 0.062) : h * 0.052, pad = tall ? w * 0.04 : h * 0.03;
   const words = d.text.split(' '), lines = [];
   g.font = mono(fs);
   let cur = '';
   for (const wd of words) { const tryL = cur ? cur + ' ' + wd : wd; if (g.measureText(tryL).width > bw - pad * 2 && cur) { lines.push(cur); cur = wd; } else cur = tryL; }
   lines.push(cur);
-  const head = d.who ? fs * 1.35 : 0, bh = Math.round(pad * 2 + head + lines.length * fs * 1.3), bx = Math.round((w - bw) / 2), by = Math.round(h * 0.9 - bh);
+  const head = d.who ? fs * 1.35 : 0, bh = Math.round(pad * 2 + head + lines.length * fs * 1.3), bx = Math.round((w - bw) / 2), by = Math.round(h * (tall ? 0.95 : 0.9) - bh);
   g.fillStyle = 'rgba(8,10,16,0.9)'; g.fillRect(bx + 4, by + 4, bw, bh); // the hard shadow
   g.fillStyle = 'rgba(8,10,16,0.92)'; g.fillRect(bx, by, bw, bh);
   g.strokeStyle = GOLD; g.lineWidth = Math.max(2, Math.round(h / 150)); g.strokeRect(bx, by, bw, bh);
@@ -313,31 +314,53 @@ function drawDialog(g, w, h, d) {
   }
 }
 
-/** The clipboard of the game (#sheet). sheet: { time, day, week, wallet, tasks: [{ text, done }] }. */
+/**
+ * The clipboard of the game (#sheet). sheet: { time, day, week, wallet, tasks: [{ text, done }], perf?: [[label, value]] }.
+ * Every line is measured: a text that is too long for the box is wrapped (a task, with a hanging indent) or its type is
+ * reduced a little (never below 70%), so nothing leaves the box; the header has the time and the money on one line and
+ * the week and the night on the next.
+ */
 function drawSheet(g, w, h, s) {
-  const bw = Math.round(h * 0.62), fs = h * 0.04, pad = h * 0.025, rows = s.tasks.length + (s.perf ? 3.2 : 0);
-  const bh = Math.round(pad * 2 + fs * (3.2 + rows * 1.5)), bx = Math.round(w - bw - h * 0.04), by = Math.round(h * 0.12);
+  const fs = h * 0.04, pad = h * 0.03, bw = Math.round(Math.min(w * 0.94, h * 0.8)), inner = bw - pad * 2;
+  const bx = Math.round(Math.max(h * 0.02, w - bw - h * 0.04)), by = Math.round(h * 0.1);
+  const ops = []; let y = pad;
+  const width = (text, px) => { g.font = mono(px); return g.measureText(text).width; };
+  const fit = (text, px, max) => { let k = px; while (k > px * 0.7 && width(text, k) > max) k -= 0.5; return k; };
+  const line = (text, px, color, x = 0, align = 'left', max = inner - x) => { const k = fit(text, px, max); ops.push({ text, px: k, color, x, y, align }); };
+  line('PRANCHETA', fs * 1.05, NAME); y += fs * 1.5;
+  ops.push({ text: s.time, px: fs * 1.25, color: '#ff9a4a', x: 0, y, align: 'left' });
+  line(`R$ ${s.wallet}`, fs * 0.85, '#ff9a4a', inner, 'right', inner - width(s.time, fs * 1.25) - fs * 0.6); y += fs * 1.55;
+  line(`SEMANA ${s.week} · NOITE ${s.day}`, fs * 0.8, '#b09a5a'); y += fs * 1.6;
+  const tpx = fs * 0.85;
+  for (const t of s.tasks) {
+    const mark = t.done ? '[x] ' : '[ ] ', indent = width(mark, tpx), color = t.done ? '#7a9a6a' : INK;
+    const words = t.text.split(' '), rows = []; let cur = '';
+    for (const wd of words) { const tryL = cur ? cur + ' ' + wd : wd; if (width(tryL, tpx) > inner - indent && cur) { rows.push(cur); cur = wd; } else cur = tryL; }
+    rows.push(cur);
+    rows.forEach((r, i) => { if (i === 0) line(mark + r, tpx, color); else line(r, tpx, color, indent); y += fs * 1.3; });
+    y += fs * 0.2;
+  }
+  if (s.perf) {
+    y += fs * 0.3; line('DESEMPENHO DA NOITE', fs * 0.85, '#b09a5a'); y += fs * 1.5;
+    const cells = s.perf.map(([k, v]) => `${k} ${v}`), colW = inner / 2 - fs * 0.3;
+    for (let i = 0; i < cells.length; i += 2) {
+      line(cells[i], fs * 0.8, INK, 0, 'left', colW); if (cells[i + 1]) line(cells[i + 1], fs * 0.8, INK, inner / 2, 'left', colW);
+      y += fs * 1.35;
+    }
+  }
+  const bh = Math.round(y + pad * 0.6);
   g.fillStyle = 'rgba(0,0,0,1)'; g.fillRect(bx + 4, by + 4, bw, bh);
   g.fillStyle = 'rgba(14,12,10,0.92)'; g.fillRect(bx, by, bw, bh);
   g.strokeStyle = GOLD; g.lineWidth = Math.max(2, Math.round(h / 150)); g.strokeRect(bx, by, bw, bh);
-  g.textBaseline = 'top'; g.textAlign = 'left';
-  let y = by + pad;
-  g.font = mono(fs * 1.05); g.fillStyle = NAME; g.fillText('PRANCHETA', bx + pad, y); y += fs * 1.5;
-  g.font = mono(fs * 1.25); g.fillStyle = '#ff9a4a'; g.fillText(s.time, bx + pad, y);
-  g.font = mono(fs * 0.8); g.fillStyle = '#b09a5a'; g.fillText(`SEMANA ${s.week} · NOITE ${s.day}   R$ ${s.wallet}`, bx + pad + fs * 4.2, y + fs * 0.35); y += fs * 1.7;
-  g.font = mono(fs * 0.85);
-  for (const t of s.tasks) { g.fillStyle = t.done ? '#7a9a6a' : INK; g.fillText((t.done ? '[x] ' : '[ ] ') + t.text, bx + pad, y); y += fs * 1.5; }
-  if (s.perf) {
-    y += fs * 0.3; g.font = mono(fs * 0.85); g.fillStyle = '#b09a5a'; g.fillText('DESEMPENHO DA NOITE', bx + pad, y); y += fs * 1.5;
-    g.font = mono(fs * 0.8); g.fillStyle = INK;
-    const cells = s.perf.map(([k, v]) => `${k} ${v}`);
-    for (let i = 0; i < cells.length; i += 2) { g.fillText(cells[i], bx + pad, y); if (cells[i + 1]) g.fillText(cells[i + 1], bx + pad + bw * 0.5, y); y += fs * 1.35; }
-  }
+  g.textBaseline = 'top';
+  for (const o of ops) { g.font = mono(o.px); g.fillStyle = o.color; g.textAlign = o.align; g.fillText(o.text, bx + pad + o.x, by + o.y + pad * 0.6 - pad * 0.6 + 0); }
+  g.textAlign = 'left';
 }
 
 /** The screens of the office, seen straight on (a provisional drawing until the game has its own, phase 4). */
 function drawScreen(g, w, h, s, t) {
-  const sw = Math.round(Math.min(w * 0.8, h * 1.2)), sh = Math.round(sw * 0.72), x = Math.round((w - sw) / 2), y = Math.round((h - sh) / 2);
+  const tall = h > w * 1.1; // a vertical picture (the 9:16 cut): the screen takes the width and a tall frame instead of a small 4:3 one
+  const sw = tall ? Math.round(w * 0.94) : Math.round(Math.min(w * 0.8, h * 1.2)), sh = tall ? Math.round(Math.min(h * 0.62, sw * (s.kind === 'cam' ? 1.2 : 0.9))) : Math.round(sw * 0.72), x = Math.round((w - sw) / 2), y = Math.round((h - sh) / 2);
   g.fillStyle = '#1a1814'; g.fillRect(x - 14, y - 14, sw + 28, sh + 28); // the bezel
   g.fillStyle = '#050805'; g.fillRect(x, y, sw, sh);
   g.save(); g.beginPath(); g.rect(x, y, sw, sh); g.clip();
@@ -359,7 +382,7 @@ function drawScreen(g, w, h, s, t) {
     drawCamGrid(g, x, y, sw, sh, s, t);
   } else if (s.kind === 'cam' && s.image) {
     g.imageSmoothingEnabled = false;
-    const zm = s.zoom ?? 1, iw = s.image.width / zm, ih = s.image.height / zm, ax = (s.at?.[0] ?? 0.5), ay = (s.at?.[1] ?? 0.5);
+    const zm = s.zoom ?? 1, ih = s.image.height / zm, iw = tall ? Math.min(s.image.width, ih * sw / sh) : s.image.width / zm, ax = (s.at?.[0] ?? 0.5), ay = (s.at?.[1] ?? 0.5);
     g.drawImage(s.image, Math.min(s.image.width - iw, Math.max(0, ax * s.image.width - iw / 2)), Math.min(s.image.height - ih, Math.max(0, ay * s.image.height - ih / 2)), iw, ih, x, y, sw, sh);
     g.fillStyle = 'rgba(190,230,190,0.9)'; g.font = mono(fs * 0.7); g.fillText(s.label ?? 'CAM 1', x + sw * 0.04, y + sh * 0.04);
   }

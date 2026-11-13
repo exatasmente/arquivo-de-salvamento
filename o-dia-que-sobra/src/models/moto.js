@@ -62,7 +62,7 @@ export function buildMoto(r, { seed = 1, color, tint = 1 } = {}) {
   setLights(false);
 
   // the rider: leaning toward the bars, helmet with a dark visor
-  const rider = new T.Group(); c.dyn.add(rider);
+  const rider = new T.Group(); rider.position.z = 0.06; c.dyn.add(rider); // a hand's width forward: the back of the jacket was inside the delivery box
   const jacket = D('#3c3a40', 'rubber'), pants = D('#2e3038', 'rubber'), helmet = D('#cfcbbe', 'plastic'), visor = D('#1c2024', 'rubber');
   c.mesh(new T.BoxGeometry(0.38, 0.52, 0.22), jacket, [0, 1.12, -0.3], [0.38, 0, 0], rider);
   const head3 = new T.Group(); head3.position.set(0, 1.5, -0.1); rider.add(head3);

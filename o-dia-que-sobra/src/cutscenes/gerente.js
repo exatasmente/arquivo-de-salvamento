@@ -65,6 +65,16 @@ const KEYS = [
   { t: 54.0, eye: [5.6, EYE, 16.9], look: [6.35, 0.95, 18.7], ease: 'ss' },
   { t: 60.0, eye: [5.7, EYE, 17.0], look: [6.35, 1.0, 18.7] },
   // source ranges after the end, used only by the windows of scenes 16 and 17: his face close, then the calendar close
+  // scene 15, the handover from close; scene 16, the calendar whole from the west; scene 17, his finger on the calendar
+  { t: 79.95, eye: [9.2, 1.55, 5.7], look: [9.9, 1.25, 6.9] }, { t: 80.0, eye: [9.2, 1.55, 5.7], look: [9.9, 1.25, 6.9] }, { t: 83.97, eye: [9.3, 1.5, 5.6], look: [9.9, 1.2, 6.9], ease: 'ss' },
+  { t: 89.95, eye: [5.0, 1.62, 13.3], look: [8.3, 1.55, 12.1] }, { t: 90.0, eye: [5.0, 1.62, 13.3], look: [8.3, 1.55, 12.1] }, { t: 95.6, eye: [5.2, 1.62, 13.1], look: [8.3, 1.55, 12.1], ease: 'ss' },
+  { t: 99.95, eye: [8.1, 1.55, 13.1], look: [8.3, 1.5, 12.1] }, { t: 100.0, eye: [8.1, 1.55, 13.1], look: [8.3, 1.5, 12.1] }, { t: 106.2, eye: [8.15, 1.55, 13.0], look: [8.3, 1.5, 12.1], ease: 'ss' },
+  // scene 16, a fixed frame: the manager beside the calendar of four weeks, the calendar whole from the first instant to the last
+  { t: 129.95, eye: [8.0, 1.6, 13.8], look: [7.95, 1.5, 12.1] }, { t: 130.0, eye: [8.0, 1.6, 13.8], look: [7.95, 1.5, 12.1] }, { t: 138.8, eye: [8.05, 1.62, 14.2], look: [7.95, 1.5, 12.1], ease: 'ss' },
+  // the vertical cut of scene 15 (low, close): his face and chest, the vest and the torch, the board
+  { t: 199.95, eye: [9.8, 1.3, 5.6], look: [9.8, 1.25, 6.9] }, { t: 200.0, eye: [9.8, 1.3, 5.6], look: [9.8, 1.25, 6.9] }, { t: 203.17, eye: [9.8, 1.3, 5.7], look: [9.8, 1.25, 6.9] }, { t: 203.19, eye: [9.8, 1.3, 5.7], look: [9.8, 1.25, 6.9] },
+  { t: 209.95, eye: [9.5, 1.2, 5.9], look: [9.85, 1.2, 6.7] }, { t: 210.0, eye: [9.5, 1.2, 5.9], look: [9.85, 1.2, 6.7] }, { t: 213.17, eye: [9.55, 1.2, 5.85], look: [9.85, 1.2, 6.7] }, { t: 213.19, eye: [9.55, 1.2, 5.85], look: [9.85, 1.2, 6.7] },
+  { t: 219.95, eye: [5.0, 1.45, 14.0], look: [6.9, 1.4, 12.9] }, { t: 220.0, eye: [5.0, 1.45, 14.0], look: [6.9, 1.4, 12.9] }, { t: 223.57, eye: [5.1, 1.45, 13.9], look: [6.9, 1.4, 12.9] }, { t: 223.59, eye: [5.1, 1.45, 13.9], look: [6.9, 1.4, 12.9] },
   { t: 60.95, eye: [7.5, 1.62, 14.4], look: [6.75, 1.62, 13.5] }, { t: 61.0, eye: [7.5, 1.62, 14.4], look: [6.75, 1.62, 13.5] }, { t: 66.97, eye: [7.35, 1.62, 14.3], look: [6.72, 1.62, 13.5], ease: 'ss' },
   { t: 67.0, eye: [7.9, 1.62, 13.25], look: [8.3, 1.5, 12.1] }, { t: 73.5, eye: [8.0, 1.62, 13.1], look: [8.3, 1.5, 12.1], ease: 'ss' },
 ];
@@ -104,10 +114,11 @@ const BASE = {
     return {
       group: g, hands: true, arms: hands.arms,
       anchors: { gerente: () => [9.8, 1.6, 6.9], quadro: () => W.p('quadroTarefas', 1.5), calendario: () => [8.3, 1.5, 12.1], porta: () => W.p('porta-loja', 1.2) },
-      pose(t, ambient) {
+      pose(tReal, ambient) {
+        const t = tReal >= 80 && tReal < 90 ? 9.0 + (tReal - 80) : tReal >= 200 && tReal < 203.2 ? 0.3 + (tReal - 200) : tReal >= 210 && tReal < 213.2 ? 9.0 + (tReal - 210) : tReal >= 220 && tReal < 223.6 ? 20.8 + (tReal - 220) : tReal; // the close handover plays the handover of 9 s on; the vertical cut plays the opening, the handover and the board from 200, 210 and 220
         const { rig } = hands;
         const sway = Math.sin(t * 1.4);
-        let eyeBase = cam(t);
+        let eyeBase = cam(tReal);
         const walkIn = t < 3.0 ? 1 : 0, b = bob(t, walkIn * 0.9);
         const eye = [eyeBase.eye[0] + b[0] * 0.3, eyeBase.eye[1] + b[1], eyeBase.eye[2]];
         // ---- the manager
@@ -117,7 +128,7 @@ const BASE = {
         if (t < 18) yaw = facing(pos[0], pos[2]);
         else if (t < 29) { pos = [6.3, 0, 13.4]; yaw = Math.atan2(7.2 - pos[0], 12.1 - pos[2]); pose = t >= 21.0 && t < 28 ? 'apontando' : 'parado'; head = clampA(wrap(facing(pos[0], pos[2]) - yaw)); }
         else if (t < 40) { pos = [6.7, 0, 13.5]; yaw = Math.atan2(8.3 - pos[0], 12.1 - pos[2]); pose = t >= 30.6 && t < 38.0 ? 'apontando' : 'parado'; head = clampA(wrap(facing(pos[0], pos[2]) - yaw)); }
-        else if (t >= 60) { pos = [6.7, 0, 13.5]; yaw = Math.atan2(8.3 - pos[0], 12.1 - pos[2]); pose = t >= 67 ? 'apontando' : 'parado'; head = clampA(wrap(facing(pos[0], pos[2]) - yaw)); }
+        else if (t >= 60) { pos = [6.7, 0, 13.5]; yaw = Math.atan2(8.3 - pos[0], 12.1 - pos[2]); pose = t >= 100 ? 'apontando' : 'parado'; if (t >= 100) pos = [7.3, 0, 13.7]; if (t >= 130) { pos = [7.55, 0, 12.65]; yaw = Math.atan2(8.3 - pos[0], 12.1 - pos[2]); pose = 'apontando'; head = clampA(wrap(facing(pos[0], pos[2]) - yaw)); } head = clampA(wrap(facing(pos[0], pos[2]) - yaw)); }
         else { const p = leavePos(t); pos = [p.x, 0, p.z]; yaw = p.yaw; walk = p.walk; }
         am.root.position.set(pos[0], 0, pos[2]); am.root.rotation.y = yaw;
         am.update(t, walk > 0 ? { andando: 1, fase: t * 6.8 } : { pose, falando: say.at(t) !== null, olhar: head });
@@ -152,7 +163,7 @@ const BASE = {
         void outside;
         const open = smooth(ramp(t, 44.2, 44.9)) * (1 - smooth(ramp(t, 46.2, 47.0)));
         const fade = Math.max(1 - smooth(ramp(t, 0, 0.5)), smooth(ramp(t, 59.2, 59.95)) * (t >= 50 && t < 60 ? 1 : 0));
-        if (t >= 50 && t < 60) am.root.visible = false;
+        if ((t >= 50 && t < 60) || (t >= 90 && t < 100)) am.root.visible = false;
         if (t >= 54.2 && t < 58.6) { const u = smooth(ramp(t, 54.2, 55.0)) * (1 - smooth(ramp(t, 58.0, 58.6))); const tg = [0.25, 0.1, -0.5].map((v, i) => i === 0 ? v : v); const ph = toCam(T, eye, eyeBase.look, [6.35, 0.95, 18.7]); rig.reach('right', ph.map((v, i) => lerp([0.22, -0.4, -0.34][i], v, u))); void tg; }
         return {
           eye, look: eyeBase.look, roll: eyeBase.roll + b[2], fade, dialog: say.at(t),
@@ -165,11 +176,13 @@ const BASE = {
 
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
-  { name: 'c15-entrega', desc: 'Cena 15: o gerente espera ao lado do balcão, entrega o colete e a lanterna e aponta o quadro de tarefas', pieces: [{ src: 0.3, d: 3.2 }, { src: 9.2, d: 3.2 }, { src: 20.8, d: 3.6 }],
+  { name: 'c15-entrega-v', desc: 'Cena 15, vertical: o gerente de perto e de baixo, o colete e a lanterna nas mãos, o quadro de tarefas; as três caixas', pieces: [{ src: 200.0, d: 3.2 }, { src: 210.0, d: 3.2 }, { src: 220.0, d: 3.6 }],
     say: [{ t: 0.1, who: 'Gerente', text: 'Chegou na hora, rapaz. Hoje você aprende o posto.', seed: BABBLE_SEEDS.gerente, hold: 0.1 }, { t: 3.3, who: 'Gerente', text: 'Colete e lanterna. A pilha nova é por sua conta.', seed: BABBLE_SEEDS.gerente, hold: 0.1 }, { t: 6.5, who: 'Gerente', text: 'Aqui o quadro de tarefas. O que não está feito, você faz.', seed: BABBLE_SEEDS.gerente, hold: 0.3 }] },
-  { name: 'c16-semanas', desc: 'Cena 16: o rosto do gerente de perto e depois o calendário com as quatro semanas; ele diz que faltam quatro semanas', pieces: [{ src: 61.0, d: 3.2 }, { src: 31.0, d: 5.6 }],
+  { name: 'c15-entrega', desc: 'Cena 15: o gerente espera ao lado do balcão, entrega o colete e a lanterna de perto e aponta o quadro de tarefas', pieces: [{ src: 0.3, d: 3.2 }, { src: 80.0, d: 3.2 }, { src: 20.8, d: 3.6 }],
+    say: [{ t: 0.1, who: 'Gerente', text: 'Chegou na hora, rapaz. Hoje você aprende o posto.', seed: BABBLE_SEEDS.gerente, hold: 0.1 }, { t: 3.3, who: 'Gerente', text: 'Colete e lanterna. A pilha nova é por sua conta.', seed: BABBLE_SEEDS.gerente, hold: 0.1 }, { t: 6.5, who: 'Gerente', text: 'Aqui o quadro de tarefas. O que não está feito, você faz.', seed: BABBLE_SEEDS.gerente, hold: 0.3 }] },
+  { name: 'c16-semanas', desc: 'Cena 16: o gerente ao lado do calendário de quatro semanas, que aparece inteiro e legível do começo ao fim; ele diz que faltam quatro semanas', pieces: [{ src: 130.0, d: 8.8 }],
     say: [{ t: 0.6, who: 'Gerente', text: 'São quatro semanas até a mudança.', seed: BABBLE_SEEDS.gerente, hold: 1.0 }] },
-  { name: 'c17-escala', desc: 'Cena 17: o calendário de perto, o gerente aponta e diz a frase da escala', pieces: [{ src: 67.0, d: 6.2 }],
+  { name: 'c17-escala', desc: 'Cena 17: o dedo do gerente no calendário, bem de perto, e a frase da escala', pieces: [{ src: 100.0, d: 6.2 }],
     say: [{ t: 0.5, who: 'Gerente', text: 'Até a mudança, é seis por um. Nem um dia a Mais.', seed: BABBLE_SEEDS.gerente, hold: 1.2 }] },
   { name: 'c18-meta', desc: 'Cena 18: o gerente, de frente, na loja acesa: "Meta é meta."', pieces: [{ src: 3.0, d: 3.0 }],
     say: [{ t: 0.2, who: 'Gerente', text: 'Meta é meta.', seed: BABBLE_SEEDS.gerente, hold: 1.0 }] },

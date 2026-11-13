@@ -250,6 +250,8 @@ export async function createGame({ root, render, input, params }) {
     if (medication.active('cor')) fx.filter = `saturate(0.3) contrast(0.9)${fx.filter ? ' ' + fx.filter : ''}`;
     fx.black = Math.max(entity.black, 0);
     fx.droop = medication.sleepy; fx.lid = medication.sleepy / 0.55 * 0.28 + (medication.blinking ? 0.4 : 0); fx.black = Math.max(medication.fade, entity.black);
+    // hidden: the view is through the crack of the door, darker
+    if (entity.hidden) { fx.lid = Math.max(fx.lid || 0, 0.34); fx.filter = `brightness(0.5)${fx.filter ? ' ' + fx.filter : ''}`; fx.vignette = Math.max(fx.vignette, 0.7); }
     time.step(dt);
     player.step(dt, intent);
     interaction.update(dt, intent);

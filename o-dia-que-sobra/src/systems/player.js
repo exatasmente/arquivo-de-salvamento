@@ -34,9 +34,28 @@ export function createPlayer(bus, { world }) {
       if (!moved) break;
     }
   }
+  /** Puts the player on the nearest free floor to (x, z) (out of every collider that is on) and stands them up. */
+  function freeSpot(x, z) {
+    st.crouch = false; st.x = x; st.z = z;
+    if (blocked(x, z)) {
+      outer: for (const r of [0.5, 0.9, 1.3, 1.8]) for (let a = 0; a < 12; a++) {
+        const nx = x + Math.cos(a * Math.PI / 6) * r, nz = z + Math.sin(a * Math.PI / 6) * r;
+        if (!blocked(nx, nz)) { st.x = nx; st.z = nz; break outer; }
+      }
+    }
+    unstick();
+  }
   function place(pos, yaw = 0) { st.x = pos.x; st.z = pos.z; st.yaw = yaw; st.pitch = 0; }
 
   function step(dt, intent) {
+    // hidden (in a closet, a stall, behind the counter): the body stays where it is, even inside the furniture's collider,
+    // and the head may turn a little to look through the crack of the door
+    if (st.hideYaw !== undefined) {
+      st.moving = false; st.speed = 0;
+      st.yaw = Math.max(st.hideYaw - 0.75, Math.min(st.hideYaw + 0.75, st.yaw + intent.look.yaw));
+      st.pitch = Math.max(-0.35, Math.min(0.35, st.pitch + intent.look.pitch));
+      return;
+    }
     unstick();
     if (st.frozen) { st.moving = false; st.speed = 0; return; }
     st.yaw += intent.look.yaw; st.pitch = Math.max(-1.35, Math.min(1.35, st.pitch + intent.look.pitch));
@@ -83,5 +102,5 @@ export function createPlayer(bus, { world }) {
   }
   const eyePos = () => new THREE.Vector3(st.x, st.eye, st.z);
   const forward = () => new THREE.Vector3(-Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), -Math.cos(st.yaw) * Math.cos(st.pitch));
-  return { st, step, place, apply, toggleCrouch, eyePos, forward, blocked };
+  return { st, step, place, freeSpot, apply, toggleCrouch, eyePos, forward, blocked };
 }

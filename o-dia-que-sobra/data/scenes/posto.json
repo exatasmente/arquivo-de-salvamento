@@ -32,7 +32,7 @@
     {"id":"balcao-cafe","type":"balcao","pos":[15.55,0,4.7],"rot":[0,-1.5707963267948966,0],"scale":[1,1,1],"params":{"comprimento":3}},
     {"id":"cafeteira","type":"cafeteira","pos":[15.55,1,4.9],"rot":[0,-1.5707963267948966,0],"scale":[1,1,1],"params":{}},
     {"id":"copo1","type":"copo","pos":[11.2,1,8.35],"rot":[0,0.3,0],"scale":[1,1,1],"params":{}},
-    {"id":"copo2","type":"copo","pos":[11.5,1,8.38],"rot":[0,2.1,0],"scale":[1,1,1],"params":{}},
+    {"id":"copo2","type":"copo","pos":[11.5,1,8.38],"rot":[0,0.55,0],"scale":[1,1,1],"params":{}},
     {"id":"geladeira1","type":"geladeira","pos":[2.1,0,4.4],"rot":[0,1.5707963267948966,0],"scale":[1,1,1],"params":{"semente":0}},
     {"id":"geladeira2","type":"geladeira","pos":[2.1,0,5.7],"rot":[0,1.5707963267948966,0],"scale":[1,1,1],"params":{"semente":1}},
     {"id":"gondola1","type":"prateleira","pos":[5.4,0,7.4],"rot":[0,1.5707963267948966,0],"scale":[1,1,1],"params":{"semente":0,"comprimento":3.6}},

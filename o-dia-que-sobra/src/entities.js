@@ -7,6 +7,8 @@
 //   ENTITY_TYPES[type] = { label, group, desc, params: { name: { type, default, ... } } }
 //     param types: { type: 'enum', options: [...], default } | { type: 'bool', default } |
 //                  { type: 'number', min, max, step, default } | { type: 'color', default } | { type: 'text', default }
+//   The types go through the engine's defineTypes (vendor/engine/layout.js), which checks them when the game opens; buildEntity is this
+//   game's `build` for the engine's createEntities (vendor/engine/entities.js), which posto.js uses.
 //   buildEntity(r, kit, entity) -> { id, type, params, area, root, ph, update?, colliders?, interactables?, lights? }
 //     kit: { builder?, seed, areaAt(x, z), tintOf(area) }. With `kit.builder` the static parts merge into that shared
 //     builder (the game: a few dozen draw calls) and `root` holds only the loose parts; without it the entity gets a
@@ -17,6 +19,7 @@ import { PROPS, placeProp, hasProp, PRODUTOS, ATRAS } from './models/props.js';
 import { buildCar } from './models/car.js';
 import { buildMoto } from './models/moto.js';
 import { FUEL_KEYS, createBuilder } from './scenes/paint.js';
+import { defineTypes, resolveParams as resolve } from '../vendor/engine/layout.js';
 
 const E = {
   enum: (options, def) => ({ type: 'enum', options, default: def ?? options[0] }),
@@ -33,7 +36,7 @@ const lampParams = (tipo, cor, alcance) => ({ tipo: E.enum(['fluorescente', 'cob
 
 /** What each type that has a rule of the game (or an option of the prop) declares. The rest of the catalog has no params. */
 const PARAMS = {
-  bomba: { comum: E.bool(true), aditivada: E.bool(true), etanol: E.bool(true), diesel: E.bool(true), travada: E.bool(false) },
+  bomba: { comum: E.bool(true), aditivada: E.bool(true), etanol: E.bool(true), diesel: E.bool(true), travada: E.bool(false), adesivo_sol: E.bool(true) },
   porta: { tipo: E.enum(['madeira', 'metal', 'vidro'], 'madeira'), largura: E.number(0.6, 2.4, 0.95), giro: E.enum(['1', '-1'], '-1'), trancada: E.bool(false), aberta: E.bool(false), visor: E.bool(false), adesivo: E.bool(false) },
   luminaria: lampParams('fluorescente', '#cfe0c4', 8),
   'carro-abandonado': { variante: E.number(1, 9, 1, 1), combustivel: E.enum(['qualquer', ...FUEL_KEYS], 'qualquer'), estilo: E.enum(['auto', 'sedan', 'hatch', 'perua'], 'auto'), vidro: E.enum(['comum', 'escuro'], 'comum') },
@@ -57,17 +60,13 @@ const PARAMS = {
 };
 
 /** type -> { label, group, desc, params }: every prop of the catalog (models/props.js PROPS) plus the abandoned car. */
-export const ENTITY_TYPES = Object.fromEntries([
+export const ENTITY_TYPES = defineTypes(Object.fromEntries([
   ...Object.entries(PROPS).map(([k, v]) => [k, { label: v.label, group: v.scene, desc: v.desc, params: PARAMS[k] ?? {} }]),
   ['carro-abandonado', { label: 'Carro abandonado', group: 'posto', desc: 'Carro comum parado numa vaga do estacionamento, de pneu murcho, com a cor desbotada e musgo no teto.', params: PARAMS['carro-abandonado'] }],
-]);
+]));
 
-/** The parameters of a type with the value of each (the layout's, or the default). */
-export function resolveParams(type, params = {}) {
-  const out = {};
-  for (const [k, d] of Object.entries(ENTITY_TYPES[type]?.params ?? {})) out[k] = params[k] ?? d.default;
-  return out;
-}
+/** The parameters of a type with the value of each (the layout's, or the default): the engine's resolveParams over this game's types. */
+export const resolveParams = (type, params = {}) => resolve(ENTITY_TYPES, type, params);
 
 // ---- where a lamp's light sits relative to its fixture, by kind
 const LAMP_AT = { cobertura: [0, -0.3, 0], fluorescente: [0, -0.14, 0], mesa: [0.15, 0.385, -0.1] };
@@ -99,7 +98,7 @@ export function fitRect([px, , pz], ry, [x0, z0, x1, z1], h) {
 /** The options placeProp (or buildCar) gets for an entity of this type. */
 function optsOf(type, e, p, kit) {
   switch (type) {
-    case 'bomba': return { n: Number(/(\d+)$/.exec(e.id)?.[1]) || undefined, fuels: FUEL_KEYS.filter((k) => p[k] !== false) };
+    case 'bomba': return { n: Number(/(\d+)$/.exec(e.id)?.[1]) || undefined, fuels: FUEL_KEYS.filter((k) => p[k] !== false), adesivo: p.adesivo_sol };
     case 'porta': return { tipo: p.tipo, w: p.largura, swing: Number(p.giro), id: e.id, visor: p.visor, sticker: p.adesivo };
     case 'luminaria': return { kind: p.tipo };
     case 'cabine': return { id: e.id.replace(/\d+$/, ''), w: p.largura, depth: p.profundidade };

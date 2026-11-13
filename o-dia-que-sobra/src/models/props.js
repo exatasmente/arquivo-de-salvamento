@@ -315,11 +315,12 @@ function sunDecal(c, size, p, rot = [0, 0, 0], parent = c.dyn) {
 
 /** A paper cup with the Sun on it, standing at the origin: a Group of loose meshes. */
 function cupGroup(c, parent = c.dyn) {
+  // an empty paper cup, 10 cm tall, with the Sun on it (open at the top: the inside shows from above)
   const { T } = c, g = new T.Group(); g.name = 'copo'; parent.add(g);
-  c.mesh(new T.CylinderGeometry(0.035, 0.026, 0.09, 8), D('#e8dcc0', 'plastic'), [0, 0.045, 0], [0, 0, 0], g);
-  c.mesh(new T.CylinderGeometry(0.0385, 0.0385, 0.008, 8), D('#cdbd96', 'plastic'), [0, 0.088, 0], [0, 0, 0], g);
-  const d = c.mesh(new T.PlaneGeometry(0.04, 0.04), D('#ffffff', 'solSticker'), [0, 0.045, 0.0325], [0, 0, 0], g);
-  d.scale.set(1, 1, 1);
+  c.mesh(new T.CylinderGeometry(0.04, 0.029, 0.1, 8), D('#ece0c4', 'plastic'), [0, 0.05, 0], [0, 0, 0], g);
+  c.mesh(new T.CylinderGeometry(0.0435, 0.0435, 0.009, 8), D('#d8c89e', 'plastic'), [0, 0.098, 0], [0, 0, 0], g);
+  c.mesh(new T.CylinderGeometry(0.036, 0.036, 0.004, 8), D('#8a7a5a', 'plastic'), [0, 0.097, 0], [0, 0, 0], g);
+  c.mesh(new T.PlaneGeometry(0.052, 0.052), D('#ffffff', 'adesivoSol'), [0, 0.05, 0.0365], [0, 0, 0], g);
   return g;
 }
 
@@ -346,7 +347,11 @@ const DEFS = {
       const n = nozzleMesh(c, k); n.position.set(x, y, 0.29); n.userData.home = n.position.clone();
       nozzles[k] = n; nozzleAt[k] = [x, y, 0.4];
     });
-    c.quad(0.16, 0.16, M.sol, [0, 0.78, 0.2315], [0, 0, 0]);
+    if (o.adesivo !== false) { // the 1998 advertising stickers: the Sun of the poster, die-cut, on the front and on both sides of the body
+      const ad = D('#ffffff', 'adesivoSol');
+      c.quad(0.26, 0.26, ad, [0, 0.82, 0.2325], [0, 0, 0]);
+      for (const sx of [-1, 1]) c.quad(0.4, 0.4, ad, [sx * 0.4275, 0.78, 0.02], [0, sx * Math.PI / 2, 0]);
+    } else c.quad(0.16, 0.16, M.sol, [0, 0.78, 0.2315], [0, 0, 0]);
     c.quad(0.22, 0.22, M.sol, [0, 0.66, -0.2315], [0, Math.PI, 0]);
     // the shut-off valve low on the front, between the hoses: a red hand wheel that turns (a loose group)
     c.box([0.12, 0.12, 0.02], D('#8a7a68', 'concrete'), [0, 0.3, 0.24]);
@@ -488,8 +493,8 @@ const DEFS = {
     const cup = c.mesh(new T.CylinderGeometry(0.035, 0.026, 0.09, 8), D('#ffffff', 'solSticker'), [0.2, 0.045, 0.1]); cup.name = 'copo';
     c.hit([0.4, 0.55, 0.34], [0.05, 0.27, 0], 'cafeteira', 'cafeteira');
     // brewing on its own: the lamp, the thread of coffee, the drops and the steam (all a function of time)
-    const lamp = new T.Mesh(new T.PlaneGeometry(0.034, 0.014), r.glow('#3a2a1a')); lamp.position.set(-0.1, 0.45, 0.1415); c.dyn.add(lamp);
-    const lampOn = new T.Color('#ffb040'), lampOff = new T.Color('#3a2a1a');
+    const lamp = new T.Mesh(new T.PlaneGeometry(0.05, 0.022), r.glow('#c8801c', { fogged: 0.1 })); lamp.position.set(-0.1, 0.45, 0.1415); c.dyn.add(lamp);
+    const lampOn = new T.Color('#ffb040'), lampIdle = new T.Color('#c8801c'), lampOff = new T.Color('#3a2a1a'); // amber: bright while it brews, dimmer while it is just on, dark when switched off
     const ink = D('#2a1a10', 'rubber');
     const stream = c.mesh(new T.CylinderGeometry(0.006, 0.006, 0.07, 5), ink, [0, 0.26, 0.05]);
     const drops = [0, 1].map(() => c.mesh(new T.SphereGeometry(0.009, 4, 3), ink, [0, 0.25, 0.05]));
@@ -499,10 +504,12 @@ const DEFS = {
       for (const ry of [0, Math.PI / 2]) { const m = new T.Mesh(new T.PlaneGeometry(0.11, 0.15), mat); m.rotation.y = ry; m.renderOrder = 2; g.add(m); }
       return { g, mat };
     });
-    const st = { brewing: false };
-    const show = () => { lamp.material.uniforms.uColor.value.copy(st.brewing ? lampOn : lampOff); stream.visible = st.brewing; drops.forEach((d) => { d.visible = st.brewing; }); puffs.forEach((p) => { p.g.visible = st.brewing; }); };
+    const st = { brewing: false, on: true };
+    const show = () => { lamp.material.uniforms.uColor.value.copy(st.brewing ? lampOn : st.on ? lampIdle : lampOff); stream.visible = st.brewing; drops.forEach((d) => { d.visible = st.brewing; }); puffs.forEach((p) => { p.g.visible = st.brewing; }); };
     show();
     return { cupAt: [0, 0.1, 0.06], copo: cup, lamp, setBrewing(v) { st.brewing = Boolean(v); show(); }, get brewing() { return st.brewing; },
+      /** The amber power light (default on). */
+      setOn(v) { st.on = Boolean(v); show(); }, get on() { return st.on; },
       update(t) {
         if (!st.brewing) return;
         stream.scale.y = 0.88 + 0.12 * Math.sin(t * 23); stream.scale.x = stream.scale.z = 0.9 + 0.2 * Math.sin(t * 17 + 1);
@@ -632,15 +639,22 @@ const DEFS = {
   },
 
   'camera-teto'(c) {
-    c.cyl(0.07, 0.07, 0.015, 8, M.gray, [0, 0.19, 0]);
-    c.box([0.03, 0.06, 0.03], M.black, [0, 0.15, 0]);
-    c.box([0.09, 0.08, 0.2], D('#c0bcae', 'plastic'), [0, 0.09, 0.05], [0.28, 0, 0]);
-    c.box([0.1, 0.012, 0.16], M.black, [0, 0.135, 0.0], [0.28, 0, 0]);
-    c.cyl(0.03, 0.036, 0.04, 8, M.black, [0, 0.062, 0.14], [Math.PI / 2 + 0.28, 0, 0]);
-    c.box([0.014, 0.014, 0.01], D('#ff2a1a', null, { emissive: 1, fogged: 0.6 }), [0.03, 0.095, 0.145], [0.28, 0, 0]); // the red light, always on
-    // the recording LED: a small loose glow that stays lit in the dark (visible through a peephole)
-    const led = new c.T.Mesh(new c.T.PlaneGeometry(0.06, 0.06), c.r.glow('#ff3a2a', { fogged: 0.05 })); led.position.set(0.03, 0.093, 0.153); led.rotation.x = 0.28; c.dyn.add(led);
-    c.hit([0.14, 0.22, 0.26], [0, 0.11, 0.04], 'camera-teto', 'camera');
+    // a security camera of the time, readable as a camera from across the room: a beige box about 30 x 12 x 12 cm on a bracket,
+    // a sun hood over it, a dark lens and a red recording LED (a loose glow, seen from every side, lit in the dark)
+    const { T, r } = c, body = D('#e2decf', 'plastic', { emissive: 0.4 }), cs = Math.cos(0.28), sn = Math.sin(0.28);
+    const at = (ly, lz) => [0.07 + ly * cs - lz * sn, ly * sn + lz * cs]; // a point of the tilted body (local y, z about the pivot) -> world [y, z]
+    const put = (ly, lz) => { const q = at(ly, lz); return [0, q[0], q[1]]; };
+    c.cyl(0.075, 0.075, 0.02, 8, M.gray, [0, 0.19, 0]);
+    c.box([0.05, 0.07, 0.05], M.black, [0, 0.155, 0]);
+    c.box([0.12, 0.12, 0.30], body, put(0, 0.12), [0.28, 0, 0]);
+    c.box([0.15, 0.012, 0.27], D('#9a968a', 'plastic', { emissive: 0.3 }), put(0.07, 0.14), [0.28, 0, 0]);
+    c.box([0.125, 0.02, 0.07], M.black, put(-0.05, 0.02), [0.28, 0, 0]);
+    c.cyl(0.048, 0.054, 0.06, 8, M.black, put(0, 0.31), [Math.PI / 2 + 0.28, 0, 0]);
+    c.cyl(0.036, 0.036, 0.01, 8, D('#0a1218', 'rubber'), put(0, 0.345), [Math.PI / 2 + 0.28, 0, 0]);
+    const lp = at(0.045, 0.27);
+    const led = new T.Mesh(new T.SphereGeometry(0.034, 6, 4), r.glow('#ff3020', { fogged: 0.05 })); led.position.set(0.05, lp[0], lp[1] + 0.012); c.dyn.add(led);
+    const core = new T.Mesh(new T.SphereGeometry(0.014, 4, 3), r.glow('#ffd8c8', { fogged: 0 })); core.position.copy(led.position); core.position.z += 0.012; c.dyn.add(core);
+    c.hit([0.16, 0.24, 0.4], [0, 0.07, 0.13], 'camera-teto', 'camera');
     return { led };
   },
 
@@ -876,18 +890,23 @@ const DEFS = {
   },
 
   cracha(c) {
+    // an old attendant's badge: a faded card of about 11 x 15 cm (a hand's breadth, so it reads from across the canopy) on a cord of 40 cm from the hook, a dark photo with no face to read; it sways a little
     const { T, r } = c;
-    const cv = document.createElement('canvas'); cv.width = 24; cv.height = 32; const g = cv.getContext('2d');
-    g.fillStyle = 'rgb(226,214,176)'; g.fillRect(0, 0, 24, 32); g.fillStyle = 'rgb(160,104,56)'; g.fillRect(0, 0, 24, 6);
-    g.fillStyle = 'rgb(120,100,80)'; g.fillRect(6, 9, 12, 12); g.fillStyle = 'rgb(60,46,34)'; g.beginPath(); g.arc(12, 13, 3, 0, 7); g.fill(); g.fillRect(8, 17, 8, 4);
-    g.fillStyle = 'rgb(90,74,56)'; for (let i = 0; i < 3; i++) g.fillRect(4, 24 + i * 2, 16 - i * 4, 1);
+    const cv = document.createElement('canvas'); cv.width = 36; cv.height = 52; const g = cv.getContext('2d');
+    g.fillStyle = 'rgb(220,210,172)'; g.fillRect(0, 0, 36, 52); g.fillStyle = 'rgb(96,78,56)'; g.fillRect(0, 0, 36, 1); g.fillRect(0, 51, 36, 1); g.fillRect(0, 0, 1, 52); g.fillRect(35, 0, 1, 52);
+    g.fillStyle = 'rgb(176,112,52)'; g.fillRect(1, 1, 34, 11);
+    const sun = document.createElement('canvas'); sun.width = sun.height = 32; paintSol(sun.getContext('2d'), 32, 0.2); g.drawImage(sun, 21, 1, 13, 11);
+    g.fillStyle = 'rgb(236,224,186)'; g.fillRect(3, 4, 14, 2); g.fillRect(3, 8, 9, 2);
+    g.fillStyle = 'rgb(46,38,34)'; g.fillRect(8, 16, 20, 20); g.fillStyle = 'rgb(66,56,50)'; g.beginPath(); g.arc(18, 24, 6, 0, 7); g.fill(); g.fillRect(11, 30, 14, 6);
+    g.fillStyle = 'rgb(100,84,64)'; for (let i = 0; i < 3; i++) g.fillRect(5, 40 + i * 3, 26 - i * 7, 1);
     const t = canvasTexture(r, cv);
-    const grp = new T.Group(); grp.position.set(0, 0.5, 0); c.dyn.add(grp);
-    const card = new T.Mesh(new T.PlaneGeometry(0.075, 0.1), r.mat('#ffffff', { map: t, side: T.DoubleSide })); card.position.set(0, -0.09, 0); grp.add(card);
-    c.mesh(new T.BoxGeometry(0.004, 0.14, 0.004), M.dark, [0, -0.0, 0], [0, 0, 0], grp);
-    c.box([0.04, 0.02, 0.02], M.gray, [0, 0.5, 0]);
-    c.hit([0.12, 0.2, 0.08], [0, 0.4, 0], 'cracha', 'cracha');
-    return { card: grp, update: (tt) => { grp.rotation.z = Math.sin(tt * 0.9) * 0.05; } };
+    const grp = new T.Group(); grp.position.set(0, 0.5, 0); c.dyn.add(grp); // pivot at the hook
+    c.box([0.05, 0.03, 0.03], M.gray, [0, 0.5, 0]);
+    c.mesh(new T.BoxGeometry(0.02, 0.4, 0.02), D('#2a2218', 'rubber'), [0, -0.2, 0], [0, 0, 0], grp);
+    c.mesh(new T.BoxGeometry(0.03, 0.025, 0.012), M.gray, [0, -0.412, 0], [0, 0, 0], grp);
+    const card = new T.Mesh(new T.PlaneGeometry(0.11, 0.155), r.mat('#ffffff', { map: t, side: T.DoubleSide, emissive: 0.6, fogged: 0.4 })); card.position.set(0, -0.49, 0); card.rotation.x = 0.45; grp.add(card); // leaning a little: its face turns down to whoever stands below
+    c.hit([0.14, 0.6, 0.1], [0, 0.25, 0], 'cracha', 'cracha');
+    return { card: grp, update: (tt) => { grp.rotation.z = Math.sin(tt * 0.9) * 0.06; grp.rotation.y = Math.sin(tt * 0.6 + 1) * 0.12; } };
   },
 
   sino(c) {

@@ -44,7 +44,7 @@ const KEYS = [
   K('c05-cascalho', 0, [-33, 0.95, -24.3], [-32.6, 0.15, -23.9]), { t: e('c05-cascalho'), eye: [-33, 0.88, -24.3], look: [-32.5, 0.1, -23.8] },
   K('c06-passos', 0, [-12, EYE, -11], [1, 2.6, -6.4]), K('c06-passos', 3.5, [-8.5, EYE, -8], [2, 2.6, -6.4]), { t: e('c06-passos'), eye: [-5.5, EYE, -5.2], look: [3, 2.4, -6.4] },
   K('c07-maos', 0, [2.4, EYE, -3.0], [2.8, 0.9, -3.6]), { t: e('c07-maos'), eye: [2.5, EYE, -3.0], look: [2.9, 0.85, -3.7] },
-  K('c08-dormir', 0, [-43, EYE, -24.4], [-4, 1.3, -8]), { t: e('c08-dormir'), eye: [-41.2, EYE, -24.3], look: [-4, 1.4, -8] },
+  K('c08-dormir', 0, [-43, EYE, -24.4], [-4, 1.3, -8]), K('c08-dormir', 2.6, [-42.0, EYE, -24.3], [-4, 1.4, -8], 'ss'), { t: e('c08-dormir'), eye: [-41.2, EYE, -24.3], look: [-24, 1.2, -29.5] },
   K('c10-cartaz', 0, [6.2, EYE, 0.8], [3.4, 1.7, 2.9]), K('c10-cartaz', 3, [4.4, EYE, 1.1], [3.1, 1.72, 2.9], 'ss'), { t: e('c10-cartaz'), eye: [3.5, EYE, 1.5], look: [3.1, 1.72, 2.9] },
   K('c11-calendario', 0, [7.6, EYE, 14.5], [8.3, 1.55, 12.1]), K('c11-calendario', 4, [7.9, 1.62, 13.5], [8.3, 1.52, 12.1], 'ss'), { t: e('c11-calendario'), eye: [7.95, 1.62, 13.25], look: [8.3, 1.5, 12.1] },
   K('c12-casa', 0, [6.6, EYE, 3.3], [9.1, 1.2, 2.6]), K('c12-casa', 3, [7.4, EYE, 3.0], [9.1, 1.2, 2.6], 'ss'), { t: e('c12-casa'), eye: [7.6, EYE, 2.9], look: [9.1, 1.15, 2.6] },
@@ -65,6 +65,7 @@ const sfx = [
   ...footfalls(T0['c06-passos'] + 0.2, T0['c06-passos'] + 6.8, 1.9, { gain: 0.5 }, 'passo_asfalto'),
   { t: T0['c07-maos'], name: 'fluorescente', opts: { dur: 7.3, gain: 0.5 } }, { t: T0['c07-maos'] + 0.5, name: 'respiracao', opts: { dur: 5, gain: 0.3 } },
   ...footfalls(T0['c08-dormir'] + 0.2, T0['c08-dormir'] + 5, 1.9, { gain: 0.4 }, 'passo_asfalto'),
+  { t: T0['c08-dormir'] + 1.4, name: 'motor_carro', opts: { dur: 3.4, gain: 0.8 } },
   { t: T0['c10-cartaz'], name: 'fluorescente', opts: { dur: 6.5, gain: 0.4 } },
   { t: T0['c11-calendario'], name: 'fluorescente', opts: { dur: 8.5, gain: 0.5 } },
   { t: T0['c12-casa'], name: 'geladeira', opts: { dur: 7.7, gain: 0.6 } },
@@ -100,8 +101,9 @@ export default {
         const inCasa = w === 'c12-casa';
         W.group.visible = !inCasa; casa.group.visible = inCasa;
         // the car on the highway (scene 1)
-        car.root.visible = w === 'c01-abertura' && t > 0.4;
-        car.root.position.set(-62 + 26 * (t - 0), 0, -28.5); car.root.rotation.y = Math.PI / 2;
+        const c8 = w === 'c08-dormir';
+        car.root.visible = (w === 'c01-abertura' && t > 0.4) || (c8 && rel > 1.4);
+        if (c8) { car.root.position.set(-4 - 7.6 * (rel - 1.4), 0, -27.0); car.root.rotation.y = -Math.PI / 2; } else { car.root.position.set(-62 + 26 * (t - 0), 0, -28.5); car.root.rotation.y = Math.PI / 2; }
         const fade = Math.max(1 - smooth(ramp(t, 0, 0.7)), 0);
         const out = { eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t) };
         if (inCasa) {
@@ -114,7 +116,7 @@ export default {
         } else {
           const road = ['c01-abertura', 'c04-asfalto', 'c05-cascalho', 'c06-passos', 'c08-dormir'].includes(w);
           W.pose(ambient, {
-            eye, state: { hora: 0.3, doors: {} }, fog: road || w === 'c57-placa-vidro' ? [14, 70] : undefined, ambient: w === 'c05-cascalho' ? 0x7a7f9a : road ? 0x585d78 : undefined,
+            eye, state: { hora: 0.3, doors: {} }, fog: road || w === 'c57-placa-vidro' ? [14, 70] : undefined, ambient: w === 'c05-cascalho' ? 0x7a7f9a : w === 'c08-dormir' ? 0x9298b4 : road ? 0x585d78 : undefined,
             sign: w === 'c57-placa-vidro' ? { on: true, smile: 1, ray: -1 } : { on: false, smile: 0, ray: -1 }, on: w === 'c11-calendario' ? ['escritorio-teto'] : [],
           }, { reduce: ctx.reduceFlash });
         }

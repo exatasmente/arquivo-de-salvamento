@@ -33,11 +33,12 @@ const KEYS = [
   { t: 32.0, eye: [5.4, 1.62, 16.6], look: [5.0, 1.4, 12.2] },
   { t: 36.0, eye: [5.4, 1.62, 16.4], look: [5.0, 1.4, 12.0], ease: 'ss' },
   { t: 41.97, eye: [5.4, 1.62, 16.4], look: [5.0, 1.45, 11.0] },
-  // source ranges after the end, one opening of its own for each of the scenes 49 to 52
-  { t: 59.95, eye: [3.9, EYE, 13.6], look: [6.35, 0.95, 18.7] }, { t: 60.0, eye: [3.9, EYE, 13.6], look: [6.35, 0.95, 18.7] }, { t: 64.97, eye: [4.1, EYE, 14.0], look: [6.35, 0.95, 18.7], ease: 'ss' },
-  { t: 69.95, eye: [6.5, 1.42, 18.0], look: [6.35, 0.85, 18.7] }, { t: 70.0, eye: [6.5, 1.42, 18.0], look: [6.35, 0.85, 18.7] }, { t: 74.97, eye: [6.5, 1.43, 18.0], look: [6.35, 0.85, 18.7] },
+  // source ranges after the end, one opening of its own for each of the scenes 49 to 53
+  { t: 59.95, eye: [6.58, 1.1, 18.25], look: [6.35, 0.86, 18.7] }, { t: 60.0, eye: [6.58, 1.1, 18.25], look: [6.35, 0.86, 18.7] }, { t: 64.97, eye: [6.55, 1.12, 18.22], look: [6.35, 0.86, 18.7], ease: 'ss' },
+  { t: 69.95, eye: [6.5, 0.98, 18.32], look: [6.15, 0.84, 18.7] }, { t: 70.0, eye: [6.5, 0.98, 18.32], look: [6.15, 0.84, 18.7] }, { t: 74.97, eye: [6.5, 1.0, 18.28], look: [6.15, 0.86, 18.7] },
   { t: 75.0, eye: [5.1, 1.38, 17.7], look: [4.95, 1.05, 18.7] }, { t: 79.97, eye: [5.1, 1.38, 17.6], look: [4.95, 1.05, 18.7] },
-  { t: 80.0, eye: [6.0, 1.2, 18.0], look: [6.35, 0.86, 18.7] }, { t: 82.97, eye: [6.0, 1.2, 17.95], look: [6.35, 0.86, 18.7] },
+  { t: 80.0, eye: [5.4, 1.6, 16.2], look: [5.0, 1.4, 12.0] }, { t: 82.97, eye: [5.4, 1.6, 16.1], look: [5.0, 1.4, 11.8] },
+  { t: 84.95, eye: [5.6, 1.55, 16.3], look: [7.6, 1.5, 12.1] }, { t: 85.0, eye: [5.6, 1.55, 16.3], look: [7.6, 1.5, 12.1] }, { t: 91.9, eye: [5.8, 1.55, 16.0], look: [7.7, 1.5, 12.1], ease: 'ss' },
 ];
 const cam = track(KEYS);
 
@@ -52,7 +53,7 @@ const BASE = {
     { t: 29.5, name: 'coracao', opts: { dur: 8, gain: 0.5 } },
     { t: 31.2, name: 'telefone_desliga', opts: { pos: [6.35, 1, 18.7] } },
     { t: 60.0, name: 'telefone_toca', opts: { dur: 4.6, gain: 0.9, pos: [6.35, 1, 18.7] } }, { t: 70.8, name: 'telefone_atende', opts: { pos: [6.35, 1, 18.7] } },
-    { t: 75.0, name: 'respiracao', opts: { dur: 5, gain: 0.6 } }, { t: 80.0, name: 'coracao', opts: { dur: 3, gain: 0.5 } },
+    { t: 75.0, name: 'respiracao', opts: { dur: 5, gain: 0.6 } }, { t: 80.0, name: 'coracao', opts: { dur: 3, gain: 0.5 } }, { t: 85.0, name: 'fluorescente', opts: { dur: 6.9, gain: 0.7 } },
     ...say.sfx,
   ],
   build(ctx) {
@@ -69,9 +70,9 @@ const BASE = {
         rig.hang(Math.sin(t * 1.2));
         handset.visible = false;
         const ph = toCam(T, eye, c.look, [6.35, 0.95, 18.65]);
-        const hl = (x) => (x >= 80 ? 27.6 + (x - 80) : x >= 75 ? 22 + (x - 75) : x >= 70 ? 12.4 + (x - 70) : x), th = hl(t);
+        const hl = (x) => (x >= 85 ? 30.2 + (x - 85) * 0.5 : x >= 80 ? 17.7 : x >= 75 ? 14.2 + (x - 75) * 0.7 : x >= 70 ? 12.4 + (x - 70) * 0.45 : x), th = hl(t);
         const lift = smooth(ramp(th, 12.6, 14.0)), ear = smooth(ramp(th, 15.0, 17.0)) * (1 - smooth(ramp(th, 30.4, 31.6)));
-        if (th >= 12.2 && th < 31.8 && t < 60 || t >= 70 && t < 83) {
+        if (th >= 12.2 && th < 31.8 && t < 60 || t >= 70 && t < 93) {
           const toPhone = [lerp(0.22, ph[0], lift), lerp(-0.4, ph[1] + 0.02, lift), lerp(-0.34, ph[2], lift)];
           const toEar = [0.2, 0.0, -0.3];
           const p = toPhone.map((v, i) => lerp(v, toEar[i], ear));
@@ -90,13 +91,13 @@ const BASE = {
 
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
-  { name: 'c49-toca', desc: 'Cena 49: o aparelho de longe, na mesa do escritório: o telefone toca e treme, de madrugada; sem texto', pieces: [{ src: 60.0, d: 4.6 }] },
-  { name: 'c50-atende', desc: 'Cena 50: a mão no fone, de perto, levanta o aparelho; sem texto', pieces: [{ src: 70.0, d: 5.0 }] },
-  { name: 'c51-voz', desc: 'Cena 51: o vidro escuro do monitor do computador e, no canto, a mão com o fone ao ouvido; a caixa do telefone diz a frase', pieces: [{ src: 75.0, d: 5.0 }],
+  { name: 'c49-toca', desc: 'Cena 49: o aparelho grande no quadro, visto de baixo e de lado: o telefone toca e treme, de madrugada; sem texto', pieces: [{ src: 60.0, d: 4.6 }] },
+  { name: 'c50-atende', desc: 'Cena 50: a mão já no fone, de perto e de frente, sem a mesa nem o monitor; levanta o fone; sem texto', pieces: [{ src: 70.0, d: 5.0 }] },
+  { name: 'c51-voz', desc: 'Cena 51: o vidro escuro do monitor e, pela lateral do quadro, o fone sobe até o ouvido; a caixa do telefone diz a frase', pieces: [{ src: 75.0, d: 5.0 }],
     say: [{ t: 0.5, who: 'Telefone', text: 'Não saia da loja.', seed: TH, hold: 1.6 }] },
-  { name: 'c52-minha-voz', desc: 'Cena 52: o aparelho de perto, baixo, sobre a mesa; o pensamento curto', pieces: [{ src: 80.0, d: 3.0 }],
+  { name: 'c52-minha-voz', desc: 'Cena 52: a porta da loja vista do escritório, aberta, com o fone na lateral do quadro; o pensamento curto', pieces: [{ src: 80.0, d: 3.0 }],
     say: [{ t: 0.2, who: '', text: 'É a minha voz.', seed: TH, hold: 0.8 }] },
-  { name: 'c53-minutos', desc: 'Cena 53: o fone desce; o zumbido da fluorescente e a porta para a loja; pensamento', pieces: [{ src: 32.0, d: 6.9 }],
+  { name: 'c53-minutos', desc: 'Cena 53: o fone desce; o quadro de tarefas e o calendário da parede, sob o zumbido da fluorescente; pensamento', pieces: [{ src: 85.0, d: 6.9 }],
     say: [{ t: 0.6, who: '', text: 'Faltam minutos. Eu preciso sair.', seed: TH, hold: 1.6 }] },
 ];
 const FULL = withSegments(BASE, SEGS);

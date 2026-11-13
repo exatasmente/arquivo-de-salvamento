@@ -9,7 +9,7 @@ const views = {
   fim: [7, 12, 'A noite salva; a última caixa: "Nem todo arquivo foi salvo."'],
 };
 const say = dialogue([{ t: 7.4, who: '', text: 'Nem todo arquivo foi salvo.', seed: BABBLE_SEEDS.heitor, hold: 2.2 }]);
-const cam = track([{ t: 0, eye: [5.5, 1.5, 15.0], look: [5.5, 1.3, 12.0] }, { t: 12, eye: [5.5, 1.5, 15.0], look: [5.5, 1.3, 12.0] }]);
+const cam = track([{ t: 0, eye: [5.5, 1.5, 15.0], look: [5.5, 1.3, 12.0] }, { t: 11.97, eye: [5.5, 1.5, 15.0], look: [5.5, 1.3, 12.0] }, { t: 12.0, eye: [5.4, 1.45, 16.6], look: [5.9, 1.0, 18.8] }, { t: 15.5, eye: [5.5, 1.45, 16.5], look: [5.9, 1.0, 18.8], ease: 'ss' }]);
 const hasRinha = () => { try { return Boolean(localStorage.getItem('rinha.card.v1')); } catch { return false; } };
 
 const BASE = {
@@ -27,6 +27,7 @@ const BASE = {
       anchors: { bloco13: () => [0, 0, 0] },
       pose(t) {
         const c = cam(t);
+        if (t >= 12) return { eye: c.eye, look: c.look, fade: 0, dialog: null, dim: 0.35, world: { state: { hora: 6 }, ambient: 0x2c2e38, on: [] } }; // the dark office, the monitor off (only the box of scene 59 shows)
         const blocks = ctx.blocks ?? defaultBlocks({ rinha: hasRinha() });
         return {
           eye: c.eye, look: c.look, fade: Math.max(1 - smooth(ramp(t, 0, 0.6)), smooth(ramp(t, 11.2, 11.95))), dialog: say.at(t),
@@ -41,7 +42,7 @@ const BASE = {
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
   { name: 'c58-salvando', desc: 'Cena 58: a tela do cartão de memória salvando a noite, o bloco 13 de ícone quebrado à vista, sem zoom; sem texto', pieces: [{ src: 1.0, d: 3.5 }] },
-  { name: 'c59-nem-todo', desc: 'Cena 59: a tela do cartão ao fim do salvamento; a última caixa', pieces: [{ src: 7.0, d: 3.2 }],
+  { name: 'c59-nem-todo', desc: 'Cena 59: o escritório às escuras, o monitor apagado; a última caixa por cima', pieces: [{ src: 12.0, d: 3.2 }],
     say: [{ t: 0.3, who: '', text: 'Nem todo arquivo foi salvo.', seed: BABBLE_SEEDS.heitor, hold: 1.0 }] },
 ];
 const FULL = withSegments(BASE, SEGS);

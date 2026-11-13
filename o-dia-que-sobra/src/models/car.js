@@ -2,7 +2,7 @@
 // from the seed. Front is +z, the driver (left-hand drive) sits on +x.
 //
 // buildCar(r, { seed, fuel, capSide, style, color, abandoned, tint, vidro }) ->
-//   { root, tankCap, fuel, capSide, style, size, headlights, vidro, setDriver(v), setLights(on), openCap(k), update(t) }
+//   { root, tankCap, fuel, capSide, style, size, headlights, vidro, seat { x, y, z: where the driver sits; a passenger sits at -x }, setDriver(v), setLights(on), openCap(k), update(t) }
 //   vidro: 'escuro' paints every window almost black and keeps the driver out of sight whatever setDriver says
 //   (the car that only stops and looks); anything else is the ordinary glass.
 //   tankCap: Object3D on the rear quarter; its child `flap` carries the sticker (pictogram + the colour of
@@ -110,7 +110,9 @@ export function buildCar(r, { seed = 1, fuel, capSide, style, color, abandoned =
   };
   setLights(false);
   // driver: an adult silhouette in dark clothes behind the glass
-  const driver = new T.Group(); driver.position.set(truck ? 0.5 : 0.4, truck ? 1.1 : 0.78, truck ? L / 2 - 1.0 : P.cz + 0.2); driver.visible = false; c.dyn.add(driver);
+  const driver = new T.Group(); // the head tops out at 0.48 + 0.62 + 0.14 = 1.24 m: inside the painted window (about 0.97 to 1.25 m) and under every roof (1.35 m and up)
+  const seat = { x: truck ? 0.5 : 0.4, y: truck ? 1.1 : 0.48, z: truck ? L / 2 - 1.0 : P.cz + 0.2 };
+  driver.position.set(seat.x, seat.y, seat.z); driver.visible = false; c.dyn.add(driver);
   const cloth = D('#3c3a40', 'rubber'), skin = D('#a88468', 'plastic');
   c.mesh(new T.BoxGeometry(0.42, 0.5, 0.2), cloth, [0, 0.25, 0], [0, 0, 0], driver);
   const head = c.mesh(new T.SphereGeometry(0.12, 6, 4), skin, [0, 0.62, 0], [0, 0, 0], driver); head.scale.set(1, 1.15, 1);
@@ -119,7 +121,7 @@ export function buildCar(r, { seed = 1, fuel, capSide, style, color, abandoned =
   b.flush(c.dyn);
   const root = c.dyn; root.add(tankCap); root.name = 'carro';
   return {
-    root, tankCap, fuel: fuelKey, capSide: side, style: st, color: col, vidro: tinted ? 'escuro' : 'comum', size: { l: L, w: W, h: truck ? P.H : 0.8 + P.cabH }, headlights, setDriver, setLights, openCap,
+    root, tankCap, fuel: fuelKey, capSide: side, style: st, color: col, vidro: tinted ? 'escuro' : 'comum', seat, size: { l: L, w: W, h: truck ? P.H : 0.8 + P.cabH }, headlights, setDriver, setLights, openCap,
     update(t) { head.rotation.y = driver.visible ? Math.sin(t * 0.4) * 0.25 : 0; },
   };
 }

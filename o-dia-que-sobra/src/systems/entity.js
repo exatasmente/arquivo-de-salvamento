@@ -176,24 +176,48 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   }
 
   // ---------------------------------------------------------------- hiding
-  const stand = new THREE.Vector3(); let back = null;
+  let back = null, doorWas = 0;
+  const closet = () => world.posto.props?.armario;
+  function leaveHide() {
+    const id = S.hidden; if (!id) return;
+    S.hidden = null;
+    player.st.hideYaw = undefined; player.st.frozen = false;
+    if (id === 'esconderijo3') closet()?.setOpen?.(doorWas);
+    // out, standing, on free floor (in front of the hiding place, or where the player came from)
+    const a = world.anchor(id), out = back || { x: a.pos.x + a.dir.x * 1.2, z: a.pos.z + a.dir.z * 1.2 };
+    player.freeSpot(out.x, out.z);
+    player.st.pitch = 0;
+    bus.emit('sfx', id === 'esconderijo3' ? 'porta_range' : 'porta_abre', { opts: { dur: 0.5, gain: 0.5 } });
+    bus.emit('hidden', false);
+  }
+  function enterHide(id) {
+    const a = world.anchor(id);
+    back = { x: player.st.x, z: player.st.z };
+    S.sawEnter = S.state === 'perseguicao' && looking() && dist() < 16;
+    S.hidden = id; player.st.frozen = true; inventory.flash.on = false;
+    player.st.crouch = id === 'esconderijo4';           // behind the counter: crouched; closet and stall: standing, inside
+    player.st.x = a.pos.x; player.st.z = a.pos.z;
+    player.st.yaw = Math.atan2(-a.dir.x, -a.dir.z); player.st.hideYaw = player.st.yaw; player.st.pitch = 0;
+    if (id === 'esconderijo3') { doorWas = closet()?.open ?? 0; closet()?.setOpen?.(0.06); }   // the closet's door almost shut: a crack
+    bus.emit('hidden', true);
+  }
   for (const id of HIDES) {
     interaction.register({
       id: 'esconder-' + id, reach: 2.2, priority: 3,
       aim: () => ({ box: world.aimBox(id, 0.15) }),
-      enabled: () => (S.hidden === null || S.hidden === id) && !player.st.pushing && !inventory.carry,
-      label: () => ({ text: S.hidden === id ? 'Sair do esconderijo' : 'Esconder-se' }),
-      tap: () => {
-        const a = world.anchor(id);
-        if (S.hidden === id) { S.hidden = null; player.st.frozen = false; player.st.crouch = false; if (back) { player.st.x = back.x; player.st.z = back.z; } bus.emit('hidden', false); return; }
-        back = { x: player.st.x, z: player.st.z };
-        S.sawEnter = S.state === 'perseguicao' && looking() && dist() < 16;
-        S.hidden = id; player.st.frozen = true; player.st.crouch = true; inventory.flash.on = false;
-        player.st.x = a.pos.x; player.st.z = a.pos.z; player.st.yaw = Math.atan2(-a.dir.x, -a.dir.z); player.st.pitch = 0;
-        bus.emit('hidden', true);
-      },
+      enabled: () => S.hidden === null && !player.st.pushing && !inventory.carry,
+      label: () => ({ text: 'Esconder-se' }),
+      tap: () => enterHide(id),
     });
   }
+  // getting out: always available while hidden, wherever the player looks or touches (E, A or a tap)
+  interaction.register({
+    id: 'sair-esconderijo', reach: 3, priority: 20,
+    aim: () => { const o = player.eyePos(), f = player.forward(); return { c: o.addScaledVector(f, 0.4), r: 0.6 }; },
+    enabled: () => S.hidden !== null,
+    label: () => ({ text: 'Sair do esconderijo' }),
+    tap: () => leaveHide(),
+  });
   // ---------------------------------------------------------------- locking the doors of the stock room and the office (from inside)
   const roomOf = (id) => LOCKABLE[id];
   for (const id of Object.keys(LOCKABLE)) {
@@ -210,8 +234,8 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   }
   return {
     S, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = null; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
-    get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; },
-    reset() { S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; S.forced = false; S.forceApproach = false; S.sure = false; locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; },
+    leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; },
+    reset() { S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
     darkTick(dt, inRiskDark) { S.darkT = inRiskDark ? S.darkT + dt : Math.max(0, S.darkT - dt); },
   };
 }

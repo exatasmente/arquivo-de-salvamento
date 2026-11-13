@@ -43,7 +43,7 @@ export function createWorld(r, { seed = 1 } = {}) {
       }
       posto.cups?.setCount?.(f.cups ?? 0);
       posto.props.armario?.setOpen?.(f.armario ?? 0); posto.props.frasco?.setVisible?.(Boolean(f.frasco));
-      posto.props.cafeteira?.setBrewing?.(Boolean(f.brewing));
+      posto.props.cafeteira?.setBrewing?.(Boolean(f.brewing)); posto.props.cafeteira?.setOn?.(Boolean(f.brewing));
       posto.stickers?.hideAll?.();
       if (posto.cart) { if (f.cart) { posto.cart.place?.(f.cart[0], f.cart[1], f.cart[2] ?? 0); } else posto.cart.reset?.(); posto.cart.setLoad?.(f.cartLoad ?? 0); }
       for (const id of Object.keys(posto.stains ?? {})) posto.setDirt(id, f.dirt?.[id] ?? 0);

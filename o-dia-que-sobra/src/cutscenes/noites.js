@@ -55,8 +55,8 @@ const KEYS = [
   { t: 57.0, eye: [13.9, EYE, 9.7], look: [14.4, 1.4, 5.6], ease: 'ss' },
   { t: 63.97, eye: [13.9, EYE, 9.6], look: [13.7, 1.45, 6.6] },
   // placa: cam6 on the wall of the store, then the sign from the car park
-  { t: 64.0, eye: [-1.4, EYE, 8.4], look: [1.6, 3.1, 10.0] },
-  { t: 66.9, eye: [-1.0, EYE, 8.5], look: [1.6, 3.1, 10.0] },
+  { t: 64.0, eye: [-0.5, 1.75, 9.0], look: [1.5, 3.08, 10.0] },
+  { t: 66.9, eye: [-0.2, 1.75, 9.1], look: [1.5, 3.08, 10.0] },
   { t: 66.95, eye: [-23.6, EYE, -11.4], look: [-14.0, 8.0, -20.3] },
   { t: 71.97, eye: [-22.8, EYE, -11.9], look: [-14.0, 8.4, -20.3], ease: 'ss' },
   // zumbido: up at the lamp that flickers, then along the store, where something crosses the corner of the eye
@@ -70,7 +70,19 @@ const KEYS = [
   // c41: the hands shake a little in the lit shop (a source range after the end of the shift, only used by its scene)
   { t: 100.0, eye: [9.8, EYE, 9.2], look: [7.0, 1.0, 8.0] }, { t: 104.3, eye: [9.8, 1.62, 9.2], look: [7.0, 0.9, 8.0] },
   // c44: the sign from the store side of the car park (a source range after the end of the shift)
-  { t: 105.0, eye: [-4.0, EYE, 3.0], look: [-14.0, 8.2, -20.3] }, { t: 110.3, eye: [-4.6, EYE, 2.2], look: [-14.0, 8.5, -20.3], ease: 'ss' },
+  { t: 105.0, eye: [-20.0, EYE, -15.4], look: [-14.0, 8.2, -20.3] }, { t: 110.3, eye: [-19.2, EYE, -15.9], look: [-14.0, 8.4, -20.3], ease: 'ss' },
+  // c39 from the aisle, from the side: the man at the counter (111) and the courier (118)
+  { t: 110.95, eye: [9.6, 1.55, 7.7], look: [14.0, 1.2, 6.8] }, { t: 111.0, eye: [9.6, 1.55, 7.7], look: [14.0, 1.2, 6.8] }, { t: 116.97, eye: [9.9, 1.55, 7.6], look: [14.4, 1.15, 6.4], ease: 'ss' },
+  { t: 117.95, eye: [8.3, EYE, 6.4], look: [12.2, 1.4, 7.2] }, { t: 118.0, eye: [8.3, EYE, 6.4], look: [12.2, 1.4, 7.2] }, { t: 121.97, eye: [8.5, EYE, 6.5], look: [12.2, 1.4, 7.2] },
+  // c43: the wall clock close, the hands near the end of the shift
+  { t: 139.95, eye: [9.8, 1.9, 11.1], look: [9.6, 2.15, 11.9] }, { t: 140.0, eye: [9.8, 1.9, 11.1], look: [9.6, 2.15, 11.9] }, { t: 147.9, eye: [9.7, 1.95, 11.3], look: [9.6, 2.15, 11.9], ease: 'ss' },
+  // c45: the poster from the side of the counter, then the pump with its sticker
+  { t: 149.95, eye: [12.7, 1.65, 9.6], look: [11.1, 2.0, 11.9] }, { t: 150.0, eye: [12.7, 1.65, 9.6], look: [11.1, 2.0, 11.9] }, { t: 154.6, eye: [12.3, 1.62, 9.3], look: [11.1, 2.05, 11.9], ease: 'ss' },
+  { t: 154.95, eye: [8.5, 1.55, -6.2], look: [8.5, 1.4, -7.6] }, { t: 155.0, eye: [8.5, 1.55, -6.2], look: [8.5, 1.4, -7.6] }, { t: 159.9, eye: [8.5, 1.55, -6.0], look: [8.5, 1.4, -7.6] },
+  // the vertical cuts: the clock (180) and the man, the coffee machine and the cup in one tall frame (300)
+  { t: 179.95, eye: [9.6, 2.4, 11.2], look: [9.6, 2.55, 11.9] }, { t: 180.0, eye: [9.6, 2.4, 11.2], look: [9.6, 2.55, 11.9] }, { t: 185.97, eye: [9.6, 2.42, 11.1], look: [9.6, 2.55, 11.9] }, { t: 185.99, eye: [9.6, 2.42, 11.1], look: [9.6, 2.55, 11.9] },
+  { t: 299.95, eye: [11.6, 1.5, 9.8], look: [11.8, 1.2, 7.3] }, { t: 300.0, eye: [11.6, 1.5, 9.8], look: [11.8, 1.2, 7.3] }, { t: 302.97, eye: [11.65, 1.5, 9.7], look: [11.8, 1.2, 7.3], ease: 'ss' }, { t: 302.99, eye: [11.65, 1.5, 9.7], look: [11.8, 1.2, 7.3] },
+  { t: 309.95, eye: [14.9, 1.4, 6.0], look: [15.5, 1.25, 4.9] }, { t: 310.0, eye: [14.9, 1.4, 6.0], look: [15.5, 1.25, 4.9] }, { t: 312.97, eye: [14.8, 1.4, 6.1], look: [15.5, 1.25, 4.9], ease: 'ss' }, { t: 312.99, eye: [14.8, 1.4, 6.1], look: [15.5, 1.25, 4.9] },
   // sol
   { t: 92.0, eye: [11.2, EYE, 9.6], look: [11.2, 2.0, 11.9] },
   { t: 95.97, eye: [11.2, EYE, 10.2], look: [11.2, 2.0, 11.9] },
@@ -78,7 +90,7 @@ const KEYS = [
   { t: 99.97, eye: [8.5, 1.65, -5.9], look: [8.5, 1.95, -8.0] },
 ];
 const cam = track(KEYS);
-const HORA = (t) => (t < 6 ? lerp(0.5, 5.8, smooth(t / 6)) : t < 22 ? 1.7 : t < 32 ? 3.0 : t < 44 ? 2.0 : t < 50 ? 1.3 : t < 64 ? 3.55 : t < 72 ? 4.4 : t < 84 ? 4.6 : t < 92 ? 4.9 : 5.2);
+const HORA = (t) => (t >= 300 ? 3.55 : t >= 180 && t < 186 ? lerp(0.5, 5.8, smooth((t - 180) / 6)) : t >= 150 ? 5.2 : t >= 140 ? 5.7 + (t - 140) * 0.02 : t >= 118 && t < 122 ? 1.3 : t >= 111 && t < 118 ? 3.55 : t < 6 ? lerp(0.5, 5.8, smooth(t / 6)) : t < 22 ? 1.7 : t < 32 ? 3.0 : t < 44 ? 2.0 : t < 50 ? 1.3 : t < 64 ? 3.55 : t < 72 ? 4.4 : t < 84 ? 4.6 : t < 92 ? 4.9 : 5.2);
 
 const BASE = {
   name: 'noites', duration: D, views,
@@ -92,6 +104,9 @@ const BASE = {
     { t: 25.0, name: 'porta_sino', opts: { pos: [9, 2.5, 3.3] } }, { t: 25.1, name: 'porta_abre', opts: { pos: [9, 1, 3] } }, { t: 27.4, name: 'porta_fecha', opts: { pos: [9, 1, 3] } },
     { t: 29.5, name: 'respiracao', opts: { dur: 3, gain: 0.7 } },
     { t: 51, name: 'cafeteira', opts: { dur: 12, gain: 0.8, pos: [15.5, 1.2, 4.9] } }, { t: 50.5, name: 'respiracao', opts: { dur: 10, gain: 0.6 } },
+    { t: 300, name: 'cafeteira', opts: { dur: 6, gain: 0.8, pos: [15.5, 1.2, 4.9] } }, { t: 300, name: 'fluorescente', opts: { dur: 6, gain: 0.6 } }, { t: 180, name: 'fluorescente', opts: { dur: 6, gain: 0.8 } },
+    { t: 111, name: 'cafeteira', opts: { dur: 7, gain: 0.8, pos: [15.5, 1.2, 4.9] } }, { t: 111, name: 'fluorescente', opts: { dur: 11, gain: 0.6 } }, { t: 105, name: 'vento', opts: { dur: 5.3, gain: 0.8 } }, { t: 105, name: 'respiracao', opts: { dur: 5.3, gain: 0.8 } },
+    { t: 140, name: 'fluorescente', opts: { dur: 7.9, gain: 0.8 } }, { t: 140.3, name: 'respiracao', opts: { dur: 7.4, gain: 0.8 } }, { t: 150, name: 'fluorescente', opts: { dur: 3.8, gain: 0.6 } }, { t: 155, name: 'sol_presenca', opts: { dur: 4.9, gain: 0.6 } },
     { t: 64, name: 'rodovia', opts: { dur: 8, gain: 0.8 } }, { t: 64, name: 'vento', opts: { dur: 8, gain: 0.7 } }, { t: 64, name: 'insetos', opts: { dur: 8, gain: 0.6 } }, { t: 68, name: 'respiracao', opts: { dur: 4, gain: 0.7 } },
     { t: 72, name: 'fluorescente', opts: { dur: 12, gain: 1.0 } }, { t: 72.5, name: 'respiracao', opts: { dur: 11, gain: 0.9 } }, { t: 74.5, name: 'lampada_estalo', opts: { gain: 0.6 } }, { t: 75.6, name: 'lampada_estalo', opts: { gain: 0.6 } },
     { t: 84, name: 'rodovia', opts: { dur: 8, gain: 0.8 } }, { t: 84, name: 'vento', opts: { dur: 8, gain: 0.8 } }, { t: 85, name: 'respiracao', opts: { dur: 7, gain: 0.8 } },
@@ -115,15 +130,16 @@ const BASE = {
       anchors: { relogio: () => [9.6, 2.15, 11.9], balcao: () => W.p('balcao', 1), placa: () => W.p('placaSol'), cartaz: () => [11.2, 2.0, 11.9] },
       pose(t, ambient) {
         const { rig } = hands;
+        const FL = ctx.flags ?? {};
         const c = cam(t), b = bob(t, 0);
         const eye = [c.eye[0], c.eye[1], c.eye[2]];
         rig.hang(Math.sin(t * 1.3));
-        if (t >= 100) { const tr = Math.sin(t * 17) * 0.012; rig.reach('right', [0.2 + tr, -0.28, -0.4]); rig.reach('left', [-0.2 - tr, -0.28, -0.4]); }
+        if (t >= 100 && t < 105) { const tr = Math.sin(t * 17) * 0.012; rig.reach('right', [0.2 + tr, -0.28, -0.4]); rig.reach('left', [-0.2 - tr, -0.28, -0.4]); }
         empty.pose(t);
         const place = (cs, who, x, z, pose, show) => { cs.root.visible = show; cs.root.position.set(x, 0, z); cs.root.rotation.y = 0; const toCam = Math.atan2(eye[0] - x, eye[2] - z); cs.root.rotation.y = wrapA(toCam) * 0.0; cs.update(t, { pose, falando: say.at(t)?.who === who }); };
         place(cida, 'Cliente', 13.2, 7.3, 'parado', t >= 32 && t < 44);
-        place(rafa, 'Cliente', 12.0, 7.3, t >= 45.5 ? 'pagando' : 'parado', t >= 44 && t < 50);
-        place(homem, 'x', 13.7, 7.3, 'fixo', t >= 50 && t < 64);
+        place(rafa, 'Cliente', 12.0, 7.3, t >= 45.5 || t >= 119 ? 'pagando' : 'parado', (t >= 44 && t < 50) || (t >= 118 && t < 122));
+        place(homem, 'x', t >= 300 ? 12.0 : 13.7, 7.3, 'fixo', (t >= 50 && t < 64) || (t >= 111 && t < 118) || (t >= 300 && t < 320));
         { const u = (t - 77.6) / 1.4; vulto.root.visible = u > 0 && u < 1; vulto.root.position.set(lerp(2.6, 5.2, u), 0, 10.6); vulto.root.rotation.y = Math.PI / 2; vulto.update(t, { andando: 0.7, fase: t * 5.5 }); }
         const open = t >= 25 && t < 29 ? smooth(ramp(t, 25.0, 25.8)) * (1 - smooth(ramp(t, 27.4, 28.6))) : 0;
         const sm = (t >= 64 && t < 72) || (t >= 84 && t < 92) || t >= 105 ? 1 : 0;
@@ -132,11 +148,11 @@ const BASE = {
         const edges = [];
         let dip = 0; for (const e of edges) dip = Math.max(dip, 1 - Math.min(1, Math.abs(t - e) / 0.25) * 1);
         return {
-          eye, look: c.look, roll: c.roll, fade: Math.max(fade, dip * 0.0), dialog: say.at(t), daze: t >= 100 ? 0.45 : 0,
+          eye, look: c.look, roll: c.roll, fade: Math.max(fade, dip * 0.0), dialog: say.at(t), daze: t >= 100 && t < 105 ? 0.45 : 0, 
           world: {
             state: { doors: { 'porta-loja': open }, sino: ambient - (t - 25.0), hora: HORA(t), placaSorriso: sm ? 1 : 0.1 },
             sign: sm ? { on: true, smile: 1, ray: -1 } : { on: true, smile: 0.1, ray: -1 },
-            cups: t >= 50 && t < 64 ? 1 : 0, brewing: t >= 50 && t < 64, fog: sm ? [14, 70] : undefined, ambient: sm ? 0x585d78 : undefined,
+            cups: (t >= 50 && t < 64) || (t >= 111 && t < 118) || (t >= 300 && t < 320) ? 1 : 0, brewing: (t >= 50 && t < 64) || (t >= 111 && t < 118) || (t >= 300 && t < 320), fog: sm ? [14, 70] : undefined, ambient: sm ? 0x585d78 : undefined,
           },
         };
       },
@@ -146,18 +162,23 @@ const BASE = {
 
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
+  { name: 'relogio-v', desc: 'Vertical: o relógio de parede da loja, grande e centrado, as horas correndo; o pensamento', pieces: [{ src: 180.0, d: 6.0 }], say: [{ t: 0.7, who: '', text: 'Essas Noites não acabam.', seed: TH, hold: 1.0 }] },
+  { name: 'c39-sem-troco-homem-v', desc: 'Vertical: dois planos em pé: o copo vazio no balcão com o homem das 03:33 parado ao fundo, e depois a cafeteira ligada, de perto; sem texto', pieces: [{ src: 300.0, d: 3.0 }, { src: 310.0, d: 3.0 }], flags: { vert: true } },
   { name: 'c25-entregador', desc: 'Cena 25: no balcão, o entregador com a nota na mão espera o troco; pensamento sobre o erro', pieces: [{ src: 44.0, d: 4.4 }],
     say: [{ t: 0.3, who: '', text: 'Errou o troco, reclamam. Errou o bico, reclamam.', seed: TH, hold: 0.5 }] },
   { name: 'c37a-carro-vazio', desc: 'Cena 37 (1 de 2): o carro para na bomba 3 e não há ninguém dentro; sem texto', pieces: [{ src: 11.4, d: 3.8 }] },
   { name: 'c37b-sino', desc: 'Cena 37 (2 de 2): o sino da porta toca, a porta abre e ninguém entra; sem texto', pieces: [{ src: 24.6, d: 3.5 }] },
   { name: 'c38-conversa', desc: 'Cena 38: no balcão, a taxista fala da escala, o gerente comenta por telefone e ela diz que o posto tem coisa', pieces: [{ src: 32.0, d: 10.0 }],
     say: [{ t: 0.8, who: 'Cliente', text: 'Acaba logo essa escala, né?', seed: 12, hold: 0.6 }, { t: 4.4, who: 'Gerente', text: 'Isso custa caro.', seed: BABBLE_SEEDS.gerente, hold: 0.6 }, { t: 6.8, who: 'Cliente', text: 'Esse posto tem coisa.', seed: 12, hold: 1.2 }] },
-  { name: 'c39-sem-troco-homem', desc: 'Cena 39: o entregador sem troco; depois o homem das 03:33 parado no balcão, olhando, com a cafeteira ligada e um copo vazio', pieces: [{ src: 44.2, d: 3.4 }, { src: 51.0, d: 5.8 }],
+  { name: 'c39-sem-troco-homem', desc: 'Cena 39: visto do corredor, de lado: o entregador sem troco; depois o homem das 03:33 parado no balcão, olhando, com a cafeteira ligada e um copo vazio ao lado', pieces: [{ src: 118.0, d: 3.4 }, { src: 111.0, d: 5.8 }],
     say: [{ t: 0.4, who: 'Cliente', text: 'Sem troco de novo.', seed: 17, hold: 0.8 }] },
   { name: 'c40-placa-cam6', desc: 'Cena 40: no estacionamento, a câmera da parede da loja (cam6) de relance e, longe, a placa com o sorriso mais largo; sem texto', pieces: [{ src: 64.4, d: 2.0 }, { src: 67.2, d: 4.2 }] },
   { name: 'c41-respiracao', desc: 'Cena 41: na loja, as mãos tremem um pouco e a respiração pesa; sem texto', pieces: [{ src: 100.0, d: 4.2 }] },
   { name: 'c42-zumbido', desc: 'Cena 42: o zumbido da lâmpada que pisca e um vulto que passa no canto do olho; sem texto', pieces: [{ src: 72.6, d: 7.7 }] },
-  { name: 'c44-sorriso', desc: 'Cena 44: a placa de sorriso largo acima do estacionamento; respiração longa; sem texto', pieces: [{ src: 105.0, d: 5.0 }] },
+  { name: 'c43-relogio', desc: 'Cena 43: o relógio de parede da loja, de perto, as horas quase no fim do turno; pensamento', pieces: [{ src: 140.0, d: 7.7 }],
+    say: [{ t: 0.6, who: '', text: 'É cansaço. Tem que ser cansaço.', seed: TH, hold: 1.2 }] },
+  { name: 'c45-sol-lado', desc: 'Cena 45: o cartaz do sol inteiro e legível, visto de atrás do balcão, em diagonal, e depois a bomba com o adesivo do sol; sem texto', pieces: [{ src: 150.0, d: 4.6 }, { src: 155.0, d: 3.1 }] },
+  { name: 'c44-sorriso', desc: 'Cena 44: a placa de frente, com o sorriso largo legível, acima do estacionamento; respiração longa; sem texto', pieces: [{ src: 105.0, d: 5.0 }] },
 ];
 const FULL = withSegments(BASE, SEGS);
 export default { name: 'noites', duration: FULL.duration, views: FULL.views, anchors: BASE.anchors, sfx: FULL.sfx, build: FULL.build };

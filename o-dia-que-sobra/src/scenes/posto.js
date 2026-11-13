@@ -35,7 +35,8 @@
 // scales how much each area is darkened (1 = as designed).
 import { D, FUEL_KEYS, createBuilder, mulberry32 } from './paint.js';
 import { placeProp, boxFaces, PRODUTO_TIPOS, BREAKERS } from '../models/props.js';
-import { buildEntity } from '../entities.js';
+import { createEntities } from '../../vendor/engine/entities.js';
+import { ENTITY_TYPES, buildEntity } from '../entities.js';
 
 // The layout of the scene: every object the posto puts in the world is a line of data/scenes/posto.json
 // ({ id, type, pos, rot, scale, params }); this file keeps the structure (floor, walls, canopy, areas, the one-off geometry),
@@ -99,17 +100,26 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   // returns what placeProp returned; EP(id) is its position; PR(id) its params; AT(id, dx, dy, dz) a point relative to it.
   // The editor mode builds every entity into a group of its own (pickable, replaceable); the game merges them.
   const editorMode = editor ?? (typeof location !== 'undefined' && new URLSearchParams(location.search).has('editor'));
-  const ENT = new Map(layout.entities.map((e) => [e.id, e]));
-  const made = {};
   const kit = { builder: editorMode ? null : B, seed, areaAt, tintOf };
-  const build = (id) => {
-    const e = ENT.get(id); if (!e) throw new Error('entidade fora do layout: ' + id);
-    const m = buildEntity(r, kit, e); made[id] = m; group.add(m.root); return m;
-  };
-  const X = (id) => (made[id] ?? build(id)).ph;
-  const EP = (id) => ENT.get(id).pos;
-  const EY = (id) => ENT.get(id).rot?.[1] ?? 0;
-  const PR = (id) => (made[id] ?? build(id)).params;
+  let ready = false; // the wiring below pushes lights in its own order; after that, a rebuilt entity (editor) keeps its light in step
+  const ents = createEntities({
+    r, group, types: ENTITY_TYPES, layout, editor: editorMode,
+    build: (e) => buildEntity(r, kit, e),
+    onBuilt(id, m) {
+      if (!ready) return;
+      for (const l of m.lights) {
+        const i = lights.findIndex((q) => q.id === l.id);
+        if (i >= 0) { Object.assign(lights[i], { pos: l.pos, color: l.color, range: l.range, on: l.on, kind: l.kind, area: l.area }); Object.defineProperty(lights[i], 'fixture', { value: l.fixture, enumerable: false, configurable: true }); }
+        else { Object.defineProperty(l, 'fixture', { value: l.fixture, enumerable: false }); lights.push(l); }
+      }
+    },
+    onRemoved(id, m) { for (let i = lights.length - 1; i >= 0; i--) if (m.lights.includes(lights[i]) || lights[i].id === id) lights.splice(i, 1); },
+  });
+  const made = ents.made;
+  const X = (id) => ents.X(id).ph;
+  const EP = (id) => ents.pos(id);
+  const EY = (id) => ents.entity(id).rot?.[1] ?? 0;
+  const PR = (id) => ents.params(id);
   const AT = (id, dx = 0, dy = 0, dz = 0) => { const q = EP(id); return [q[0] + dx, q[1] + dy, q[2] + dz]; };
   /** the collider an entity's type declares, pushed with extras */
   const colOf = (id, extra = {}) => { X(id); for (const c of made[id].colliders) collide(c.min, c.max, extra); };
@@ -661,13 +671,16 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   };
 
   // ------------------------------------------------------------------ entities the wiring does not know (made in the editor)
-  for (const e of layout.entities) {
-    if (made[e.id]) continue;
-    const m = build(e.id);
+  const known = new Set(Object.keys(made));
+  ents.all();
+  for (const id of Object.keys(made)) {
+    if (known.has(id)) continue;
+    const m = made[id];
     for (const c of m.colliders) collide(c.min, c.max);
     for (const l of m.lights) lights.push(l);
     if (m.update) updaters.push(m.update);
   }
+  ready = true;
 
   // ------------------------------------------------------------------ build everything
   B.flush(group);
@@ -699,48 +712,6 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   }
   const placaPower = (on) => props['placa-sol'].setPower(on);
   update(0, {});
-
-  // ------------------------------------------------------------------ the editor's door (only with ?editor): window.__engine
-  // apply(sceneId, layout) rebuilds only the entities whose line changed (and drops or adds the others), pick(nx, ny) says which
-  // entity is under a point (0..1 across the screen, from the top left), select(id) outlines one. In this mode every entity is its
-  // own group (nothing is merged), so each can be replaced alone. The wiring (anchors, colliders, handles) is the one built at the start:
-  // apply moves what is seen, and the lights of lamps; reload the page to get the rest.
-  if (editorMode && typeof window !== 'undefined') {
-    const cur = new Map(layout.entities.map((e) => [e.id, JSON.stringify(e)]));
-    const outline = new T.Box3Helper(new T.Box3(), 0xffb020); outline.visible = false; r.scene.add(outline);
-    let selected = null;
-    const rootOf = (id) => made[id]?.root ?? null;
-    const reselect = () => { const o = selected && rootOf(selected); if (!o) { outline.visible = false; return; } o.updateWorldMatrix(true, true); outline.box.setFromObject(o); outline.visible = !outline.box.isEmpty(); };
-    window.__engine = {
-      scene: 'posto', entities: made,
-      apply(sceneId, lay) {
-        if (sceneId !== 'posto') return { changed: [], added: [], removed: [] };
-        const res = { changed: [], added: [], removed: [] }, ids = new Set(lay.entities.map((e) => e.id));
-        for (const id of [...cur.keys()]) if (!ids.has(id)) { const m = made[id]; if (m) group.remove(m.root); delete made[id]; ENT.delete(id); cur.delete(id); res.removed.push(id); for (let i = lights.length - 1; i >= 0; i--) if (lights[i].id === id || m?.lights.includes(lights[i])) lights.splice(i, 1); }
-        for (const e of lay.entities) {
-          const js = JSON.stringify(e), had = cur.has(e.id);
-          if (had && cur.get(e.id) === js) continue;
-          const old = made[e.id]; if (old) group.remove(old.root);
-          ENT.set(e.id, e); cur.set(e.id, js);
-          const m = build(e.id);
-          for (const l of m.lights) { const i = lights.findIndex((q) => q.id === l.id); if (i >= 0) { Object.assign(lights[i], { pos: l.pos, color: l.color, range: l.range, on: l.on, kind: l.kind, area: l.area }); Object.defineProperty(lights[i], 'fixture', { value: l.fixture, enumerable: false, configurable: true }); } else { Object.defineProperty(l, 'fixture', { value: l.fixture, enumerable: false }); lights.push(l); } }
-          (had ? res.changed : res.added).push(e.id);
-        }
-        reselect();
-        return res;
-      },
-      select(id) { selected = id; reselect(); return Boolean(id && rootOf(id)); },
-      pick(nx, ny) {
-        const rc = new T.Raycaster(); rc.setFromCamera(new T.Vector2(nx * 2 - 1, -(ny * 2 - 1)), r.camera);
-        group.updateWorldMatrix(true, true);
-        for (const h of rc.intersectObject(group, true)) {
-          if (!h.object.visible || h.object.material?.visible === false && !h.object.userData.interactId) continue;
-          for (let o = h.object; o; o = o.parent) if (o.userData?.entityId) return o.userData.entityId;
-        }
-        return null;
-      },
-    };
-  }
 
   return {
     group, anchors, colliders, lights, interactables, areas, areaAt, update,

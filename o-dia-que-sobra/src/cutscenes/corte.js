@@ -73,6 +73,7 @@ const BASE = {
       anchors: { monitor: () => W.p('monitorTela'), balcao: () => [12.3, 1.0, 8.4], porta: () => W.p('porta-escritorio', 1.2) },
       pose(t) {
         const { rig } = hands;
+        const FL = ctx.flags ?? {};
         const c = cam(t);
         rig.hang(Math.sin(t * 1.1));
         const grid = t >= GRID[0] && t < GRID[1], single = t >= GRID[1] && t < 20;
@@ -83,7 +84,7 @@ const BASE = {
           // the pictures are shot once the posto is posed for this frame
           late(f) {
             if (grid) f.screen = { kind: 'grid', images: [0, 1, 2, 3, 4, 5].map((i) => shoot(i, false, t)) };
-            else if (single) f.screen = { kind: 'cam', image: shoot(0, t >= FIGURE_FROM, t), label: 'CAM 1', zoom: t >= 8 ? lerp(1.3, 1.6, smooth(ramp(t, 8, 19))) : 1, at: [0.5, 0.58] };
+            else if (single) f.screen = { kind: 'cam', image: shoot(0, t >= FIGURE_FROM, t), label: 'CAM 1', zoom: t >= 8 ? (FL.vert ? lerp(1.9, 2.3, smooth(ramp(t, 8, 19))) : lerp(1.3, 1.6, smooth(ramp(t, 8, 19)))) : 1, at: FL.vert ? [0.5, 0.5] : [0.5, 0.58] };
           },
         };
       },
@@ -93,6 +94,7 @@ const BASE = {
 
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
+  { name: 'c55-figura-v', desc: 'Vertical: o monitor ocupando a largura do quadro em pé, a imagem da câmera da loja ampliada: atrás do balcão, a figura de uniforme antigo (provisório até a fase 4)', pieces: [{ src: 8.0, d: 7.3 }], flags: { vert: true } },
   { name: 'c54-monitor', desc: 'Cena 54: o monitor do escritório mostra a grade de seis imagens em preto e branco por quase 3 s, depois só a câmera da loja (provisório até a fase 4)', pieces: [{ src: 0.4, d: 4.4 }] },
   { name: 'c55-figura', desc: 'Cena 55: a câmera da loja no monitor inteiro; atrás do balcão, parada, a figura de uniforme antigo (provisório até a fase 4)', pieces: [{ src: 8.0, d: 7.3 }] },
   { name: 'c56-porta', desc: 'Cena 56: você olha para trás: a porta entre o escritório e a loja está aberta, o posto em silêncio; corte seco para o preto', pieces: [{ src: 23.0, d: 5.0 }] },

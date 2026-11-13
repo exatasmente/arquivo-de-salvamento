@@ -45,10 +45,10 @@ const say = dialogue([
 // ---- the camera, one stretch per view; a view ends on its own framing and the next starts on another
 const KEYS = [
   // carro
-  { t: 0.0, eye: [16.0, EYE, -5.2], look: [24.5, 3.5, -6.5] },
-  { t: 1.79, eye: [16.6, EYE, -5.2], look: [24.5, 3.6, -6.5] },
-  { t: 1.8, eye: [7.0, EYE, -5.4], look: [0.5, 3.5, -6.5] },
-  { t: 3.59, eye: [6.5, EYE, -5.4], look: [0.5, 3.6, -6.5] },
+  { t: 0.0, eye: [24.2, EYE, -3.8], look: [24.55, 3.85, -6.5] },
+  { t: 1.79, eye: [24.3, EYE, -3.9], look: [24.55, 3.88, -6.5] },
+  { t: 1.8, eye: [0.8, EYE, -3.8], look: [0.45, 3.85, -6.5] },
+  { t: 3.59, eye: [0.7, EYE, -3.9], look: [0.45, 3.88, -6.5] },
   { t: 3.6, eye: [6.2, EYE, -6.3], look: [-3.0, 1.3, -3.2] },
   { t: 5.0, eye: [6.2, EYE, -6.3], look: [2.5, 1.2, -4.2], ease: 'ss' },
   { t: 8.4, eye: [6.2, EYE, -6.3], look: [9.9, 1.2, -5.3], ease: 'ss' },
@@ -67,8 +67,8 @@ const KEYS = [
   { t: 32.0, eye: [8.0, 1.62, -6.6], look: [8.3, 1.58, -7.6] },
   { t: 40.97, eye: [8.15, 1.62, -6.6], look: [8.3, 1.58, -7.6] },
   // caixa: first a look up at the ceiling camera over the door, then the till
-  { t: 41.0, eye: [13.3, EYE, 9.35], look: [15.0, 2.8, 3.6] },
-  { t: 43.0, eye: [13.3, EYE, 9.35], look: [15.0, 2.6, 3.7], ease: 'ss' },
+  { t: 41.0, eye: [14.0, EYE, 5.4], look: [15.55, 2.88, 3.45] },
+  { t: 43.0, eye: [14.1, EYE, 5.5], look: [15.55, 2.88, 3.45], ease: 'ss' },
   { t: 44.0, eye: [13.3, EYE, 9.35], look: [13.6, 1.1, 8.0], ease: 'ss' },
   { t: 49.0, eye: [13.5, EYE, 9.3], look: [13.5, 1.1, 8.0] },
   { t: 53.97, eye: [13.4, EYE, 9.3], look: [13.2, 1.3, 7.4] },
@@ -91,17 +91,23 @@ const KEYS = [
   { t: 80.5, eye: [17.9, EYE, 15.9], look: [18.8, 1.4, 18.6], ease: 'ss' },
   { t: 84.97, eye: [18.6, EYE, 15.9], look: [17.0, 1.3, 18.6] },
   // banheiro
-  { t: 85.0, eye: [18.0, EYE, 2.0], look: [18.0, 1.3, 4.4] },
-  { t: 87.5, eye: [18.0, EYE, 4.8], look: [17.5, 1.1, 7.0], ease: 'ss' },
+  { t: 85.0, eye: [17.2, EYE, 5.2], look: [19.8, 1.4, 4.9] },
+  { t: 87.5, eye: [17.5, EYE, 6.0], look: [18.6, 0.8, 7.0], ease: 'ss' },
   { t: 94.97, eye: [17.9, EYE, 6.0], look: [17.3, 0.6, 8.0] },
   // lixo: into the service area (cam5 ahead and above), along the locked door of the depot (its visor, cam7 inside), to the container
-  { t: 95.0, eye: [17.2, EYE, 16.5], look: [17.4, 2.5, 19.6] },
-  { t: 96.4, eye: [17.6, EYE, 16.8], look: [18.0, 2.2, 19.5], ease: 'ss' },
+  { t: 95.0, eye: [17.3, EYE, 17.3], look: [17.35, 2.85, 19.65] },
+  { t: 96.4, eye: [17.4, EYE, 17.3], look: [17.5, 2.7, 19.65], ease: 'ss' },
   { t: 97.5, eye: [18.6, EYE, 16.9], look: [19.8, 1.5, 18.3], ease: 'ss' },
   { t: 99.0, eye: [20.3, 1.5, 18.3], look: [23.65, 2.88, 14.35] },
   { t: 101.5, eye: [20.35, 1.5, 18.2], look: [23.65, 2.88, 14.35], ease: 'ss' },
   { t: 103.0, eye: [20.4, EYE, 19.4], look: [21.5, 1.0, 21.0] },
   { t: 104.97, eye: [21.0, EYE, 20.0], look: [21.5, 0.9, 21.3] },
+  // c31 end: out of the back door with the bag, the torch on the container of the back yard (source range after the end)
+  { t: 119.95, eye: [19.0, EYE, 18.8], look: [20.4, 1.2, 22.2] }, { t: 120.0, eye: [19.0, EYE, 18.8], look: [20.4, 1.2, 22.2] }, { t: 121.4, eye: [19.2, EYE, 20.6], look: [21.7, 1.2, 22.5], ease: 'ss' }, { t: 122.7, eye: [20.2, EYE, 21.4], look: [22.0, 1.0, 22.8] },
+  // the vertical cut: the container of the back yard, close, the torch on it (330)
+  { t: 329.95, eye: [18.6, 1.6, 20.8], look: [21.5, 0.7, 22.5] }, { t: 330.0, eye: [18.6, 1.6, 20.8], look: [21.5, 0.7, 22.5] }, { t: 332.4, eye: [18.9, 1.6, 21.0], look: [21.5, 0.7, 22.5] }, { t: 332.42, eye: [18.9, 1.6, 21.0], look: [21.5, 0.7, 22.5] },
+  // the vertical cut: the open hands, centred (170)
+  { t: 169.95, eye: [5.6, 1.5, 16.4], look: [5.6, 0.5, 17.0] }, { t: 170.0, eye: [5.6, 1.5, 16.4], look: [5.6, 0.5, 17.0] }, { t: 174.97, eye: [5.6, 1.48, 16.4], look: [5.6, 0.52, 17.0] }, { t: 174.99, eye: [5.6, 1.48, 16.4], look: [5.6, 0.52, 17.0] },
   // remedio: the cabinet of the office
   { t: 105.0, eye: [5.6, 1.5, 16.4], look: [5.6, 0.45, 17.0] },
   { t: 109.97, eye: [5.6, 1.48, 16.4], look: [5.6, 0.5, 17.0], ease: 'ss' },
@@ -189,13 +195,14 @@ const BASE = {
         const open = (id, a, b2) => smooth(ramp(t, a, b2));
         const doors = {
           'porta-estoque': open('', 63.2, 64.0) * (t < 73 ? 1 : 0), 'porta-estoque-servico': t >= 95 ? (t < 98 ? 1 : 0) : open('', 77.0, 78.0), 'porta-banheiro-m': open('', 85.6, 86.4),
-          'porta-escritorio': t >= 54 && t < 62 ? 1 : 0,
+          'porta-escritorio': t >= 54 && t < 62 ? 1 : 0, 'porta-fundos': (t >= 120 && t < 126) || (t >= 330 && t < 336) ? 1 : 0,
         };
         const nozzleHeld = t >= 16.0 && t < 20.2;
         if (t >= 16.0 && t < 40.0) hideNozzle = [PUMP, 'comum'];
         // ---- hands
         const sway = Math.sin(t * 1.4);
         rig.hang(sway * (w ? 2 : 1));
+        bag.traverse((m) => { if (m.isMesh && m.material?.uniforms) { if (!m.userData.c0) m.userData.c0 = m.material.uniforms.uColor.value.clone(); if (t >= 330 || FL.vert) { m.material.uniforms.uColor.value.set('#8aa08a'); m.material.uniforms.uEmissive.value = 0.3; } else { m.material.uniforms.uColor.value.copy(m.userData.c0); m.material.uniforms.uEmissive.value = 0; } } });
         bag.visible = false; nz.visible = false; bx.visible = false; mp.visible = false; note.visible = false; torch.visible = false;
         const R = (p) => rig.reach('right', p);
         const L = (p) => rig.reach('left', p);
@@ -242,15 +249,15 @@ const BASE = {
           bx.visible = true; bx.position.set(p.x, p.y - 0.18, p.z); bx.rotation.set(0, Math.atan2(c.look[0] - eye[0], c.look[2] - eye[2]), 0);
           R([0.2, -0.32 + (1 - k) * -0.1, -0.5]); L([-0.2, -0.32 + (1 - k) * -0.1, -0.5]);
         }
-        const dark = (t >= 63.6 && t < 85) || (t >= 95 && t < 105);
+        const dark = (t >= 63.6 && t < 85) || (t >= 95 && t < 105) || (t >= 120 && t < 126) || (t >= 330 && t < 336);
         let spot = null;
         if (dark) {
           const f = new T.Vector3(c.look[0] - eye[0], c.look[1] - eye[1], c.look[2] - eye[2]).normalize();
           const o = camPoint(T, eye, c.look, [0.18, -0.16, -0.25]);
           spot = { pos: [o.x, o.y, o.z], dir: [f.x, f.y, f.z], color: 0xf2e2b0, range: 14, cos: 0.88 };
-          if (!hasBox(t)) { torch.visible = true; if (t >= 95) { bag.visible = true; const bp = camPoint(T, eye, c.look, [-0.24, -0.5, -0.42]); bag.position.set(bp.x, bp.y - 0.3, bp.z); L([-0.2, -0.34, -0.4]); } torch.position.set(o.x, o.y, o.z); torch.rotation.set(0, Math.atan2(f.x, f.z), 0); const pitch = Math.asin(clamp(f.y, -1, 1)); torch.rotation.x = -pitch; R([0.2, -0.28, -0.42]); }
+          if (!hasBox(t)) { torch.visible = true; if (t >= 95) { bag.visible = true; const bp = camPoint(T, eye, c.look, t >= 330 || FL.vert ? [-0.12, -0.3, -0.7] : [-0.3, -0.3, -0.72]); bag.scale.setScalar(t >= 330 || FL.vert ? 0.5 : 0.8); bag.position.set(bp.x, bp.y - 0.22, bp.z); L([-0.2, -0.3, -0.45]); } torch.position.set(o.x, o.y, o.z); torch.rotation.set(0, Math.atan2(f.x, f.z), 0); const pitch = Math.asin(clamp(f.y, -1, 1)); torch.rotation.x = -pitch; R([0.2, -0.28, -0.42]); }
         }
-        if (t >= 105 && t < 110) { const u = smooth(ramp(t, 104.7, 105.3)) * (1 - smooth(ramp(t, 109.0, 109.8))); R([lerp(0.22, 0.12, u), lerp(-0.4, -0.14, u), lerp(-0.34, -0.42, u)]); L([lerp(-0.22, -0.12, u), lerp(-0.4, -0.14, u), lerp(-0.34, -0.42, u)]); rig.curl('right', 0.0); rig.curl('left', 0.0); }
+        if ((t >= 105 && t < 110) || (t >= 170 && t < 175)) { const tc = t >= 170 ? t - 65 : t, yy = FL.vert ? 0.1 : -0.14, xx = FL.vert ? 0.1 : 0.12; const u = FL.vert ? 1 : smooth(ramp(tc, 104.7, 105.3)) * (1 - smooth(ramp(tc, 109.0, 109.8))); R([lerp(0.22, xx, u), lerp(-0.4, yy, u), lerp(-0.34, -0.45, u)]); L([lerp(-0.22, -xx, u), lerp(-0.4, yy, u), lerp(-0.34, -0.45, u)]); rig.curl('right', 0.0); rig.curl('left', 0.0); }
         // the mop and the stain in the bathroom
         let dirt = null;
         if (t >= 85) {
@@ -273,12 +280,12 @@ const BASE = {
         if (t >= 55.4 && t < 60.7) screen = { kind: 'login', sel: t < 56.2 ? 0 : t < 59.4 ? 1 : 0 };
         // ---- the clipboard
         const sheet = t >= 0.8 && t < 5.2 ? { time: '00:21', week: 1, day: 1, wallet: '120,00', tasks: [{ text: 'Abrir o caixa', done: true }, { text: 'Atender o carro da bomba 2', done: false }, { text: 'Limpar o banheiro M', done: false }] } : null;
-        const fade = Math.max(1 - smooth(ramp(t, 0, 0.5)), smooth(ramp(t, 116.2, 116.95)));
+        const fade = Math.max(1 - smooth(ramp(t, 0, 0.5)), smooth(ramp(t, 116.2, 116.95)) * (t < 118 ? 1 : 0));
         return {
-          eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t), sheet, screen, daze: t >= 105 && t < 110 ? 0.35 : 0,
+          eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t), sheet, screen, daze: (t >= 105 && t < 110) || (t >= 170 && t < 175) ? 0.35 : 0,
           world: {
             state: { doors, gaveta: smooth(ramp(t, 46.0, 46.6)) * (1 - smooth(ramp(t, 49.8, 50.4))) * (t >= 41 && t < 54 ? 1 : 0), hora: FL.dawn ? 5.95 : t < 41 ? 0.35 : t < 63 ? 0.5 : 1.0 },
-            displays: display ? { [PUMP]: display } : null, pressed, hideNozzle, spot, dirt, ambient: t >= 63.6 && t < 105 ? 0x646878 : undefined, on: (t >= 54 && t < 63) || t >= 105 ? ['escritorio-teto'] : [], armario: smooth(ramp(t, 111, 112.2)), frasco: t >= 112,
+            displays: display ? { [PUMP]: display } : null, pressed, hideNozzle, spot, dirt, ambient: (t >= 63.6 && t < 105) || (t >= 120 && t < 126) || (t >= 330 && t < 336) ? (t >= 330 ? 0x8a8ea4 : 0x646878) : undefined, on: (t >= 54 && t < 63) || t >= 105 ? ['escritorio-teto'] : [], armario: smooth(ramp(t, 111, 112.2)), frasco: t >= 112,
           },
         };
         void state;
@@ -289,6 +296,8 @@ const BASE = {
 
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
+  { name: 'cansaco-v', desc: 'Cena 33, vertical: as mãos abertas diante dos olhos, centradas no quadro em pé; um pensamento', pieces: [{ src: 170.0, d: 5.0 }], flags: { vert: true }, say: [{ t: 0.6, who: '', text: 'O corpo aguenta Algumas semanas assim.', seed: TH, hold: 1.2 }] },
+  { name: 'c12-estoque-fundos-v', desc: 'Vertical: a caixa numerada no estoque, depois o corte para os fundos: a cam5, o visor da porta do depósito (cam7), o saco de lixo e o contêiner', pieces: [{ src: 68.4, d: 2.6 }, { src: 95.0, d: 1.6 }, { src: 100.0, d: 1.4 }, { src: 330.0, d: 2.4 }], flags: { vert: true } },
   { name: 'c21-cobertura', desc: 'Cena 21: sob a cobertura, de relance as câmeras de teto das pontas (cam3, depois cam2); o primeiro carro chega; sem texto', pieces: [{ src: 0, d: 3.6 }, { src: 5.8, d: 2.9 }], sheet: false },
   { name: 'c22-carro', desc: 'Cena 22: o primeiro carro para na bomba 2 e o cliente pede', pieces: [{ src: 5.6, d: 7.7 }], sheet: false,
     say: [{ t: 3.4, who: 'Cliente', text: 'Completa a comum.', seed: BABBLE_SEEDS.cliente, hold: 1.4 }] },
@@ -300,8 +309,8 @@ const SEGS = [
     say: [{ t: 0.3, who: '', text: 'Uma boa noite é uma noite sem nada.', seed: TH, hold: 0.8 }] },
   { name: 'c27-placar', desc: 'Cena 27: a prancheta com os pontos e o placar da noite, no balcão ao amanhecer', pieces: [{ src: 49.0, d: 9.2, rate: 0.54 }], flags: { noCust: true, dawn: true }, sheet: SHEET_PLACAR },
   { name: 'c28-lista', desc: 'Cena 28: a prancheta com a lista de tarefas da noite enquanto o primeiro carro chega', pieces: [{ src: 3.6, d: 6.9 }], sheet: SHEET_LIST },
-  { name: 'c31-fundos', desc: 'Cena 31: o saco de lixo e a lanterna: a área de serviço (cam5), a porta trancada do depósito pelo visor (cam7) e o pensamento', pieces: [{ src: 95.0, d: 2.4 }, { src: 98.8, d: 3.8 }],
-    say: [{ t: 3.9, who: '', text: 'Rápido. Sai logo daqui.', seed: TH, hold: 0.3 }] },
+  { name: 'c31-fundos', desc: 'Cena 31: o saco de lixo e a lanterna: a área de serviço (cam5), a porta trancada do depósito pelo visor (cam7) e o saco levado ao contêiner dos fundos, iluminado pela lanterna; pensamento', pieces: [{ src: 95.0, d: 1.8 }, { src: 100.0, d: 1.8 }, { src: 120.0, d: 2.6 }],
+    say: [{ t: 3.7, who: '', text: 'Rápido. Sai logo daqui.', seed: TH, hold: 0.1 }] },
   { name: 'c32-servico', desc: 'Cena 32: o carrinho, a porta para a área de serviço e a lanterna na penumbra; sem texto', pieces: [{ src: 74.5, d: 6.2 }] },
   { name: 'c34-remedio', desc: 'Cena 34: o armário verde do escritório abre e mostra o frasco branco, sem marca', pieces: [{ src: 110.0, d: 11.9, rate: 0.59 }],
     say: [{ t: 4.6, who: '', text: 'Frasco branco, sem nome. Ajuda, mas deixa as mãos lentas.', seed: TH, hold: 1.4 }] },

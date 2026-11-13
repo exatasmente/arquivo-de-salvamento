@@ -103,7 +103,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     m(new THREE.BoxGeometry(0.38, 0.06, 0.32), cloth, [0, 0.35, 0.28]).rotation.x = 0.1;
     // the driver sits on +x; the passenger on the other side, one seat over, a little turned to the driver
     const p = car.root.children.flatMap((c) => c.children || []).length ? null : null; void p;
-    g.position.set(-0.4, car.size?.h > 1.2 ? 1.1 : 0.78, 0.0 + (car.size?.l ? -car.size.l * 0.05 : 0));
+    const seat = car.seat || { x: 0.4, y: 0.48, z: 0 }; // the other seat of the same row as the driver (the head stays under the roof)
+    g.position.set(-seat.x, seat.y, seat.z);
     g.rotation.y = 0.2 + (mulberry32(s)() - 0.5) * 0.3;
     car.root.add(g);
     return g;
