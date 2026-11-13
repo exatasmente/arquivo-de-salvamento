@@ -24,8 +24,9 @@ import bomba4 from './bomba4.js';
 import telefone from './telefone.js';
 import corte from './corte.js';
 import cartao from './cartao.js';
+import serie from './serie.js';
 
-export const CUTSCENES = { abertura, chegada, gerente, rotina, noites, bomba4, telefone, corte, cartao };
+export const CUTSCENES = { abertura, chegada, gerente, rotina, noites, bomba4, telefone, corte, cartao, serie };
 /** The cutscenes the game plays (the ones with `filmOnly` are reels for the film mode only). */
 export const cutsceneNames = () => Object.keys(CUTSCENES).filter((n) => !CUTSCENES[n].filmOnly);
 export function cutsceneDuration(nome) {

@@ -111,7 +111,24 @@
     "cartao.salvando": "A tela do cartão de memória salva a noite; o bloco 13, de ícone quebrado, fica à vista (7.0 s)",
     "cartao.fim": "A noite salva; a última caixa: \"Nem todo arquivo foi salvo.\" (5.0 s)",
     "cartao.c58-salvando": "Cena 58: a tela do cartão de memória salvando a noite, o bloco 13 de ícone quebrado à vista, sem zoom; sem texto (3.5 s)",
-    "cartao.c59-nem-todo": "Cena 59: o escritório às escuras, o monitor apagado; a última caixa por cima (3.2 s)"
+    "cartao.c59-nem-todo": "Cena 59: o escritório às escuras, o monitor apagado; a última caixa por cima (3.2 s)",
+    "serie.v1-placa": "V1 Acende, plano 1: a placa alta do sol sozinha no escuro, a lâmpada falhando duas vezes e um raio que apaga; câmera fixa, a placa no terço de cima; sem texto (5.0 s)",
+    "serie.v1-placa-atras": "V1 Acende, plano 2: a mesma placa vista da rodovia, por trás, acesa e sozinha no escuro; sem texto (4.0 s)",
+    "serie.v1-acostamento": "V1 Acende, plano 3: o acostamento, a faixa amarela fugindo; um carro passa com os faróis e a câmera sobe até a placa do primeiro plano (o laço); sem texto (5.0 s)",
+    "serie.v2-cartaz": "V2 Cinco coisas paradas, 1: o cartaz do sol e o relógio de parede da loja, câmera baixa; sem texto (3.0 s)",
+    "serie.v2-mostrador": "V2 Cinco coisas paradas, 2: o mostrador de uma bomba corre e para; câmera baixa; sem texto (4.0 s)",
+    "serie.v2-cafeteira": "V2 Cinco coisas paradas, 3: a cafeteira ligada, de perto, em pé; sem texto (3.0 s)",
+    "serie.v2-cobertura": "V2 Cinco coisas paradas, 4: a luminária da cobertura e, abaixo dela, o crachá pendurado, sem destaque; sem texto (5.0 s)",
+    "serie.v2-relogio": "V2 Cinco coisas paradas, 5: o relógio de parede da loja, de perto e de baixo; sem texto (4.0 s)",
+    "serie.v2-adesivo": "V2 Cinco coisas paradas, 6: o adesivo do sol na bomba, de frente e de baixo; sem texto (3.0 s)",
+    "serie.v3-longo": "V3 Quarenta metros: um só plano, a pé, do acostamento até a cobertura do posto: um carro passa, a placa acende ao longe, sob a cobertura as bombas e as colunas; sem cortes e sem texto (43.7 s)",
+    "serie.v4-bomba3": "V4 Bomba 3: plano fixo da bomba 3 vazia; o carro entra, para, ninguém desce e ele sai; o quadro volta a vazio (laço exato); sem texto (16.0 s)",
+    "serie.v5-vitrine": "V5 A lâmpada, plano 1: a vitrine da loja vista de fora, a loja acesa e vazia no escuro; sem texto (4.0 s)",
+    "serie.v5-zumbido": "V5 A lâmpada, plano 2: na loja, a lâmpada que pisca e zumbe e um vulto no canto do olho; sem texto (7.7 s)",
+    "serie.v5-porta": "V5 A lâmpada, plano 3: você olha para trás, a porta entre o escritório e a loja está aberta; corte seco para o preto; sem texto (5.0 s)",
+    "serie.v6-cobertura": "V6 Telas, plano 1: sob a cobertura, de relance as câmeras de teto das pontas; sem texto (6.5 s)",
+    "serie.v6-cam6-placa": "V6 Telas, plano 2: no estacionamento, a câmera da parede da loja e, longe, a placa com o sorriso largo; sem texto (6.2 s)",
+    "serie.v6-monitor": "V6 Telas, plano 3: o monitor do escritório: a grade de seis imagens em preto e branco e depois só a câmera da loja, vazia; sem texto (4.4 s)"
   },
   "actions": {
     "clarao": "Os clarões do trecho aparecem (no máximo 3 por segundo, nunca branco total). Sem esta ação o trecho sai sem clarão",
@@ -150,6 +167,11 @@
     "corte.monitor": "O monitor do escritório",
     "corte.balcao": "O balcão da loja visto pela câmera 1",
     "corte.porta": "A porta entre o escritório e a loja",
-    "cartao.bloco13": "O bloco 13 do cartão, de ícone quebrado"
+    "cartao.bloco13": "O bloco 13 do cartão, de ícone quebrado",
+    "serie.placa": "A placa alta do sol",
+    "serie.cobertura": "A cobertura das bombas",
+    "serie.bomba3": "A bomba 3 e a baia ao lado",
+    "serie.loja": "A vitrine da loja",
+    "serie.monitor": "O monitor do escritório"
   }
 }
