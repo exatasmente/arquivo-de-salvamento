@@ -1,0 +1,139 @@
+{
+  "carro": {
+    "pedidos": [
+      {
+        "tipo": "com-combustivel",
+        "texto": "Põe {valor} de {combustivel}."
+      },
+      {
+        "tipo": "com-combustivel",
+        "texto": "{valor} de {combustivel}, por favor."
+      },
+      {
+        "tipo": "sem-combustivel",
+        "texto": "Põe {valor}. Boa noite."
+      },
+      {
+        "tipo": "sem-combustivel",
+        "texto": "{valor}, só isso."
+      }
+    ],
+    "valores": [
+      20,
+      25,
+      30,
+      40,
+      50,
+      60
+    ],
+    "pagamento": [
+      20,
+      50,
+      100
+    ],
+    "paciencia": 150
+  },
+  "loja": {
+    "itens": [
+      2,
+      3
+    ],
+    "paciencia": 120,
+    "cumprimentos": [
+      "Boa noite.",
+      "Noite.",
+      "Tá aberto, né?"
+    ]
+  },
+  "chegada": {
+    "primeiro": 38,
+    "intervalo": [
+      26,
+      48
+    ]
+  },
+  "tutorial": {
+    "carro": {
+      "seed": 11,
+      "bomba": 2,
+      "valor": 30,
+      "combustivel": "comum",
+      "texto": "Põe {valor} de {combustivel}."
+    },
+    "loja": {
+      "seed": 23,
+      "itens": [
+        "biscoito",
+        "lata"
+      ],
+      "pagamento": 20
+    }
+  },
+  "falas": {
+    "obrigado": [
+      "Valeu.",
+      "Obrigado, boa noite.",
+      "Tudo certo. Boa noite.",
+      "Até mais."
+    ],
+    "faltou": [
+      "Faltou, ó. Eu pedi mais.",
+      "Isso aqui não é o que eu pedi."
+    ],
+    "passou": [
+      "Eu não pedi tudo isso...",
+      "Passou do valor, hein."
+    ],
+    "troco_curto": [
+      "O troco tá errado. Falta.",
+      "Me deu pouco troco."
+    ],
+    "troco_longo": [
+      "Me deu troco demais. Confere aí."
+    ],
+    "combustivel_errado": [
+      "O carro tá engasgando! Pôs o quê aí?"
+    ],
+    "bico": [
+      "O bico ficou no carro! Quase levo a bomba junto."
+    ],
+    "demora": [
+      "Vou embora, que demora."
+    ],
+    "cobrar": [
+      "Quanto deu?",
+      "Pode cobrar."
+    ],
+    "troco_certo": [
+      "Isso."
+    ]
+  },
+  "atras": {
+    "chance": 0.3,
+    "pedidos": [
+      "Me vê também {item}, o que fica atrás do balcão.",
+      "Tem {item}? Fica atrás do balcão.",
+      "E {item}, por favor, ali atrás."
+    ]
+  },
+  "bebado": {
+    "recusa": [
+      "Peraí... só mais um pouquinho...",
+      "Calma, tô só descansando aqui."
+    ],
+    "tentativas": 3,
+    "segurar": 2.0
+  },
+  "banheiro": {
+    "decisao": [
+      "DEIXAR USAR",
+      "NEGAR"
+    ]
+  },
+  "suspeitos": {
+    "vidro": [
+      "... Só estou esperando.",
+      "Não preciso de nada. Pode ir."
+    ]
+  }
+}

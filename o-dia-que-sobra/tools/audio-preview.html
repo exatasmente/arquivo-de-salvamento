@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>Som - prévia</title>
+<style>body{font:14px monospace;background:#111;color:#ddd;margin:12px}button{margin:2px;padding:4px 8px;background:#222;color:#eee;border:1px solid #555;cursor:pointer}button.on{background:#7a5c00}h3{margin:12px 0 4px}#log{white-space:pre;color:#8c8}</style>
+<h2>O Dia que Sobra - prévia do som</h2>
+<div><button id="start">Ligar o som</button>
+ sanidade <input id="san" type="range" min="0" max="100" value="100"> <span id="sanv">100</span>
+ <label><input id="era" type="checkbox" checked> época</label>
+ <label><input id="spatial" type="checkbox"> posição (2 m à direita)</label>
+ alucinação <input id="hal" type="range" min="0" max="100" value="0"> <span id="halv">0</span> sono <input id="drw" type="range" min="0" max="100" value="0"> <span id="drwv">0</span>
+ <label><input id="self" type="checkbox"> própria voz</label>
+ babble: <input id="txt" size="30" value="Completa a comum, por favor."> semente <input id="seed" size="4" value="7"> <button id="bab">falar</button></div>
+<h3>Pontuais</h3><div id="one"></div><h3>Contínuos (liga/desliga)</h3><div id="loops"></div><div id="log"></div>
+<script type="module" src="audio-preview.js"></script>

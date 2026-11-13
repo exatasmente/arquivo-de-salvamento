@@ -1,0 +1,47 @@
+{
+  "repor": {
+    "titulo": "Repor a prateleira {prateleira}: {produto}",
+    "segundosTotal": 4
+  },
+  "caixa": { "abrirSegundos": 1.4 },
+  "limpeza": { "rodoSegundos": 3.4, "piaSegundos": 2.4, "espelhoSegundos": 1.8 },
+  "manutencao": { "lampadaSegundos": 3.0, "disjuntorSegundos": 2.0, "registroSegundos": 2.6 },
+  "maxPendentes": 6,
+  "fixas": [
+    { "id": "abrir-caixa", "texto": "Abrir o caixa (a registradora no balcão)" },
+    { "id": "banheiro", "texto": "Limpar o banheiro {lado}: pia, espelho e chão" },
+    { "id": "fechar-caixa", "texto": "Fechar o caixa às 06:00" }
+  ],
+  "aparecem": [
+    { "id": "repor", "porNoite": [2, 3], "janela": ["00:40", "04:30"] },
+    { "id": "lixo", "porNoite": [1, 2], "janela": ["00:30", "04:30"] },
+    { "id": "mancha", "porNoite": [1, 2], "janela": ["00:50", "04:40"] },
+    { "id": "lampada", "porNoite": [1, 1], "janela": ["01:00", "04:00"] },
+    { "id": "disjuntor", "porNoite": [0, 1], "janela": ["01:30", "04:00"], "chance": 0.7 },
+    { "id": "bomba-travada", "porNoite": [1, 1], "janela": ["01:00", "04:30"] }
+  ],
+  "textos": {
+    "lixo": "Esvaziar o lixo da bomba {n}: levar o saco ao contêiner dos fundos",
+    "mancha": "Passar o rodo na mancha ({onde})",
+    "lampada": "Trocar a lâmpada queimada ({onde}): escada e tubo novo",
+    "disjuntor": "O disjuntor caiu ({onde}): religar no quadro de força, nos fundos",
+    "bomba-travada": "Bomba {n} travada: girar o registro",
+    "carro": "Atender o carro da bomba {n}",
+    "cliente": "Atender o cliente do balcão",
+    "telefone": "Atender o telefone do gerente (escritório)"
+  },
+  "onde": {
+    "loja": "loja", "escritorio": "escritório", "estoque": "estoque", "bombas": "bombas", "banheiros": "banheiro", "estacionamento": "estacionamento"
+  },
+  "ocorrencias": {
+    "tipos": [
+      { "id": "carro-sem-motorista", "nome": "Carro sem motorista" },
+      { "id": "cliente-suspeito", "nome": "Cliente suspeito" },
+      { "id": "cliente-inconveniente", "nome": "Cliente inconveniente" },
+      { "id": "falta-de-energia", "nome": "Falta de energia" },
+      { "id": "equipamento", "nome": "Equipamento com defeito" },
+      { "id": "barulho", "nome": "Barulho estranho" }
+    ],
+    "atrasosMin": [0, 15, 30, 60]
+  }
+}

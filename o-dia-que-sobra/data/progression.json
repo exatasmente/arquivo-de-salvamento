@@ -1,0 +1,32 @@
+{
+  "expediente": {
+    "inicio": "00:00",
+    "fim": "06:00",
+    "segundosPorHora": 90,
+    "telefone": "05:50",
+    "semClientesApos": "05:40"
+  },
+  "sanidade": {
+    "inicio": 100,
+    "porExpedienteSemFolga": 2
+  },
+  "carteiraInicial": 40,
+  "pontos": {
+    "abastecimento": 10,
+    "venda": 6,
+    "atendimento": 2,
+    "tarefa": 8,
+    "tarefaNaoFeita": -6,
+    "erro": -5,
+    "reclamacao": -8,
+    "divergenciaPorReal": -1,
+    "contagemErrada": -5,
+    "ocorrenciaValida": 4,
+    "ocorrenciaSemMotivo": -3
+  },
+  "semanas": {
+    "1": {
+      "nome": "Normalidade"
+    }
+  }
+}

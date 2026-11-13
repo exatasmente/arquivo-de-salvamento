@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elenco - prévia</title>
+<style>html,body{margin:0;background:#101014;color:#9fd;font:12px monospace}canvas#c{position:absolute;left:-9999px}#sheet{display:block;image-rendering:pixelated}#hud{position:fixed;left:6px;top:6px;text-shadow:1px 1px #000}</style>
+</head><body><canvas id="c" width="384" height="216"></canvas><canvas id="sheet"></canvas><div id="hud"></div>
+<script>
+// Three.js from ../vendor/three/ when the game has it, otherwise the read-only copy of the Rinha.
+(async () => {
+  let base = '../vendor/three/';
+  try { const h = await fetch(base + 'three.module.js', { method: 'HEAD' }); if (!h.ok) throw 0; } catch { base = '../../rinha/vendor/three/'; }
+  const s = document.createElement('script'); s.type = 'importmap';
+  s.textContent = JSON.stringify({ imports: { three: new URL(base + 'three.module.js', location.href).href } });
+  document.head.append(s);
+  await import('./cast-preview.js');
+})();
+</script></body></html>

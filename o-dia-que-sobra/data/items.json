@@ -1,0 +1,132 @@
+{
+  "combustiveis": {
+    "comum": {
+      "nome": "Comum",
+      "cor": "#4f8a4a",
+      "pictograma": "gota"
+    },
+    "aditivada": {
+      "nome": "Aditivada",
+      "cor": "#3f68b0",
+      "pictograma": "gota com estrela"
+    },
+    "etanol": {
+      "nome": "Etanol",
+      "cor": "#c8642a",
+      "pictograma": "folha"
+    },
+    "diesel": {
+      "nome": "Diesel",
+      "cor": "#303036",
+      "pictograma": "caminhão"
+    }
+  },
+  "notas": [
+    2,
+    5,
+    10,
+    20,
+    50,
+    100
+  ],
+  "moedas": [
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1
+  ],
+  "produtos": {
+    "biscoito": {
+      "nome": "Biscoito",
+      "preco": 4.5,
+      "tipo": "biscoito"
+    },
+    "salgadinho": {
+      "nome": "Salgadinho",
+      "preco": 7.9,
+      "tipo": "salgadinho"
+    },
+    "refri": {
+      "nome": "Refrigerante",
+      "preco": 8.0,
+      "tipo": "garrafa"
+    },
+    "lata": {
+      "nome": "Lata de refri",
+      "preco": 5.5,
+      "tipo": "lata"
+    },
+    "oleo": {
+      "nome": "Óleo de motor",
+      "preco": 32.0,
+      "tipo": "oleo"
+    }
+  },
+  "itens": {
+    "lanterna": {
+      "nome": "Lanterna",
+      "usavel": false
+    },
+    "pilha": {
+      "nome": "Pilha",
+      "usavel": true,
+      "carga": 240
+    },
+    "frasco": {
+      "nome": "Frasco",
+      "usavel": true
+    }
+  },
+  "lanterna": {
+    "carga": 240,
+    "alcance": 15,
+    "cone": 0.88
+  },
+  "fundo": {
+    "5000": 2,
+    "2000": 10,
+    "1000": 10,
+    "500": 10,
+    "200": 15,
+    "100": 30,
+    "50": 20,
+    "25": 20,
+    "10": 25,
+    "5": 20,
+    "1": 40
+  },
+  "atras": {
+    "pilha": {
+      "nome": "Pilhas",
+      "preco": 9.0
+    },
+    "oleo-motor": {
+      "nome": "Óleo de motor",
+      "preco": 36.0
+    },
+    "carregador": {
+      "nome": "Carregador de celular",
+      "preco": 25.0
+    },
+    "fita": {
+      "nome": "Fita isolante",
+      "preco": 6.5
+    },
+    "chaveiro": {
+      "nome": "Chaveiro",
+      "preco": 5.0
+    },
+    "palito": {
+      "nome": "Palito de fósforo",
+      "preco": 3.5
+    }
+  },
+  "extras": {
+    "cafe": {
+      "nome": "Café",
+      "preco": 4.5,
+      "cor": "#6a4a30"
+    }
+  }
+}

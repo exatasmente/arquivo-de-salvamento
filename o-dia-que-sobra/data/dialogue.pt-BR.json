@@ -1,0 +1,80 @@
+{
+  "gerente": "Seu Amaro",
+  "ligacao1": [
+    "Heitor? É o Amaro. Primeiro abre o caixa: é a registradora no balcão. Segura o botão para contar o fundo.",
+    "Daqui a pouco chega um carro. Vê o que ele pede e olha o adesivo na tampa do tanque.",
+    "Pega o bico da mesma cor, põe no tanque e digita o valor no painel da bomba. Ela abastece sozinha e desliga. Depois tira o bico, devolve, recebe e dá o troco. Meta é meta."
+  ],
+  "ligacao2": [
+    "Boa. Agora tem gente na loja: passa a compra no leitor e dá o troco na gaveta.",
+    "E a prateleira está vazia. A caixa certa está no estoque. Olha a prancheta, tecla Q.",
+    "O resto da noite é com você. Eu ligo às cinco e cinquenta."
+  ],
+  "fim": "Seis horas. Pode ir. Amanhã tem mais.",
+  "telefone550": {
+    "abre": [
+      "Heitor? Amaro. Estou aqui com o relatório da noite."
+    ],
+    "faixas": {
+      "otimo": 150,
+      "bom": 90,
+      "regular": 30
+    },
+    "desempenho": {
+      "otimo": [
+        "Noite boa. Do jeito que eu gosto: tudo andando e ninguém reclamando."
+      ],
+      "bom": [
+        "Noite razoável. Dá para melhorar, mas está dentro."
+      ],
+      "regular": [
+        "Foi fraca. Tem coisa ali que eu esperava que estivesse feita."
+      ],
+      "ruim": [
+        "Essa noite me preocupou. Assim a meta não fecha."
+      ]
+    },
+    "erros": "Teve erro demais de troco e de bomba. Presta atenção.",
+    "reclamacoes": "Chegou reclamação de cliente, Heitor.",
+    "pendentes": "Ficou serviço na lista: {lista}.",
+    "ocorrencias": {
+      "nenhuma": "Nenhuma ocorrência registrada. Melhor assim.",
+      "algumas": "Vi {n} ocorrência(s) no computador.",
+      "semMotivo": "Registrou coisa sem nada acontecer? Não encha o sistema.",
+      "carro-sem-motorista": "Carro sem motorista na bomba? Foi cansaço, Heitor. Mas anotei.",
+      "falta-de-energia": "A queda de energia eu já tinha visto no painel.",
+      "cliente-suspeito": "Cliente suspeito eu vou repassar para a vigilância.",
+      "cliente-inconveniente": "Tem cliente que é assim mesmo, não leva para o lado pessoal.",
+      "equipamento": "O defeito eu mando o técnico olhar.",
+      "barulho": "Barulho de noite é o prédio. Mas anotei."
+    },
+    "fecha": [
+      "Quando der seis horas, conta a gaveta e fecha o caixa. Boa noite."
+    ],
+    "relatos": {
+      "cliente-balcao": "Chegou reclamação de ontem à noite: um cliente disse que ficou no balcão e o frentista olhou direto para ele e não falou nada.",
+      "apagou": "Vi nas câmeras que o posto ficou uma hora sem ninguém ontem. Heitor, onde você estava?",
+      "telefone": "Liguei ontem de madrugada e ninguém atendeu. Duas vezes."
+    }
+  },
+  "caixa": {
+    "certo": "Caixa batendo. Obrigado.",
+    "sobra": "Sobrou dinheiro na gaveta. Alguém deu troco a menos.",
+    "falta": "Faltou dinheiro na gaveta. Vai sair do relatório.",
+    "contagem": "Contou errado: o que tem na gaveta é outro valor."
+  },
+  "gerenteFim": {
+    "ok": "Seis horas. Caixa fechado. Pode ir. Amanhã tem mais.",
+    "divergente": "Seis horas. O caixa não bateu, Heitor. Anotei. Amanhã tem mais."
+  },
+  "telefoneProprio": {
+    "quem": "Sua própria voz",
+    "linhas": [
+      "Não saia da loja."
+    ]
+  },
+  "telefoneMudo": [
+    "Alô?",
+    "(Só o zumbido da fluorescente, do outro lado.)"
+  ]
+}

@@ -1,0 +1,535 @@
+[
+  {
+    "id": "carro-vazio",
+    "nome": "O carro vazio",
+    "descricao": "Um carro para na bomba e ninguém desce. Quem chega perto não vê motorista, e a bomba continua registrando sozinha.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "04:00"
+    ],
+    "chance": 0.35,
+    "fixoNoite": 1,
+    "condicoes": {
+      "sanidadeMax": 100,
+      "area": "bombas",
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "bomba-3",
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:carro-sem-motorista"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/carro-vazio.js"
+  },
+  {
+    "id": "a-placa",
+    "nome": "A placa",
+    "descricao": "O sorriso do Sol na placa alta fica mais largo, e só se vê quando se volta a olhar para ele. Depois disso a placa não volta ao que era.",
+    "semanaMin": 1,
+    "horario": [
+      "00:40",
+      "02:10"
+    ],
+    "chance": 0.3,
+    "fixoNoite": 4,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": false,
+    "consequencias": [
+      "placa:sorriso"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/a-placa.js"
+  },
+  {
+    "id": "cafe-pronto",
+    "nome": "Café pronto",
+    "descricao": "Às 03:00 a cafeteira começa a passar café sozinha. No balcão há dois copos com o Sol, que ninguém pôs ali.",
+    "semanaMin": 1,
+    "horario": [
+      "03:00",
+      "03:08"
+    ],
+    "chance": 0.4,
+    "fixoNoite": 2,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "loja",
+    "sanidade": -4,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:barulho"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/cafe-pronto.js"
+  },
+  {
+    "id": "sino-sem-ninguem",
+    "nome": "O sino sem ninguém",
+    "descricao": "O sino da porta da loja toca. A porta não abriu e ninguém entrou. Na câmera (fase 4), alguém entrou.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "04:30"
+    ],
+    "chance": 0.45,
+    "fixoNoite": 3,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "loja",
+        "escritorio"
+      ]
+    },
+    "local": "loja",
+    "sanidade": -3,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:barulho"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/sino-sem-ninguem.js"
+  },
+  {
+    "id": "bomba-4",
+    "nome": "A bomba 4",
+    "descricao": "A bomba 4 liga sozinha, conta até 34,70 e para. Atrás do carro parado há alguém de uniforme antigo, de costas. Quando se olha de novo, não há ninguém. Segredo S2: o mostrador de cabeça para baixo.",
+    "semanaMin": 1,
+    "horario": [
+      "04:00",
+      "05:00"
+    ],
+    "chance": 0.2,
+    "fixoNoite": 5,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "bomba-4",
+    "sanidade": -10,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:carro-sem-motorista"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/bomba-4.js"
+  },
+  {
+    "id": "telefone",
+    "nome": "O telefone com a própria voz",
+    "descricao": "O telefone toca fora de hora. Do outro lado, a voz de Heitor diz: \"Não saia da loja.\" Por um tempo, sair da loja pesa.",
+    "semanaMin": 2,
+    "horario": [
+      "02:20",
+      "03:20"
+    ],
+    "chance": 0.35,
+    "fixoNoite": 8,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "escritorio",
+    "sanidade": -6,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:barulho"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/telefone.js"
+  },
+  {
+    "id": "prateleira-arrumada",
+    "nome": "A prateleira arrumada",
+    "descricao": "A prateleira que você ia repor está cheia, com produtos de 1998 e a embalagem antiga do Sol. A tarefa some da lista.",
+    "semanaMin": 2,
+    "horario": [
+      "00:50",
+      "04:00"
+    ],
+    "chance": 0.4,
+    "fixoNoite": 9,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ],
+      "tarefa": "repor"
+    },
+    "local": "loja",
+    "sanidade": -5,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/prateleira-arrumada.js"
+  },
+  {
+    "id": "espelho",
+    "nome": "O espelho",
+    "descricao": "No banheiro, o reflexo atrasa meio segundo.",
+    "semanaMin": 2,
+    "horario": [
+      "00:30",
+      "05:00"
+    ],
+    "chance": 0.4,
+    "fixoNoite": 10,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "banheiros"
+      ]
+    },
+    "local": "banheiros",
+    "sanidade": -5,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/espelho.js"
+  },
+  {
+    "id": "vulto",
+    "nome": "O vulto",
+    "descricao": "Um vulto parado no canto do olho. Some quando se olha para ele.",
+    "semanaMin": 1,
+    "horario": [
+      "00:40",
+      "05:30"
+    ],
+    "chance": 0.5,
+    "intervaloMin": 35,
+    "maxPorNoite": 3,
+    "condicoes": {
+      "sanidadeMax": 79,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/vulto.js"
+  },
+  {
+    "id": "objeto-muda",
+    "nome": "O objeto que mudou de lugar",
+    "descricao": "Algo da loja ou do escritório não está onde você deixou. Vê-se quando se volta a olhar.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "05:00"
+    ],
+    "chance": 0.4,
+    "intervaloMin": 50,
+    "maxPorNoite": 2,
+    "condicoes": {
+      "sanidadeMax": 59,
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "loja",
+        "escritorio"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/objeto-muda.js"
+  },
+  {
+    "id": "porta-aberta",
+    "nome": "A porta que parece aberta",
+    "descricao": "Uma porta fechada parece aberta, com o escuro lá dentro. De perto, está fechada.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "05:00"
+    ],
+    "chance": 0.35,
+    "intervaloMin": 60,
+    "maxPorNoite": 2,
+    "condicoes": {
+      "sanidadeMax": 59,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -4,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/porta-aberta.js"
+  },
+  {
+    "id": "telefone-fantasma",
+    "nome": "O telefone sem chamada",
+    "descricao": "O telefone do escritório toca e, ao atender, só há o zumbido. Às vezes alguém ligou de verdade.",
+    "semanaMin": 1,
+    "horario": [
+      "01:30",
+      "05:00"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 70,
+    "maxPorNoite": 1,
+    "condicoes": {
+      "sanidadeMax": 59,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/telefone-fantasma.js"
+  },
+  {
+    "id": "cliente-some",
+    "nome": "O cliente que some",
+    "descricao": "Alguém entra na loja e espera no balcão sem o sino tocar. Desaparece quando você desvia o olhar. Às vezes alguém esteve lá de verdade, e reclama no relatório da noite seguinte.",
+    "semanaMin": 1,
+    "horario": [
+      "01:30",
+      "05:00"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 80,
+    "maxPorNoite": 1,
+    "condicoes": {
+      "sanidadeMax": 39,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -5,
+    "alucinacao": true,
+    "consequencias": [
+      "relatar:cliente-balcao"
+    ],
+    "repetivel": true,
+    "depende": [
+      "vulto"
+    ],
+    "roteiro": "events/cliente-some.js"
+  },
+  {
+    "id": "rafael-volta",
+    "nome": "Rafael volta",
+    "descricao": "Rafael volta na moto, sem capacete, e paga com uma moeda antiga. Tem a cena rafael-6 de recurring.pt-BR.json.",
+    "semanaMin": 3,
+    "horario": [
+      "01:10",
+      "01:20"
+    ],
+    "chance": 0,
+    "fixoNoite": 16,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "local": "bomba-1",
+    "sanidade": -4,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/rafael-volta.js"
+  },
+  {
+    "id": "figura-camera",
+    "nome": "A figura na câmera",
+    "descricao": "Na câmera da loja há uma figura atrás do balcão que não está lá. (Fase 4: depende das câmeras.)",
+    "semanaMin": 2,
+    "horario": [
+      "02:00",
+      "04:00"
+    ],
+    "chance": 0.3,
+    "condicoes": {
+      "sanidadeMax": 85,
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "escritorio"
+      ]
+    },
+    "sanidade": -6,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/figura-camera.js",
+    "fase": 4
+  },
+  {
+    "id": "voce-na-camera",
+    "nome": "Você na câmera",
+    "descricao": "A câmera do estoque mostra você lá dentro, agora; você está no escritório. (Fase 4: depende das câmeras.)",
+    "semanaMin": 2,
+    "horario": [
+      "02:00",
+      "04:30"
+    ],
+    "chance": 0.3,
+    "condicoes": {
+      "sanidadeMax": 75,
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "escritorio"
+      ]
+    },
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": "events/voce-na-camera.js",
+    "fase": 4
+  },
+  {
+    "id": "apagao-cobertura",
+    "nome": "O apagão da cobertura",
+    "descricao": "A cobertura apaga numa noite da semana 3; um carro com farol alto espera na bomba 4. (Fase 5: campanha.)",
+    "semanaMin": 3,
+    "horario": [
+      "02:00",
+      "03:00"
+    ],
+    "chance": 0,
+    "fixoNoite": 14,
+    "condicoes": {},
+    "local": "bomba-4",
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [
+      "registrar:falta-de-energia"
+    ],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": null,
+    "fase": 5
+  },
+  {
+    "id": "deposito-aberto",
+    "nome": "O depósito aberto",
+    "descricao": "A porta do depósito está aberta; dentro, o material da promoção e um crachá. (Fase 5: campanha.)",
+    "semanaMin": 3,
+    "horario": [
+      "03:00",
+      "04:30"
+    ],
+    "chance": 0,
+    "fixoNoite": 17,
+    "condicoes": {},
+    "local": "deposito",
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": null,
+    "fase": 5
+  },
+  {
+    "id": "secretaria",
+    "nome": "A secretária eletrônica",
+    "descricao": "Folga da semana 3: a secretária eletrônica de casa tem um recado do gerente que ele diz que não deixou. (Fase 5: folgas.)",
+    "semanaMin": 3,
+    "horario": [
+      "00:00",
+      "23:59"
+    ],
+    "chance": 0,
+    "fixoNoite": null,
+    "condicoes": {
+      "folga": true
+    },
+    "local": "casa",
+    "sanidade": -6,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": null,
+    "fase": 5
+  },
+  {
+    "id": "gerente-mudo",
+    "nome": "O gerente mudo",
+    "descricao": "O telefone das 05:50 toca e do outro lado só há o zumbido da fluorescente. (Fase 5: campanha.)",
+    "semanaMin": 4,
+    "horario": [
+      "05:50",
+      "05:50"
+    ],
+    "chance": 0,
+    "fixoNoite": 22,
+    "condicoes": {},
+    "local": "escritorio",
+    "sanidade": -8,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": null,
+    "fase": 5
+  },
+  {
+    "id": "turno-dobrado",
+    "nome": "O turno dobrado",
+    "descricao": "O relógio da loja chega às 06:00 e volta para as 00:00. (Fase 5: campanha.)",
+    "semanaMin": 4,
+    "horario": [
+      "05:59",
+      "05:59"
+    ],
+    "chance": 0,
+    "fixoNoite": 24,
+    "condicoes": {},
+    "local": "loja",
+    "sanidade": -10,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": false,
+    "depende": [],
+    "roteiro": null,
+    "fase": 5
+  }
+]

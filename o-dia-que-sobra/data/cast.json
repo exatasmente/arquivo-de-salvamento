@@ -1,0 +1,378 @@
+{
+  "_formato": [
+    "ELENCO DO POSTO BOM DIA. Lido por quem integra (CustomerSystem e NarrativeSystem). Nada aqui é resposta de segredo.",
+    "calendario: expediente n = (semana - 1) * 6 + dia, de 1 a 24. dia 1 = segunda ... 6 = sabado. Horarios 'HH:MM' do relogio do jogo (00:00 a 06:00).",
+    "gentileza: os atos do jogador que contam como gentileza. Cada reacao 'gentileza' das cenas dispara por um deles. erros: ids que o CustomerSystem ja conhece mais os novos desta lista.",
+    "recorrentes[]: pessoas com nome, idade (adulta), aparencia FIXA (aparencia.seed trava rosto e corpo), veiculo, horario, janela, paciencia, pedido e noites[] = {semana, dia, cena}. 'cena' e o id em data/recurring.pt-BR.json. Nenhuma noite repete cena; toda cena listada la existe aqui.",
+    "tipos[]: clientes por categoria (comum, inconveniente, suspeito, sobrenatural). peso = chance relativa de sortear (0 = so por evento ou roteiro), semanaMin, horas (janela de chegada, default o expediente inteiro), veiculo, aparencia, pedido, pagamento, paciencia (segundos de jogo reais, como carro.paciencia de customers.json), falas, reacoes. Face e corpo saem do seed da instancia (aparencia nao traz seed).",
+    "veiculo: { tipo: carro|taxi|caminhao|moto|a-pe, estilo: sedan|hatch|perua (buildCar), cor '#rrggbb', combustivel: comum|aditivada|etanol|diesel, vidro: normal|escuro, motorista: true|false|sorteio:<chance> }. 'caminhao' e 'moto' nao tem modelo proprio ainda (caminhao cai em perua; moto vem de Lugares, models/moto.js).",
+    "aparencia: { roupa (ver OUTFITS em src/models/customer.js), look {} (sobrescreve o look do buildHuman: hair, skin, build, height em metros, beard, hairStyle...), acessorios [], manias [], sobrenatural, variantes {nome: {...}} }. Passe a aparencia inteira, mais categoria, para buildCustomer(r, { categoria, ...aparencia }, { seed }).",
+    "pedido.modo: bomba | loja | bomba+loja | balcao-nada | observa | banheiro. 'valor' em reais (lista = sorteia). 'itens' ids de items.json (produtos, atras) mais 'cafe' (cafeteira). pagamento: { notas [reais], nota: normal|rasgada|so-grande|moeda-antiga, gorjeta [min,max] em centavos }.",
+    "pose: nomes de customer.js (parado, impaciente, apontando, pagando, costas, fixo). 'poses' do tipo diz qual usa em cada fase: chegada, esperando, pedindo, pagando, saindo.",
+    "reacoes: gentileza / demora / erro. cada uma: { falas [ate ~90 caracteres], efeito: { paciencia (segundos), gorjeta (centavos), reclamacao (0/1), afeto (recorrentes), sai (bool), sanidade } }. erro pode trazer 'porTipo': { <idDoErro>: [falas] }.",
+    "ambiguo: tipos suspeitos nao dizem se sao gente. 'gente' = chance de haver alguem (motorista visivel); o resto fica vazio. O jogo nao conta ao jogador."
+  ],
+  "versao": 1,
+  "calendario": { "semanas": 4, "dias": ["seg", "ter", "qua", "qui", "sex", "sab"], "expedientes": 24 },
+  "gentileza": [
+    { "id": "cumprimentou", "descricao": "Falou com o cliente antes de ele pedir (E no cliente)" },
+    { "id": "rapido", "descricao": "Atendeu antes de gastar 40% da paciencia" },
+    { "id": "troco-certo", "descricao": "Troco ou valor exatos" },
+    { "id": "cafe", "descricao": "Pos um copo de cafe no balcao para a pessoa" },
+    { "id": "ouviu", "descricao": "Ficou ate o fim da cena sem sair de perto" }
+  ],
+  "erros": ["troco-curto", "troco-longo", "combustivel-errado", "valor-passado", "valor-curto", "bico-esquecido", "item-errado"],
+  "recorrentes": [
+    {
+      "id": "cida",
+      "nome": "Dona Cida",
+      "idade": 63,
+      "categoria": "recorrente",
+      "veiculo": { "tipo": "taxi", "estilo": "sedan", "cor": "#d8d4c8", "combustivel": "etanol", "vidro": "normal", "motorista": true },
+      "horario": "02:00",
+      "janela": ["01:50", "02:30"],
+      "bomba": 2,
+      "paciencia": 170,
+      "traco": "Taxista de vinte anos de ponto. Fala sem parar, ri de si mesma, olha a placa do posto toda vez.",
+      "aparencia": {
+        "seed": 12,
+        "roupa": "taxista-dona",
+        "look": { "female": true, "build": "mid", "height": 1.6, "hair": "#b9b6b0", "hairStyle": "short", "skin": "#e6c29b", "shirt": "#3d5a4a", "pants": "#3a3a4a" },
+        "acessorios": ["oculos", "bolsa"]
+      },
+      "pedido": { "modo": "bomba", "combustivel": "etanol", "valor": [30, 40] },
+      "pagamento": { "notas": [50], "nota": "normal", "gorjeta": [0, 200] },
+      "noites": [
+        { "semana": 1, "dia": 1, "cena": "cida-1" },
+        { "semana": 1, "dia": 3, "cena": "cida-2" },
+        { "semana": 1, "dia": 5, "cena": "cida-3" },
+        { "semana": 2, "dia": 2, "cena": "cida-4" },
+        { "semana": 2, "dia": 5, "cena": "cida-5" },
+        { "semana": 3, "dia": 2, "cena": "cida-6" },
+        { "semana": 4, "dia": 1, "cena": "cida-7" },
+        { "semana": 4, "dia": 5, "cena": "cida-8" }
+      ]
+    },
+    {
+      "id": "rafael",
+      "nome": "Rafael",
+      "idade": 27,
+      "categoria": "recorrente",
+      "veiculo": { "tipo": "moto", "cor": "#5a5a48", "combustivel": "comum", "vidro": "normal", "motorista": true },
+      "horario": "01:20",
+      "janela": ["01:10", "01:50"],
+      "bomba": 1,
+      "paciencia": 120,
+      "traco": "Entregador de moto, sempre sem troco: so tem nota de cem e pede desculpa. Some na semana 3 e volta na noite 4 da semana, sem capacete, pagando com moeda antiga.",
+      "aparencia": {
+        "seed": 17,
+        "roupa": "entregador",
+        "look": { "build": "lean", "hairStyle": "short", "hair": "#241a14", "beard": "none", "height": 1.74, "shirt": "#5a5a48", "pants": "#262a30" },
+        "acessorios": ["capacete-mao", "mochila-entrega"],
+        "variantes": {
+          "volta": {
+            "semCapacete": true,
+            "acessorios": ["mochila-entrega"],
+            "look": { "skin": "#b09474", "beard": "stubble" },
+            "manias": ["cansado"]
+          }
+        }
+      },
+      "pedido": { "modo": "bomba", "combustivel": "comum", "valor": [20, 25] },
+      "pagamento": { "notas": [100], "nota": "so-grande", "gorjeta": [0, 0] },
+      "pagamentoVolta": { "nota": "moeda-antiga", "item": "moeda-antiga" },
+      "noites": [
+        { "semana": 1, "dia": 2, "cena": "rafael-1" },
+        { "semana": 1, "dia": 4, "cena": "rafael-2" },
+        { "semana": 1, "dia": 6, "cena": "rafael-3" },
+        { "semana": 2, "dia": 2, "cena": "rafael-4" },
+        { "semana": 2, "dia": 5, "cena": "rafael-5" },
+        { "semana": 3, "dia": 4, "cena": "rafael-6", "variante": "volta" },
+        { "semana": 4, "dia": 2, "cena": "rafael-7", "variante": "volta" },
+        { "semana": 4, "dia": 5, "cena": "rafael-8", "variante": "volta" }
+      ],
+      "ausencias": [
+        { "semana": 3, "dias": [1, 2, 3], "nota": "Rafael nao aparece; Dona Cida comenta (cida-6)." }
+      ]
+    },
+    {
+      "id": "homem0333",
+      "nome": "O homem das 03:33",
+      "idade": 50,
+      "categoria": "recorrente",
+      "veiculo": { "tipo": "a-pe", "motorista": false },
+      "horario": "03:33",
+      "janela": ["03:33", "03:33"],
+      "paciencia": 1000000,
+      "traco": "Chega a pe, sem carro e sem pressa. Nunca compra nada. Fica parado olhando a loja; a partir da semana 2 pergunta de coisas que ainda nao aconteceram. Aceita cafe.",
+      "cafe": { "seguidas": 3, "revela": "s4", "texto": "recurring.pt-BR.json > personagens.homem0333.cafe.tres (marcadores {s4.data} e {s4.carro}, preenchidos pelo principal a partir do dado cifrado)" },
+      "aparencia": {
+        "seed": 159,
+        "roupa": "sobretudo",
+        "look": { "build": "lean", "hairStyle": "short", "hair": "#4a443c", "beard": "none", "skin": "#e8d0b0", "height": 1.78, "shirt": "#8a8a84", "pants": "#3a3a3e" },
+        "acessorios": [],
+        "manias": ["rigido"]
+      },
+      "pedido": { "modo": "observa", "permanencia": 150 },
+      "poses": { "chegada": "parado", "esperando": "fixo", "pedindo": "fixo", "pagando": "fixo", "saindo": "costas" },
+      "noites": [
+        { "semana": 1, "dia": 3, "cena": "homem-1" },
+        { "semana": 1, "dia": 6, "cena": "homem-2" },
+        { "semana": 2, "dia": 2, "cena": "homem-3" },
+        { "semana": 2, "dia": 5, "cena": "homem-4" },
+        { "semana": 3, "dia": 3, "cena": "homem-5" },
+        { "semana": 3, "dia": 4, "cena": "homem-6" },
+        { "semana": 3, "dia": 5, "cena": "homem-7" },
+        { "semana": 4, "dia": 1, "cena": "homem-8" },
+        { "semana": 4, "dia": 2, "cena": "homem-9" },
+        { "semana": 4, "dia": 3, "cena": "homem-10" }
+      ]
+    }
+  ],
+  "tipos": [
+    {
+      "id": "caminhoneiro",
+      "nome": "Motorista de caminhão",
+      "categoria": "comum",
+      "peso": 3, "semanaMin": 1,
+      "veiculo": { "tipo": "caminhao", "estilo": "perua", "cor": "#8a8e8a", "combustivel": "diesel", "vidro": "normal", "motorista": true },
+      "aparencia": { "roupa": "caminhoneiro", "acessorios": ["bone"] },
+      "pedido": { "modo": "bomba+loja", "combustivel": "diesel", "valor": [100, 150], "itens": ["cafe", "biscoito"] },
+      "pagamento": { "notas": [100, 50], "nota": "normal", "gorjeta": [0, 300] },
+      "paciencia": 200,
+      "poses": { "chegada": "parado", "esperando": "parado", "pedindo": "apontando", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Boa noite, patrão.", "Noite. Tá aberto, né?"],
+        "pedido": ["Põe {valor} de diesel. E um café forte.", "Completa o diesel até {valor}. Rodo desde ontem."],
+        "obrigado": ["Valeu, patrão. Boa estrada pra você também.", "Fica com Deus. Até a próxima."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Parece que o posto tem gente boa de noite.", "Aqui o café presta. Volto sempre."], "efeito": { "gorjeta": 300 } },
+        "demora": { "falas": ["Tenho que entregar até o dia clarear. Vou indo.", "Não dá pra esperar. Valeu."], "efeito": { "sai": true, "reclamacao": 1 } },
+        "erro": { "falas": ["Peraí, isso aí não tá certo.", "Patrão, confere. Falta ou sobra aí."], "efeito": { "reclamacao": 1 }, "porTipo": { "combustivel-errado": ["Diesel, patrão! Esse caminhão não anda com outra coisa!"] } }
+      }
+    },
+    {
+      "id": "enfermeira",
+      "nome": "Enfermeira saindo do plantão",
+      "categoria": "comum",
+      "peso": 3, "semanaMin": 1,
+      "veiculo": { "tipo": "carro", "estilo": "hatch", "cor": "#c4b894", "combustivel": "comum", "vidro": "normal", "motorista": true },
+      "aparencia": { "roupa": "enfermeira", "acessorios": ["cracha", "coque"] },
+      "pedido": { "modo": "loja", "itens": ["refri", "biscoito", "salgadinho"] },
+      "pagamento": { "notas": [20, 50], "nota": "normal", "gorjeta": [0, 100] },
+      "paciencia": 100,
+      "poses": { "chegada": "parado", "esperando": "impaciente", "pedindo": "apontando", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Boa noite. Tô vindo do plantão.", "Noite. Só uma coisinha pra comer."],
+        "pedido": ["Me vê um refri e um biscoito, por favor.", "Quero aquele salgadinho e uma lata."],
+        "obrigado": ["Obrigada. Bom plantão pra você.", "Brigada. Cuida do sono."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Que bom um rosto simpático depois de doze horas.", "Obrigada por perguntar. Hoje foi pesado."], "efeito": { "gorjeta": 200 } },
+        "demora": { "falas": ["Não aguento mais ficar em pé. Fica pra outro dia.", "Desculpa, preciso dormir. Deixa."], "efeito": { "sai": true } },
+        "erro": { "falas": ["Acho que o troco não bateu. Conta de novo?", "Esse não é o que eu pedi."], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "casal-festa",
+      "nome": "Casal voltando de festa",
+      "categoria": "comum",
+      "peso": 2, "semanaMin": 1,
+      "veiculo": { "tipo": "carro", "estilo": "sedan", "cor": "#4a4c54", "combustivel": "etanol", "vidro": "normal", "motorista": true },
+      "aparencia": { "pessoas": [ { "roupa": "festa-ele" }, { "roupa": "festa-ela", "acessorios": ["bolsa"] } ] },
+      "pedido": { "modo": "bomba+loja", "combustivel": "etanol", "valor": [30, 40], "itens": ["refri", "salgadinho"] },
+      "pagamento": { "notas": [50, 100], "nota": "normal", "gorjeta": [0, 200] },
+      "paciencia": 160,
+      "poses": { "chegada": "parado", "esperando": "parado", "pedindo": "apontando", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Ei! Ainda bem que tá aberto!", "Noite! Que lugar vazio, hein."],
+        "pedido": ["{valor} de etanol. E dois refris pra viagem.", "Põe {valor}. A gente tá com sede e com pressa."],
+        "obrigado": ["Valeu! Boa madrugada!", "Brigado, moço! Vai dormir um pouco!"]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Que moço simpático! Fica com o troco.", "Você devia ir pra uma festa dessas."], "efeito": { "gorjeta": 400 } },
+        "demora": { "falas": ["Ah, deixa. A festa foi melhor que isso.", "Vamos embora, amor. Esse moço dormiu."], "efeito": { "sai": true } },
+        "erro": { "falas": ["Ei, amor, olha o troco dele.", "Moço, o carro tá estranho. Pôs o quê?"], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "terno-gasto",
+      "nome": "Homem de terno gasto",
+      "categoria": "comum",
+      "peso": 2, "semanaMin": 1,
+      "veiculo": { "tipo": "carro", "estilo": "sedan", "cor": "#8a8e8a", "combustivel": "comum", "vidro": "normal", "motorista": true },
+      "aparencia": { "roupa": "terno-gasto", "acessorios": ["pasta"] },
+      "pedido": { "modo": "bomba+loja", "combustivel": "comum", "valor": [40, 50], "itens": ["cafe"] },
+      "pagamento": { "notas": [50, 100], "nota": "normal", "gorjeta": [0, 100] },
+      "paciencia": 140,
+      "poses": { "chegada": "parado", "esperando": "impaciente", "pedindo": "parado", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Boa noite. Longa estrada.", "Noite. Tenho reunião às oito, em outra cidade."],
+        "pedido": ["{valor} de gasolina comum, e um café sem açúcar.", "Enche até {valor}. E me vê um café."],
+        "obrigado": ["Obrigado. Boa noite.", "Valeu. Se eu dormir no volante, a culpa é sua."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Pelo menos aqui alguém me trata como gente.", "Esse café salvou a minha manhã."], "efeito": { "gorjeta": 200 } },
+        "demora": { "falas": ["Não tenho tempo pra isso.", "Vou atrasar. Tchau."], "efeito": { "sai": true, "reclamacao": 1 } },
+        "erro": { "falas": ["Confere isso aí, por favor.", "Me cobraram errado. De novo."], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "reclama-preco",
+      "nome": "O que reclama do preço",
+      "categoria": "inconveniente",
+      "peso": 2, "semanaMin": 1,
+      "veiculo": { "tipo": "carro", "estilo": "hatch", "cor": "#8a4a40", "combustivel": "comum", "vidro": "normal", "motorista": true },
+      "aparencia": { "roupa": "reclamao", "acessorios": ["oculos"] },
+      "pedido": { "modo": "bomba", "combustivel": "comum", "valor": [30, 40] },
+      "pagamento": { "notas": [50], "nota": "normal", "gorjeta": [0, 0] },
+      "paciencia": 80,
+      "poses": { "chegada": "parado", "esperando": "impaciente", "pedindo": "apontando", "pagando": "pagando", "saindo": "impaciente" },
+      "falas": {
+        "chegada": ["Esse preço aí na placa é de verdade?", "Subiu de novo, não foi?"],
+        "pedido": ["Põe {valor}. Mas não me venha com preço novo.", "{valor}. E é bom estar certo."],
+        "obrigado": ["Tá. Que roubo.", "Hum. Boa noite."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Tá, tá. Pelo menos você escuta.", "Desculpa o mau humor. A semana foi comprida."], "efeito": { "paciencia": 30 } },
+        "demora": { "falas": ["Além de caro, demora! Vou em outro!", "Já deu. Vou reclamar com o gerente."], "efeito": { "sai": true, "reclamacao": 1 } },
+        "erro": { "falas": ["Cobrou a mais! Eu sabia!", "Isso vai pro livro de reclamação."], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "nota-rasgada",
+      "nome": "O que paga com nota rasgada",
+      "categoria": "inconveniente",
+      "peso": 1, "semanaMin": 1,
+      "veiculo": { "tipo": "carro", "estilo": "perua", "cor": "#9a7a56", "combustivel": "comum", "vidro": "normal", "motorista": true },
+      "aparencia": { "roupa": "aposentado", "acessorios": ["bone"], "nota": "#b4ac90" },
+      "pedido": { "modo": "bomba", "combustivel": "comum", "valor": [20, 25] },
+      "pagamento": { "notas": [20], "nota": "rasgada", "gorjeta": [0, 0] },
+      "decisao": {
+        "aceitar": { "falas": ["Deus lhe pague, moço.", "Obrigado. Eu tinha vergonha."], "efeito": { "gorjeta": 200, "perda": "nota-rasgada" } },
+        "recusar": { "falas": ["Mas é dinheiro! Só tá colado!", "Então vou ficar sem?"], "efeito": { "paciencia": -40, "reclamacao": 1 } }
+      },
+      "paciencia": 120,
+      "poses": { "chegada": "parado", "esperando": "parado", "pedindo": "apontando", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Boa noite, meu filho.", "Noite. Cadê o rapaz de sempre?"],
+        "pedido": ["Põe {valor}. Só tenho esta nota.", "{valor} de comum. Me desculpe a nota."],
+        "obrigado": ["Obrigado, meu filho.", "Fica com Deus."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Que moço educado. Volto aqui.", "Agradeço a paciência."], "efeito": { "gorjeta": 100 } },
+        "demora": { "falas": ["Meu filho, a gente espera tanto...", "Vou indo, que a noite é longa."], "efeito": { "sai": true } },
+        "erro": { "falas": ["Será que contou direito?", "Acho que o troco não é esse."], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "bebado",
+      "nome": "O bêbado que não quer sair",
+      "categoria": "inconveniente",
+      "peso": 1, "semanaMin": 1,
+      "veiculo": { "tipo": "a-pe", "motorista": false },
+      "aparencia": { "roupa": "bebado", "acessorios": ["garrafa"], "manias": ["balanco"] },
+      "pedido": { "modo": "loja", "itens": ["lata"], "permanencia": 120 },
+      "pagamento": { "notas": [10, 20], "nota": "normal", "gorjeta": [0, 0] },
+      "paciencia": 240,
+      "pedirParaSair": { "tentativas": 3, "sai": "apos-gentileza-ou-tempo" },
+      "poses": { "chegada": "parado", "esperando": "parado", "pedindo": "apontando", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Ô, amigo... tá aberto?", "Boa noite... eu só vim... descansar."],
+        "pedido": ["Me dá uma lata... uma só.", "Cê tem... aquilo... a lata?"],
+        "obrigado": ["Tá bom, tá bom. Eu vou... já vou.", "Cê é gente fina. Eu vou."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Cê é gente fina mesmo. Já vou, já vou.", "Ninguém me trata assim. Tá bom, eu saio."], "efeito": { "sai": true } },
+        "demora": { "falas": ["Eu só tava... descansando. Já vou.", "Ah, cansei. Vou ali na frente."], "efeito": { "sai": true } },
+        "erro": { "falas": ["Cê tá me enrolando! Me devolve!", "Isso aí... não é... o que eu pedi."], "efeito": { "reclamacao": 1 } }
+      }
+    },
+    {
+      "id": "vidro-escuro",
+      "nome": "O carro de vidro escuro",
+      "categoria": "suspeito",
+      "peso": 1, "semanaMin": 1, "horas": ["01:00", "05:00"],
+      "veiculo": { "tipo": "carro", "estilo": "sedan", "cor": "#1c1e24", "combustivel": "comum", "vidro": "escuro", "motorista": "sorteio:0.6" },
+      "aparencia": { "roupa": "jaqueta-escura", "acessorios": ["oculos-escuros", "bone"] },
+      "pedido": { "modo": "observa", "permanencia": 60, "onde": "estacionamento" },
+      "ambiguo": { "gente": 0.6, "nota": "O jogo nunca diz se havia alguem. Se nao havia, o carro vai embora do mesmo jeito." },
+      "pagamento": { "notas": [], "nota": "normal", "gorjeta": [0, 0] },
+      "paciencia": 1000000,
+      "poses": { "chegada": "fixo", "esperando": "fixo", "pedindo": "fixo", "pagando": "fixo", "saindo": "fixo" },
+      "falas": { "chegada": [], "pedido": [], "obrigado": [] },
+      "reacoes": {
+        "gentileza": { "falas": [], "efeito": { "sanidade": 0 } },
+        "demora": { "falas": [], "efeito": { "sai": true } },
+        "erro": { "falas": [], "efeito": {} },
+        "aproximar": { "falas": [], "efeito": { "sanidade": -2, "sai": true }, "nota": "Se o jogador chega a 6 m, o carro sai devagar, sem barulho de arranque (so se for sobrenatural no futuro)." }
+      }
+    },
+    {
+      "id": "pede-banheiro",
+      "nome": "O que pede o banheiro e não sai",
+      "categoria": "suspeito",
+      "peso": 1, "semanaMin": 1, "horas": ["01:00", "04:30"],
+      "veiculo": { "tipo": "a-pe", "motorista": false },
+      "aparencia": { "roupa": "moletom", "acessorios": ["capuz"] },
+      "pedido": { "modo": "banheiro", "permanencia": 240 },
+      "desfecho": ["continua-la", "sai-sem-ser-visto"],
+      "pagamento": { "notas": [], "nota": "normal", "gorjeta": [0, 0] },
+      "paciencia": 300,
+      "poses": { "chegada": "parado", "esperando": "parado", "pedindo": "parado", "pagando": "parado", "saindo": "costas" },
+      "falas": {
+        "chegada": ["Boa noite. Posso usar o banheiro?", "Moço, o banheiro tá aberto?"],
+        "pedido": ["É rapidinho. Obrigado.", "Preciso só lavar o rosto."],
+        "obrigado": ["Obrigado.", "Valeu."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Obrigado. Eu já saio.", "Valeu, moço. Muito obrigado."], "efeito": { "paciencia": 60 } },
+        "demora": { "falas": ["Já tô saindo.", "Calma, já vou."], "efeito": { "sai": true } },
+        "erro": { "falas": ["Não precisa falar assim.", "Só pedi o banheiro."], "efeito": { "sai": true } }
+      }
+    },
+    {
+      "id": "sem-sombra",
+      "nome": "O cliente sem sombra",
+      "categoria": "sobrenatural",
+      "peso": 0, "semanaMin": 2,
+      "veiculo": { "tipo": "carro", "estilo": "hatch", "cor": "#8a8e8a", "combustivel": "comum", "vidro": "normal", "motorista": true, "silencioso": true },
+      "aparencia": { "roupa": "camiseta", "sobrenatural": "sem-sombra", "castsShadow": false, "look": { "skin": "#d8c8b0", "shirt": "#6a7a8a", "build": "mid" }, "acessorios": [] },
+      "pedido": { "modo": "bomba", "combustivel": "comum", "valor": [20, 30] },
+      "pagamento": { "notas": [50], "nota": "normal", "gorjeta": [0, 0] },
+      "paciencia": 150,
+      "poses": { "chegada": "parado", "esperando": "fixo", "pedindo": "parado", "pagando": "pagando", "saindo": "parado" },
+      "falas": {
+        "chegada": ["Boa noite."],
+        "pedido": ["{valor} de comum."],
+        "obrigado": ["Obrigado."]
+      },
+      "reacoes": {
+        "gentileza": { "falas": ["Obrigado."], "efeito": {} },
+        "demora": { "falas": ["Eu espero."], "efeito": {} },
+        "erro": { "falas": ["Tudo bem."], "efeito": {} }
+      },
+      "nota": "Fase 2: so a aparencia (sem mancha escura de pe, castsShadow false). O comportamento (cameras, sino, som do carro) vem na fase 3."
+    },
+    {
+      "id": "frentista-antigo",
+      "nome": "A figura de uniforme antigo",
+      "categoria": "sobrenatural",
+      "peso": 0, "semanaMin": 1,
+      "evento": "bomba-4",
+      "veiculo": { "tipo": "a-pe", "motorista": false },
+      "aparencia": { "roupa": "frentista-antigo", "sobrenatural": "frentista-antigo", "acessorios": ["bone"] },
+      "pedido": { "modo": "observa", "onde": "bomba4", "permanencia": 40 },
+      "paciencia": 1000000,
+      "poses": { "chegada": "costas", "esperando": "costas", "pedindo": "costas", "pagando": "costas", "saindo": "costas" },
+      "falas": { "chegada": [], "pedido": [], "obrigado": [] },
+      "reacoes": {
+        "gentileza": { "falas": [], "efeito": {} },
+        "demora": { "falas": [], "efeito": {} },
+        "erro": { "falas": [], "efeito": {} }
+      },
+      "nota": "Fase 2: so a aparencia e a pose de costas na bomba 4 (ocre e marrom, alto e magro, emblema do Sol apagado nas costas, sem rosto de anuncio). Nunca fala; nunca vira."
+    }
+  ]
+}

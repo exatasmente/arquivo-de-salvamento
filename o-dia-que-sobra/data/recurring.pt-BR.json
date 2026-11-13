@@ -1,0 +1,432 @@
+{
+  "_formato": [
+    "CENAS CURTAS DOS RECORRENTES, pt-BR. Uma cena por noite em que o personagem aparece (data/cast.json > recorrentes[].noites[].cena).",
+    "limite: cada fala cabe numa caixa de dialogo (ate 90 caracteres). Cada cena tem 1 a 4 falas.",
+    "cena: { id, quem, noite {semana, dia}, gatilho {hora, janela [ini, fim], onde: bomba|balcao|loja|porta, condicao {...}}, falas [{ q, t, pose? }], variantes? [{ condicao, falas }], reacoes { gentileza [..], erro [..], demora [..], cafe? } }.",
+    "falas[].q: 'cliente' (o recorrente), 'pensamento' (Heitor, baixinho, em italico no jogo). t pode ter {valor} e {combustivel}. pose: nome de customer.js a usar enquanto a fala aparece.",
+    "gatilho.condicao (todas as chaves opcionais, todas precisam valer): sanidadeMax, sanidadeMin, evento (id de evento que JA ocorreu na noite), semEvento (id que AINDA nao ocorreu), cafeSeguidas (>= n expedientes seguidos em que a pessoa recebeu cafe), flag (flag da narrativa), local.",
+    "variantes: a primeira cuja condicao vale substitui 'falas'. Sem nenhuma valendo, vale 'falas'.",
+    "reacoes: lista de falas a sortear pela semente. gentileza dispara por um ato de data/cast.json > gentileza; erro por um id de cast.json > erros; demora quando a paciencia acaba. Efeitos padrao abaixo (a cena pode trazer 'efeito' para trocar).",
+    "padroes.efeito: gentileza { afeto: 1, gorjeta: 200 }, erro { afeto: -1, reclamacao: 1 }, demora { afeto: -1, sai: true }.",
+    "personagens.<id>.cafe (so do homem das 03:33): 'um', 'dois', 'tres' = a reacao a cada noite seguida de cafe. 'tres' CARREGA A INFORMACAO DO SEGREDO S4 com dois marcadores, {s4.data} e {s4.carro}: o principal os preenche a partir de um dado cifrado ou derivado, nunca daqui. Nada de segredo em texto claro neste arquivo.",
+    "Regras de conteudo: sem susto, sem explicar o misterio; a escala 6x1 e fato do mundo, sem lei, politico, partido nem juizo; remedio sem nome; todos adultos."
+  ],
+  "versao": 1,
+  "limite": 90,
+  "padroes": {
+    "efeito": {
+      "gentileza": { "afeto": 1, "gorjeta": 200 },
+      "erro": { "afeto": -1, "reclamacao": 1 },
+      "demora": { "afeto": -1, "sai": true }
+    }
+  },
+  "personagens": {
+    "cida": { "nome": "Dona Cida", "falaDeChegada": ["Boa noite, meu filho."] },
+    "rafael": { "nome": "Rafael", "falaDeChegada": ["E aí, patrão."] },
+    "homem0333": {
+      "nome": "O homem das 03:33",
+      "cafe": {
+        "um": [
+          { "q": "cliente", "t": "Para mim? Faz muito tempo que ninguém me serve." },
+          { "q": "pensamento", "t": "Ele não bebeu. Só ficou segurando o copo." }
+        ],
+        "dois": [
+          { "q": "cliente", "t": "Você de novo. O café esfria. Eu gosto assim." },
+          { "q": "pensamento", "t": "Duas noites. Ele nem piscou." }
+        ],
+        "tres": [
+          { "q": "cliente", "t": "Três noites seguidas. Ninguém me serve três noites." },
+          { "q": "cliente", "t": "O Valdir saiu do turno em {s4.data}. Não voltou." },
+          { "q": "cliente", "t": "O carro dele ficou {s4.carro}. Ninguém mexeu." },
+          { "q": "cliente", "t": "Obrigado pelo café. Agora eu posso ir." }
+        ]
+      }
+    }
+  },
+  "cenas": [
+    {
+      "id": "cida-1", "quem": "cida", "noite": { "semana": 1, "dia": 1 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Boa noite, meu filho. Você é novo, né? Nunca te vi." },
+        { "q": "cliente", "t": "Pode me chamar de Dona Cida. Todo mundo chama." },
+        { "q": "cliente", "t": "Põe trinta de etanol. Paro aqui há vinte anos." }
+      ],
+      "reacoes": {
+        "gentileza": ["Educado. Vai durar bastante aqui.", "Esse sorriso é raro de madrugada."],
+        "erro": ["Ô, meu filho, confere esse valor.", "Calma. Conta de novo, sem pressa."],
+        "demora": ["Vou indo que a corrida não espera.", "A noite é curta, meu filho. Tchau."]
+      }
+    },
+    {
+      "id": "cida-2", "quem": "cida", "noite": { "semana": 1, "dia": 3 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Faltam quatro semanas pra acabar a escala. Quatro!" },
+        { "q": "cliente", "t": "Vinte anos sem domingo. Vou ter folga de verdade." },
+        { "q": "cliente", "t": "Seu Amaro vive reclamando do custo. Cada um na sua conta." }
+      ],
+      "reacoes": {
+        "gentileza": ["Quando chegar o dia, vem me contar o que fez.", "Você escuta bem. Isso é raro."],
+        "erro": ["Hoje não, meu filho. Tá errado aí.", "Tá me enrolando ou eu que contei mal?"],
+        "demora": ["Gosto de conversa, mas a corrida não espera.", "Fica pra outra noite."]
+      }
+    },
+    {
+      "id": "cida-3", "quem": "cida", "noite": { "semana": 1, "dia": 5 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Esse posto tem coisa, meu filho. Não sei dizer o quê.", "pose": "apontando" },
+        { "q": "cliente", "t": "Toda noite eu olho a placa. Hoje ela está diferente." }
+      ],
+      "variantes": [
+        {
+          "condicao": { "evento": "a-placa" },
+          "falas": [
+            { "q": "cliente", "t": "Olha a placa. O sorriso ficou maior, não ficou?", "pose": "apontando" },
+            { "q": "cliente", "t": "Esse posto tem coisa, meu filho. Eu só dirijo." }
+          ]
+        }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigada por não rir de mim.", "Você olhou também. Boa."],
+        "erro": ["Ai, ai. Confere, filho.", "Falta aí. Conta de novo."],
+        "demora": ["Se fica olhando a placa, não me atende.", "Vou embora. Tchau."]
+      }
+    },
+    {
+      "id": "cida-4", "quem": "cida", "noite": { "semana": 2, "dia": 2 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": { "sanidadeMax": 100 } },
+      "falas": [
+        { "q": "cliente", "t": "Os colegas não param mais aqui de madrugada." },
+        { "q": "cliente", "t": "Dizem que o café sai sozinho. Eu paro. Preciso dele." },
+        { "q": "cliente", "t": "Você já viu? Não responde, que eu fico com medo." }
+      ],
+      "reacoes": {
+        "gentileza": ["Que bom ter alguém acordado aqui.", "Toma. Gorjeta de quem tem medo."],
+        "erro": ["Eu sei contar, meu filho.", "Confere aí, por favor."],
+        "demora": ["Tô com pressa. Fica pra depois.", "Já passei do ponto. Vou."]
+      }
+    },
+    {
+      "id": "cida-5", "quem": "cida", "noite": { "semana": 2, "dia": 5 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Meu patrão diz que vai ter que contratar mais um." },
+        { "q": "cliente", "t": "Pra uns a conta fecha, pra outros não. Eu só comemoro." },
+        { "q": "cliente", "t": "O posto tem coisa. Mas essa conversa é outra." }
+      ],
+      "reacoes": {
+        "gentileza": ["Gosto de quem ouve sem opinar.", "Tá certo, filho. Cada um sabe de si."],
+        "erro": ["Opa, tá errado.", "Ô, o troco."],
+        "demora": ["Se for pra esperar, converso no ponto.", "Vou indo."]
+      }
+    },
+    {
+      "id": "cida-6", "quem": "cida", "noite": { "semana": 3, "dia": 2 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Cadê o rapaz da moto? Faz três noites que não aparece." },
+        { "q": "cliente", "t": "Ele nunca deixava de passar. Nunca." },
+        { "q": "cliente", "t": "Será que folgou antes de todo mundo?" }
+      ],
+      "reacoes": {
+        "gentileza": ["Se ele passar, diz que a Cida mandou lembranças.", "Você é bom moço."],
+        "erro": ["Tô distraída, mas o troco eu vejo.", "Confere de novo, filho."],
+        "demora": ["Vou procurar o rapaz por aí.", "Tchau, filho."]
+      }
+    },
+    {
+      "id": "cida-7", "quem": "cida", "noite": { "semana": 4, "dia": 1 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Última semana! Quase não acredito." },
+        { "q": "cliente", "t": "Mas me dá um aperto. Vinte anos, a gente esquece como se folga." },
+        { "q": "cliente", "t": "Eu vou deitar e não vou fazer nada. E você?" }
+      ],
+      "reacoes": {
+        "gentileza": ["Pescar? Que bonito. Vai e fica o dia todo.", "Você merece, meu filho."],
+        "erro": ["Hoje não, filho. Tá errado.", "Confere. Falta pouco pra folga, não quero erro."],
+        "demora": ["A folga eu espero. A bomba não.", "Vou indo."]
+      }
+    },
+    {
+      "id": "cida-8", "quem": "cida", "noite": { "semana": 4, "dia": 5 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Esta é a última vez que passo aqui de madrugada." },
+        { "q": "cliente", "t": "Se alguém te chamar do estacionamento, não vai. Eu nunca fui." },
+        { "q": "cliente", "t": "Boa folga, meu filho. Se ela chegar." }
+      ],
+      "reacoes": {
+        "gentileza": ["Cuida de você.", "Chega em casa inteiro, tá?"],
+        "erro": ["Não é hora de errar, filho.", "Olha o troco."],
+        "demora": ["Vou. Não esquece o que eu disse.", "Tchau, filho."]
+      }
+    },
+    {
+      "id": "rafael-1", "quem": "rafael", "noite": { "semana": 1, "dia": 2 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "E aí, patrão! Vinte de comum, por favor." },
+        { "q": "cliente", "t": "Só tenho nota de cem, desculpa. A noite não rendeu.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Valeu, patrão. Você é de boa.", "Salvou a noite."],
+        "erro": ["Opa, falta aí. Conta de novo, por favor.", "Acho que o troco tá curto."],
+        "demora": ["Tenho pedido pra entregar. Fica pra depois.", "Vou nessa, valeu."]
+      }
+    },
+    {
+      "id": "rafael-2", "quem": "rafael", "noite": { "semana": 1, "dia": 4 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Levei um pacote pra um sítio aí na estrada." },
+        { "q": "cliente", "t": "Ninguém atendeu. Deixei na porta. Estava pago." },
+        { "q": "cliente", "t": "Vinte de comum. Sem troco de novo, desculpa.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Valeu por não reclamar do cem.", "Você é gente boa."],
+        "erro": ["Peraí, olha de novo.", "Tá faltando."],
+        "demora": ["Preciso ir. Outro dia.", "Valeu mesmo assim."]
+      }
+    },
+    {
+      "id": "rafael-3", "quem": "rafael", "noite": { "semana": 1, "dia": 6 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Moto não tem escala. Se eu não rodo, não ganho." },
+        { "q": "cliente", "t": "Pra mim muda pouco. Pra vocês deve mudar muito." },
+        { "q": "cliente", "t": "Vinte de comum. Só tenho cem, de novo.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Se mudar pra você, é isso mesmo.", "Valeu pela conversa."],
+        "erro": ["Opa, conta de novo.", "Esse troco tá estranho."],
+        "demora": ["Vou nessa. A rua não espera.", "Fica pra outra."]
+      }
+    },
+    {
+      "id": "rafael-4", "quem": "rafael", "noite": { "semana": 2, "dia": 2 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Tô sem dormir faz dias, patrão. Perdi a conta." },
+        { "q": "cliente", "t": "Vinte de comum. Cem, desculpa. O capacete pesa.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Valeu. Você parece cansado também.", "Se eu pudesse, tirava uma folga."],
+        "erro": ["Ei, falta aí.", "Conta de novo, por favor."],
+        "demora": ["Vou antes que eu durma em pé.", "Valeu."]
+      }
+    },
+    {
+      "id": "rafael-5", "quem": "rafael", "noite": { "semana": 2, "dia": 5 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "O relógio da loja tá certo? O meu celular diz outra hora." },
+        { "q": "cliente", "t": "Tenho um último pedido pra entregar. Depois eu volto." },
+        { "q": "cliente", "t": "Se eu não aparecer, não se preocupa. Volto.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Valeu. Você cuida bem do posto.", "Boa, patrão."],
+        "erro": ["Peraí, o troco.", "Tá errado, vê de novo."],
+        "demora": ["Vou antes que eu perca a hora.", "Fui."]
+      }
+    },
+    {
+      "id": "rafael-6", "quem": "rafael", "noite": { "semana": 3, "dia": 4 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": { "evento": "rafael-volta" } },
+      "falas": [
+        { "q": "cliente", "t": "Boa noite." },
+        { "q": "cliente", "t": "Não uso mais capacete. Aqui não tem vento." },
+        { "q": "cliente", "t": "Vinte de comum. Só tenho isto. Passa?", "pose": "pagando" },
+        { "q": "pensamento", "t": "Uma moeda velha, de cobre apagado. Não é do troco." }
+      ],
+      "efeito": { "item": "moeda-antiga" },
+      "reacoes": {
+        "gentileza": ["Obrigado. Fico te devendo uma noite.", "Você é o único que aceita."],
+        "erro": ["Entendo. Então eu fico por aqui.", "Sem problema. Eu espero."],
+        "demora": ["Eu espero. Sempre espero.", "Tudo bem. Eu volto."]
+      }
+    },
+    {
+      "id": "rafael-7", "quem": "rafael", "noite": { "semana": 4, "dia": 2 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Quanto falta pra acabar a escala? Perdi a conta dos dias." },
+        { "q": "cliente", "t": "Não sei mais quantas noites eu fiz." },
+        { "q": "cliente", "t": "A entrega nunca acaba. Vinte de comum. Só a moeda." }
+      ],
+      "efeito": { "item": "moeda-antiga" },
+      "reacoes": {
+        "gentileza": ["Valeu. Guarda a moeda. Ela vale mais do que parece.", "Você ainda conta os dias. Eu parei."],
+        "erro": ["Tudo bem. Eu não tenho pressa.", "Pode errar. Eu fico."],
+        "demora": ["Eu espero.", "Vou ficar mais um pouco."]
+      }
+    },
+    {
+      "id": "rafael-8", "quem": "rafael", "noite": { "semana": 4, "dia": 5 },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Última vez. Prometo." },
+        { "q": "cliente", "t": "Quando sair daqui, olha pra trás. Eu sempre olho." },
+        { "q": "cliente", "t": "Vinte de comum. A moeda de novo." }
+      ],
+      "efeito": { "item": "moeda-antiga" },
+      "reacoes": {
+        "gentileza": ["Boa folga, patrão. Pra você.", "Vai lá pescar."],
+        "erro": ["Não precisa se preocupar.", "Eu não me importo mais."],
+        "demora": ["Eu fico.", "Tudo bem."]
+      }
+    },
+    {
+      "id": "homem-1", "quem": "homem0333", "noite": { "semana": 1, "dia": 3 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Boa noite.", "pose": "fixo" },
+        { "q": "cliente", "t": "Só estou olhando." },
+        { "q": "pensamento", "t": "Ele não pegou nada. Ficou só olhando a porta." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado. Faz tempo que ninguém me cumprimenta aqui.", "Muito obrigado."],
+        "erro": ["Não quero nada. Só quero ver.", "Obrigado, mas não."],
+        "demora": ["Já vou.", "Boa noite."],
+        "cafe": ["Para mim? Obrigado."]
+      }
+    },
+    {
+      "id": "homem-2", "quem": "homem0333", "noite": { "semana": 1, "dia": 6 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Antigamente diziam que este posto nunca fechava.", "pose": "fixo" },
+        { "q": "cliente", "t": "Ainda é assim?" }
+      ],
+      "reacoes": {
+        "gentileza": ["Que bom. Então ainda tem alguém.", "Obrigado por responder."],
+        "erro": ["Não é isso que eu queria saber.", "Não importa."],
+        "demora": ["Eu volto.", "Boa noite."],
+        "cafe": ["Obrigado. Eu não bebo, mas agradeço."]
+      }
+    },
+    {
+      "id": "homem-3", "quem": "homem0333", "noite": { "semana": 2, "dia": 2 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": { "semEvento": "telefone" } },
+      "falas": [
+        { "q": "cliente", "t": "Já atendeu o telefone hoje?", "pose": "fixo" },
+        { "q": "cliente", "t": "Quando tocar, você escolhe se atende." }
+      ],
+      "variantes": [
+        {
+          "condicao": { "evento": "telefone" },
+          "falas": [
+            { "q": "cliente", "t": "Já atendeu o telefone.", "pose": "fixo" },
+            { "q": "cliente", "t": "Reconheceu a voz?" }
+          ]
+        }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado por responder. Poucos respondem.", "Você é gentil."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu espero.", "Já estou indo."],
+        "cafe": ["Para mim? Faz tempo."]
+      }
+    },
+    {
+      "id": "homem-4", "quem": "homem0333", "noite": { "semana": 2, "dia": 5 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "A prateleira que você ia repor. Já está cheia?", "pose": "fixo" },
+        { "q": "cliente", "t": "Não repõe. Já está." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Você olha bem."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Boa noite.", "Eu vou."],
+        "cafe": ["Para mim? Obrigado."]
+      }
+    },
+    {
+      "id": "homem-5", "quem": "homem0333", "noite": { "semana": 3, "dia": 3 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "O rapaz da moto volta amanhã.", "pose": "fixo" },
+        { "q": "cliente", "t": "Sem capacete." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado por ouvir.", "Obrigado."],
+        "erro": ["Não precisa fazer nada.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Para mim? Faz muito tempo."]
+      }
+    },
+    {
+      "id": "homem-6", "quem": "homem0333", "noite": { "semana": 3, "dia": 4 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "A luz da cobertura vai apagar.", "pose": "fixo" },
+        { "q": "cliente", "t": "Quando apagar, fica na loja." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Você vai ficar bem, se ficar."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Você de novo."]
+      }
+    },
+    {
+      "id": "homem-7", "quem": "homem0333", "noite": { "semana": 3, "dia": 5 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Quantas noites faltam?", "pose": "fixo" },
+        { "q": "cliente", "t": "Para você, ou para ele? Eu perdi a conta." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Você é paciente."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Obrigado."]
+      }
+    },
+    {
+      "id": "homem-8", "quem": "homem0333", "noite": { "semana": 4, "dia": 1 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "O telefone das seis vai tocar.", "pose": "fixo" },
+        { "q": "cliente", "t": "Do outro lado só tem a luz da lâmpada." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Você aguenta."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Você de novo."]
+      }
+    },
+    {
+      "id": "homem-9", "quem": "homem0333", "noite": { "semana": 4, "dia": 2 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "O relógio vai chegar às seis e voltar.", "pose": "fixo" },
+        { "q": "cliente", "t": "Não é defeito." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Fique calmo."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Você de novo."]
+      }
+    },
+    {
+      "id": "homem-10", "quem": "homem0333", "noite": { "semana": 4, "dia": 3 },
+      "gatilho": { "hora": "03:33", "janela": ["03:33", "03:33"], "onde": "balcao", "condicao": {} },
+      "falas": [
+        { "q": "cliente", "t": "Falta uma noite. Eu pergunto a todos se vão.", "pose": "fixo" },
+        { "q": "cliente", "t": "Para casa. Se vão para casa." }
+      ],
+      "reacoes": {
+        "gentileza": ["Obrigado.", "Vá com calma."],
+        "erro": ["Não era isso.", "Esquece."],
+        "demora": ["Eu vou.", "Boa noite."],
+        "cafe": ["Você de novo."]
+      }
+    }
+  ]
+}
