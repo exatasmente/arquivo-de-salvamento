@@ -294,6 +294,7 @@ export function createInput() {
   function setMode(m, canvas) {
     if (canvas) canvasEl = canvas;
     if (m !== mode) releaseAll();
+    if (m === 'play' && m !== mode) tilt?.recenter?.();   // back to play: the way the phone is held now is the resting pose
     mode = m;
     document.body.classList.toggle('play', m === 'play');
     document.body.classList.toggle('ui', m === 'ui');
