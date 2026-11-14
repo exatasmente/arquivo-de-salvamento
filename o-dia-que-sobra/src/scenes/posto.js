@@ -261,37 +261,47 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   for (const [cx, w] of [[6, 9], [17, 10]]) {
     cb.box([w, ISL_Y, 1.3], M.curb, [cx, ISL_Y / 2, -8.0], [0, 0, 0], [0.8, 0.8]);
     cb.box([w - 0.2, 0.01, 1.1], M.concrete, [cx, ISL_Y + 0.005, -8.0], [0, 0, 0], [1, 1]);
-    collide([cx - w / 2, 0, -8.65], [cx + w / 2, 1.0, -7.35]);
+    // (no collider on the island's kerb: the attendant steps over it between the two sides of the pumps; the pumps and the bins stay solid)
   }
   ['bomba1', 'bomba2', 'bomba3', 'bomba4'].forEach((bid, i) => {
     const n = i + 1, pump = X(bid), [x, ISL_Y, PUMP_Z] = EP(bid);
-    if (PR(bid).travada) pump.setJammed(true);
+    if (PR(bid).travada) { pump.setJammed(true); pump.back.setJammed(true); }
     colOf(bid, { id: 'bomba' + n });
-    anchor('bomba' + n, [x, 0, -6.55], [0, 0, -1]);
-    const nz = {}, hoses = {};
-    FUEL_KEYS.forEach((k) => {
-      const l = pump.nozzleAt[k]; if (!l) return; // a pump may leave a fuel out
-      const w = [x + l[0], ISL_Y + l[1], PUMP_Z + l[2]];
-      // the hose of this nozzle: out of the body of the pump a little under its hook; hangs in a loop while the nozzle is on the hook
-      const hs = createHose(r); group.add(hs.root);
-      const from = [w[0], w[1] - 0.5, w[2] - 0.12], rest = [w[0], w[1] - 0.04, w[2] + 0.02];
-      hs.set(from, rest);
-      hoses[k] = { from, rest, set: (end, o) => hs.set(from, end || rest, o), hose: hs };
-      anchor(`bico${n}-${k}`, w, [0, 0, 1]); nz[k] = anchors[`bico${n}-${k}`];
-      inter(`bico${n}-${k}`, 'bico', pump.nozzles[k], `bico${n}-${k}`);
-    });
-    const hit = pump.dyn.children.find((m) => m.userData.interactId === 'bomba');
-    hit.userData.interactId = 'bomba' + n; interactables.push({ id: 'bomba' + n, kind: 'bomba', object3D: hit, anchor: 'bomba' + n });
-    inter('mostrador' + n, 'mostrador', pump.displayMesh, 'bomba' + n);
-    anchor('mostrador' + n, [x - 0.22, ISL_Y + 1.45, PUMP_Z + 0.5], [0, 0, 1]);
-    inter('teclado' + n, 'teclado', pump.keypad.root, 'teclado' + n);
-    anchor('teclado' + n, [x + 0.36, 0, -6.55], [0, 0, -1]);
-    // the car lane on the south side: the cap side (left = +x) faces the pump when the car looks east
-    anchor('carroBomba' + n, [x + (i % 2 ? -0.5 : 0.5), 0, -4.8], [1, 0, 0]);
-    anchor(`carroBomba${n}-r`, [x + (i % 2 ? 0.5 : -0.5), 0, -4.8], [-1, 0, 0]);
-    inter('registro' + n, 'registro', pump.valve.hit, 'registro' + n);
-    anchor('registro' + n, [x, 0, -6.55], [0, 0, -1]);
-    pumps[n] = { n, setDisplay: pump.setDisplay, display: pump.display, keypad: pump.keypad, nozzles: pump.nozzles, nozzleAnchors: nz, hoses, root: pump.dyn, valve: pump.valve, setJammed: pump.setJammed, get jammed() { return pump.jammed; } };
+    // One face of the pump: `m` is its number (1 to 4 face the shop, 5 to 8 are the faces behind them, on the north lane), `f` the face's parts,
+    // `sgn` 1 for the front and -1 for the back (a face turned half a turn: its local x and z are the world's reversed).
+    const face = (m, f, sgn, stand, laneZ) => {
+      const at = (l) => [x + sgn * l[0], ISL_Y + l[1], PUMP_Z + sgn * l[2]];
+      anchor('bomba' + m, [x, 0, stand], [0, 0, -sgn]);
+      const nz = {}, hoses = {};
+      FUEL_KEYS.forEach((k) => {
+        const l = f.nozzleAt[k]; if (!l) return; // a pump may leave a fuel out
+        const w = at(l);
+        // the hose of this nozzle: out of the body of the pump a little under its hook; hangs in a loop while the nozzle is on the hook
+        const hs = createHose(r); group.add(hs.root);
+        const from = [w[0], w[1] - 0.5, w[2] - sgn * 0.12], rest = [w[0], w[1] - 0.04, w[2] + sgn * 0.02];
+        hs.set(from, rest);
+        hoses[k] = { from, rest, set: (end, o) => hs.set(from, end || rest, o), hose: hs };
+        anchor(`bico${m}-${k}`, w, [0, 0, sgn]); nz[k] = anchors[`bico${m}-${k}`];
+        inter(`bico${m}-${k}`, 'bico', f.nozzles[k], `bico${m}-${k}`);
+      });
+      if (sgn > 0) {
+        const hit = pump.dyn.children.find((mm) => mm.userData.interactId === 'bomba');
+        hit.userData.interactId = 'bomba' + m; interactables.push({ id: 'bomba' + m, kind: 'bomba', object3D: hit, anchor: 'bomba' + m });
+      }
+      inter('mostrador' + m, 'mostrador', f.displayMesh, 'bomba' + m);
+      anchor('mostrador' + m, [x - sgn * 0.22, ISL_Y + 1.45, PUMP_Z + sgn * 0.5], [0, 0, sgn]);
+      inter('teclado' + m, 'teclado', f.keypad.root, 'teclado' + m);
+      anchor('teclado' + m, [x + sgn * 0.36, 0, stand], [0, 0, -sgn]);
+      // the car lane of this face: the cap side faces the pump (on the south lane the cap is on the car's left when it looks east; on the north
+      // lane it is on its right, the car also looking east)
+      anchor('carroBomba' + m, [x + (i % 2 ? -0.5 : 0.5), 0, laneZ], [1, 0, 0]);
+      anchor(`carroBomba${m}-r`, [x + (i % 2 ? 0.5 : -0.5), 0, laneZ], [-1, 0, 0]);
+      inter('registro' + m, 'registro', f.valve.hit, 'registro' + m);
+      anchor('registro' + m, [x, 0, stand], [0, 0, -sgn]);
+      pumps[m] = { n: m, setDisplay: f.setDisplay, display: f.display, keypad: f.keypad, nozzles: f.nozzles, nozzleAnchors: nz, hoses, root: sgn > 0 ? pump.dyn : f.keypad.root.parent, valve: f.valve, setJammed: f.setJammed, get jammed() { return f.jammed; } };
+    };
+    face(n, pump, 1, -6.55, -4.8);
+    face(n + 4, pump.back, -1, -9.55, -10.9);
     props['bomba' + n] = pump;
     if (n === 4) { // the badge hangs from the luminaire over pump 4
       const ck = X('cracha');

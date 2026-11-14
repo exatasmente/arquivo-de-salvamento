@@ -13,9 +13,11 @@
 // highway side of the canopy) and every stall route is checked against the scene's solids once.
 //
 // Frame: x east, z south (highway to the north at z < -26). Lanes: HWY_Z on the highway, THRU_Z under the canopy
-// (south of the bays), BAY_Z the row where the cars stand (heading east, the tank cap toward the pumps).
+// (south of the bays), BAY_Z the row where the cars stand (heading east, the tank cap toward the pumps). The pumps serve from both
+// sides: pumps 1 to 4 face the shop (south lane, BAY_Z), pumps 5 to 8 are the faces behind them (north lane, BAY_N, between the canopy's
+// columns and the island; the cars also head east, with the cap on their right).
 
-const HWY_Z = -28.5, ENTRY_X = -2.5, EXIT_X = 23.2, THRU_Z = -2.4, BAY_Z = -4.8, START_X = -50, END_X = 52;
+const HWY_Z = -28.5, ENTRY_X = -2.5, EXIT_X = 23.2, THRU_Z = -2.4, BAY_Z = -4.8, BAY_N = -10.9, THRU_N = -14.6, START_X = -50, END_X = 52;
 const CRUISE = 9, LOT = 4.6, ACC = 2.6, BRAKE = 7, BACK = 1.8;
 const LOT_IN_X = -11.0, LOT_OUT_X = -14.3, LOT_TURN_Z = -16.0, LOT_BACK_Z = -18.7, LOT_EXIT_X = -4.6, STALL_R = 4.6;
 
@@ -30,6 +32,7 @@ export function createTraffic(bus, { world, render, player }) {
   const vehicles = [];
   let ids = 0;
   const nPumps = () => world.pumpCount();
+  const isNorth = (n) => n > 4;
   const pumpX = (n) => world.anchor('bomba' + n).pos.x;
 
   // ------------------------------------------------------------------ paths: dense polylines with cumulative length
@@ -74,17 +77,19 @@ export function createTraffic(bus, { world, render, player }) {
     return out;
   }
   /** Highway -> entrance -> the bay (centre x). Direct to the row when the first bay is too close to the entrance for a bend. */
-  function inPath(bx) {
+  function inPath(bx, north = false) {
+    const BAY = north ? BAY_N : BAY_Z, THRU = north ? THRU_N : THRU_Z;
     const x0 = Math.max(ENTRY_X + 4, bx - 9.5), x1 = bx - 4;
-    if (x1 - x0 < 4.5) return finish(round([[START_X, HWY_Z], [ENTRY_X, HWY_Z], [ENTRY_X, BAY_Z], [bx, BAY_Z]], 5));
-    const head = round([[START_X, HWY_Z], [ENTRY_X, HWY_Z], [ENTRY_X, THRU_Z], [x0, THRU_Z]], 5);
-    return finish([...head, ...sCurve(x0, THRU_Z, x1, BAY_Z), [bx, BAY_Z]]);
+    if (x1 - x0 < (north ? 5.5 : 4.5)) return finish(round([[START_X, HWY_Z], [ENTRY_X, HWY_Z], [ENTRY_X, BAY], [bx, BAY]], 5));
+    const head = round([[START_X, HWY_Z], [ENTRY_X, HWY_Z], [ENTRY_X, THRU], [x0, THRU]], 5);
+    return finish([...head, ...sCurve(x0, THRU, x1, BAY), [bx, BAY]]);
   }
   /** Bay -> east exit -> highway, heading east. */
-  function outPath(bx) {
+  function outPath(bx, north = false) {
+    const BAY = north ? BAY_N : BAY_Z, THRU = north ? THRU_N : THRU_Z;
     const x0 = bx + 2.5, x1 = bx + 9;
-    if (x1 > EXIT_X - 4) return finish(round([[bx, BAY_Z], [EXIT_X, BAY_Z], [EXIT_X, HWY_Z], [END_X, HWY_Z]], 4));
-    return finish([[bx, BAY_Z], ...sCurve(x0, BAY_Z, x1, THRU_Z), ...round([[x1, THRU_Z], [EXIT_X, THRU_Z], [EXIT_X, HWY_Z], [END_X, HWY_Z]], 4)]);
+    if (x1 > EXIT_X - 4) return finish(round([[bx, BAY], [EXIT_X, BAY], [EXIT_X, HWY_Z], [END_X, HWY_Z]], 4));
+    return finish([[bx, BAY], ...sCurve(x0, BAY, x1, THRU), ...round([[x1, THRU], [EXIT_X, THRU], [EXIT_X, HWY_Z], [END_X, HWY_Z]], 4)]);
   }
 
   // ------------------------------------------------------------------ bays
@@ -92,8 +97,8 @@ export function createTraffic(bus, { world, render, player }) {
   /** The stretch of the bay row a vehicle needs: its body plus the bend it comes in by. */
   const span = (bx, len) => [bx - len / 2 - 4.6, bx + len / 2 + 0.6];
   function bayFree(n, bx, len) {
-    const [a, b] = span(bx, len);
-    return !vehicles.some((v) => v.bay && v.state !== 'gone' && !(v.span[1] < a || v.span[0] > b));
+    const [a, b] = span(bx, len), north = isNorth(n);
+    return !vehicles.some((v) => v.bay && Boolean(v.north) === north && v.state !== 'gone' && !(v.span[1] < a || v.span[0] > b));
   }
 
 
@@ -194,7 +199,7 @@ export function createTraffic(bus, { world, render, player }) {
     const bx = bayX(pump, capZ);
     if (!bayFree(pump, bx, len)) return null;
     const v = {
-      id: ++ids, root, len, wid, pump, bx, bay: true, span: span(bx, len), kind, state: 'arriving', path: inPath(bx), s: 0, speed: CRUISE * 0.8, x: START_X, z: HWY_Z, yaw: Math.PI / 2,
+      id: ++ids, root, len, wid, pump, bx, bay: true, north: isNorth(pump), span: span(bx, len), kind, state: 'arriving', path: inPath(bx, isNorth(pump)), s: 0, speed: CRUISE * 0.8, x: START_X, z: HWY_Z, yaw: Math.PI / 2,
       waited: 0, ghost: 0, col: { min: [0, 0, 0], max: [0, 0, 0], id: 'veiculo' + (ids), vehicle: true }, onParked: null, onGone: null,
     };
     world.colliders.push(v.col);
@@ -226,7 +231,7 @@ export function createTraffic(bus, { world, render, player }) {
     if (v.state === 'leaving' || v.state === 'gone') return;
     v.state = 'leaving'; v.s = 0; v.speed = 0.4;
     if (v.lot) { v.path = v.lot.outP; return; }
-    v.path = outPath(v.bx); v.span = [v.bx - v.len / 2, v.bx + v.len / 2 + 7];
+    v.path = outPath(v.bx, v.north); v.span = [v.bx - v.len / 2, v.bx + v.len / 2 + 7];
   }
   function remove(v) {
     v.state = 'gone';
@@ -285,6 +290,8 @@ export function createTraffic(bus, { world, render, player }) {
     /** Is the bay of pump n free for a vehicle this long, with its cap this far from the middle? */
     bayFree: (n, len = 4.3, capZ = -1.4) => bayFree(n, bayX(n, capZ), len),
     bayX,
+    /** How far the way in to the bay of pump n is (the free pump nearest the entrance is the one with the shortest way). */
+    routeLength: (n, capZ = -1.4) => inPath(bayX(n, capZ), isNorth(n)).L,
     routes: { inPath, outPath },
     /** The parking lot: reserveLot(len, wid, pick) -> stall | null, releaseLot(stall), addLot({...}), lotAvailable(len, wid), lotStalls() */
     reserveLot, releaseLot, addLot, lotAvailable, lotStalls: () => allSpots().filter((sp) => usable(sp, 4.3, 1.8)).map((sp) => sp.n),

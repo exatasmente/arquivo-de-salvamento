@@ -74,7 +74,7 @@ const LAMP_KIND = { cobertura: 'cobertura', fluorescente: 'fluorescente', mesa: 
 
 // ---- footprints (local x0, z0, x1, z1, height) that block the player; `fixed` = not turned with the entity
 const FOOT = {
-  bomba: () => [-0.62, -0.3, 0.62, 0.4, 1.85], lixeira: () => [-0.25, -0.25, 0.25, 0.25, 0.9], calibrador: () => [-0.2, -0.2, 0.2, 0.2, 1.1],
+  bomba: () => [-0.62, -0.4, 0.62, 0.4, 1.85], lixeira: () => [-0.25, -0.25, 0.25, 0.25, 0.9], calibrador: () => [-0.2, -0.2, 0.2, 0.2, 1.1],
   balcao: (p) => [-p.comprimento / 2, -0.35, p.comprimento / 2, 0.35, 1.0],
   prateleira: (p) => [-p.comprimento / 2, -0.3, p.comprimento / 2, 0.3, 1.7], 'prateleira-antiga': (p) => [-p.comprimento / 2, -0.3, p.comprimento / 2, 0.3, 1.7],
   'prateleira-parede': (p) => [-p.comprimento / 2, -0.17, p.comprimento / 2, 0.18, 1.7], 'prateleira-balcao': (p) => [-p.comprimento / 2, -0.17, p.comprimento / 2, 0.18, 1.5],

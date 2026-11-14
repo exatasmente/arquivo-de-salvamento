@@ -64,8 +64,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const n = world.pumpCount();
     const free = (i) => !list.some((c) => c.pump === i) && !reserved.has(i) && !chores?.pumpStuck(i) && traffic.bayFree(i, len, capZ);
     if (prefer && free(prefer)) return prefer;
-    for (let i = 1; i <= n; i++) if (free(i)) return i;
-    return 0;
+    // the free pump with the shortest way in from the highway, on either lane
+    let best = 0, bl = Infinity;
+    for (let i = 1; i <= n; i++) if (free(i)) { const L = traffic.routeLength(i, capZ); if (L < bl - 1e-6) { bl = L; best = i; } }
+    return best;
   }
   const nozzleName = (t) => items.combustiveis[t]?.nome ?? t;
 
@@ -115,7 +117,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (!tutorial && lateNight()) return null;           // nobody new after 05:40
     const truck = (rec || tipo)?.veiculo?.tipo === 'caminhao';
     let n = pump && !list.some((c) => c.pump === pump) ? pump : freePump(0, truck ? 6.4 : (rec || tipo)?.veiculo?.tipo === 'moto' ? 2.0 : 4.3, truck ? 1.05 : -1.4);
-    if (truck) n = [1, 3].find((i) => !list.some((c) => c.pump === i) && !reserved.has(i) && !chores?.pumpStuck(i) && traffic.bayFree(i, 6.4, 1.05)) || 0;
+    if (truck) n = [1, 3, 5, 7].find((i) => !list.some((c) => c.pump === i) && !reserved.has(i) && !chores?.pumpStuck(i) && traffic.bayFree(i, 6.4, 1.05)) || 0;
     if (!n) return null;
     const id = ++counter, s = seed ?? Math.floor(rng() * 1e6);
     const src = rec || tipo;
@@ -327,8 +329,9 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (!c || c.done) return null;
     const cr = inventory.carry;
     if (c.kind === 'walk') {
-      if (c.state !== 'scanning' && c.state !== 'ready') return null;
+      // the attendant always goes behind the counter, at the till and the scanner: never to where the customer happens to be
       const clerk = ['caixa', 'leitor'].map((k) => world.anchor(k)).filter(Boolean).map((a) => ({ x: a.pos.x, z: a.pos.z }));
+      if (c.state !== 'scanning' && c.state !== 'ready') return { at: anchorPos('balcao', 1.2), stand: clerk };
       if (cr?.kind === 'item' && cr.cust === c.id) return { at: boxCenter('leitor', 0.12) || anchorPos('leitor', 1.0), stand: clerk };
       if (cr) return { at: anchorPos('balcao', 1.0), stand: clerk };
       if (c.state === 'ready') return { at: c.human ? c.human.root.position.clone().setY(1.2) : anchorPos('balcao', 1.2), stand: clerk };
@@ -340,12 +343,16 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     }
     if (c.kind !== 'car') return null;
     c.car.tankCap.getWorldPosition(c.capPos);
+    // the attendant always goes to the pump, to the spot between the pump and the tank cap of the bay (the cap is level with the pump
+    // whichever the car): never to where the car happens to be at the moment of the tap. A car still coming in is waited for there.
+    const pa = world.anchor('bomba' + c.pump);
+    const stands = pa ? [0, 0.4, -0.4].map((dx) => ({ x: pa.pos.x + dx, z: pa.pos.z })) : [];
+    const spot = world.carSpot(c.pump).pos;
     const win = windowAt(c);
-    const carStep = { at: win, stand: standsBetween(win, { x: win.x + (win.x - c.car.root.position.x), z: win.z + (win.z - c.car.root.position.z) }, [1.2, 1.7]).concat(standsBetween(win, c.car.root.position, [-1.2, -1.7])) };
-    const pumpPos = world.anchor('bomba' + c.pump)?.pos;
-    const atCap = () => ({ at: c.capPos.clone(), stand: pumpPos ? standsBetween(c.capPos, pumpPos) : [] });
-    const holster = () => { const a = world.anchor(`bico${c.pump}-${c.fuel}`); return a ? { at: a.pos.clone(), stand: standsBetween(a.pos, c.capPos, [0.9, 1.3]) } : carStep; };
-    const panel = () => ({ at: (device() === 'keyboard' && world.posto.pumps?.[c.pump]?.keypad ? world.posto.pumps[c.pump].keypad.worldPos('5') : boxCenter('mostrador' + c.pump, 0.25)) || c.capPos.clone(), stand: pumpPos ? standsBetween(pumpPos, c.capPos, [0.9, 1.3]) : [] });
+    const carStep = { at: c.state === 'arriving' ? new THREE.Vector3(spot.x, 1.1, spot.z) : win, stand: stands };
+    const atCap = () => ({ at: c.capPos.clone(), stand: stands });
+    const holster = () => { const a = world.anchor(`bico${c.pump}-${c.fuel}`); return a ? { at: a.pos.clone(), stand: stands } : carStep; };
+    const panel = () => ({ at: (device() === 'keyboard' && world.posto.pumps?.[c.pump]?.keypad ? world.posto.pumps[c.pump].keypad.worldPos('5') : boxCenter('mostrador' + c.pump, 0.25)) || c.capPos.clone(), stand: stands });
     const item = () => {
       const i = c.entrega?.findIndex((p) => !p.done && !p.got) ?? -1;
       if (i < 0) return null;
@@ -637,7 +644,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   const ROAD = new THREE.Vector3(1.6, 0, -23.5);                                              // where the ones on foot come from and go back to
   const WALK = 1.5;
   /** Where a person stands to get out of (or into) the car of a pump customer: its south side, between the car and the lane. */
-  const ownerDoor = (o) => ({ x: o.car.root.position.x, z: o.car.root.position.z + 1.5 });
+  const ownerDoor = (o) => ({ x: o.car.root.position.x, z: o.car.root.position.z + (o.pump > 4 ? -1.5 : 1.5) });
   /** The point a shelf, fridge or the coffee machine is looked at from, and the way it faces. */
   function facing(x, z) {
     let best = null, bd = 1e9;

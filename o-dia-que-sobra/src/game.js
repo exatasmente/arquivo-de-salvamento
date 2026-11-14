@@ -733,7 +733,18 @@ export async function createGame({ root, render, input, params }) {
     const g = goals.current;
     const w = g?.where?.();
     if (!w || state !== 'play' || entity.hidden) return false;
-    if (!planWalk(w.x, w.z, g.stand?.() || [], () => g.aim?.() || g.where?.() || null)) return false;
+    // a goal with fixed places to stand (the pump, behind the counter, the shelf, the tool) goes only there: the point where the marker hangs
+    // may be a person or a car that moves
+    let stands = g.stand?.() || [];
+    const aimAt = () => g.aim?.() || g.where?.() || null;
+    // the places from where the thing can be seen (no wall between) come first
+    const target = aimAt();
+    if (target && stands.length > 1) {
+      const nav = getNav(world, player);
+      const sees = (q) => { const d = Math.hypot(target.x - q.x, target.z - q.z), n = Math.max(1, Math.ceil(d / 0.25)); for (let i = 1; i < n; i++) { const c = nav.solidAt(q.x + (target.x - q.x) * i / n, q.z + (target.z - q.z) * i / n, 0.04); if (c && !(target.x > c.min[0] - 0.3 && target.x < c.max[0] + 0.3 && target.z > c.min[2] - 0.3 && target.z < c.max[2] + 0.3)) return false; } return true; };
+      stands = [...stands.filter(sees), ...stands.filter((q) => !sees(q))];
+    }
+    if (!(stands.length ? planWalk(stands[0].x, stands[0].z, stands, aimAt) : planWalk(w.x, w.z, [], aimAt))) return false;
     bus.emit('sfx', 'ui_ok', {});
     return true;
   }

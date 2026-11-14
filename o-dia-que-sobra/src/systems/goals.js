@@ -52,6 +52,35 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     return out;
   }
 
+  /**
+   * The tool or item a task needs before its own place, when the hands do not hold it yet: { at: where to look, tool: the thing }. The goal
+   * leads there first (the mop and bucket, the ladder, the box in the stock room), and only then to the place of the task.
+   */
+  function toolOf(t) {
+    const id = t.id, carry = inventory.carry;
+    if (id === 'banheiro' || id.startsWith('mancha-')) {
+      if (carry?.kind === 'limpeza') return null;
+      const b = world.aimBox('rodo', 0); return b ? { at: b.getCenter(new THREE.Vector3()) } : null;
+    }
+    if (id.startsWith('lampada-')) {
+      if (carry?.kind === 'escada' || world.posto.ladder?.at) return null;
+      const b = world.aimBox('escada', 0); return b ? { at: b.getCenter(new THREE.Vector3()) } : null;
+    }
+    if (id.startsWith('repor-')) {
+      const sh = tasks.shelves.get(id.slice(6)); if (!sh || sh.done) return null;
+      const bx = world.boxes[sh.boxN];
+      const holding = (carry?.kind === 'caixa' && carry.n === sh.boxN) || tasks.cart.boxes.some((e) => e.rec.n === sh.boxN);
+      if (holding || !bx?.root) return null;
+      const p = new THREE.Vector3(); bx.root.getWorldPosition(p); return { at: p.setY(p.y + 0.25) };
+    }
+    return null;
+  }
+  /** Floor points round (x, z) to stand on, the one on the player's side first. */
+  function ringAround(x, z, rs = [0.9, 1.4]) {
+    const out = [];
+    for (const r of rs) for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; out.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, d: Math.hypot(x + Math.cos(a) * r - player.st.x, z + Math.sin(a) * r - player.st.z) }); }
+    return out.sort((u, v) => (u.d - v.d));
+  }
   /** What the player should go to for task `t`, as a point in the world (or null). */
   function whereTask(t) {
     const id = t.id, carry = inventory.carry;
@@ -59,7 +88,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     if (id === 'abrir-caixa' || id === 'fechar-caixa') return centerOf('caixa');
     if (id === 'ponto') return world.punch ? world.punch.pos.clone() : null;
     if (id === 'telefone') return anchorAt('telefone', 1.5);
-    if (id === 'banheiro') return anchorAt('porta-banheiro-' + (chores.bathroom?.side || 'm'), 2.3);
+    if (id === 'banheiro') return carry?.kind === 'limpeza' ? anchorAt('porta-banheiro-' + (chores.bathroom?.side || 'm'), 2.3) : centerOf('rodo');   // the mop and the bucket first
     if (id.startsWith('repor-')) {
       const sh = tasks.shelves.get(id.slice(6)); if (!sh || sh.done) return null;
       const bx = world.boxes[sh.boxN];
@@ -96,7 +125,17 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
   /** Everything that can be marked now, in the order of the clipboard (tasks first, then orders). */
   function list() {
     const out = [];
-    for (const t of tasks.list) if (!t.done && !t.failed && !FORBIDDEN.test(t.id)) out.push({ key: 't:' + t.id, text: t.text, short: shortText(t.text), where: () => whereTask(t) });
+    for (const t of tasks.list) {
+      if (t.done || t.failed || FORBIDDEN.test(t.id)) continue;
+      // a customer's task goes where the service is done (the pump, the counter), whatever the customer or the car is doing now
+      const c = t.id.startsWith('cli') ? customers.list.find((q) => 'cli' + q.id === t.id) : null;
+      const step = c && (c.kind === 'car' || c.kind === 'walk') ? stepOf(c, () => whereTask(t)) : {
+        where: () => whereTask(t),
+        aim: () => toolOf(t)?.at || null,
+        stand: () => { const k = toolOf(t); return k ? ringAround(k.at.x, k.at.z) : []; },
+      };
+      out.push({ key: 't:' + t.id, text: t.text, short: shortText(t.text), ...step });
+    }
     for (const o of orders()) out.push({ key: o.key, text: o.text, short: shortText(o.text), where: o.where, aim: o.aim, stand: o.stand });
     return out;
   }

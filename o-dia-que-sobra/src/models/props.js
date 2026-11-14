@@ -332,45 +332,55 @@ const DEFS = {
     // the head is wide enough for the five-digit display on the left and the keypad on the right
     c.box([1.24, 0.52, 0.52], D('#9a6c3c', 'plastic'), [0, 1.44, 0]);
     c.box([1.3, 0.06, 0.58], M.dark, [0, 1.73, 0]);
-    c.box([0.68, 0.24, 0.02], M.dark, [-0.22, 1.45, 0.255]);
-    const display = createDisplay(r);
-    const dm = new T.Mesh(new T.PlaneGeometry(0.6, 0.6 * 24 / 84), r.glow('#ffffff', { map: display.texture })); dm.position.set(-0.22, 1.45, 0.267); c.dyn.add(dm);
-    const keypad = pumpKeypad(c, { n: o.n, cx: 0.36, cy: 1.45, z: 0.26 });
-    const nozzles = {}, nozzleAt = {};
-    FUEL_KEYS.forEach((k, i) => {
-      if (o.fuels && !o.fuels.includes(k)) return; // an entity may leave a fuel out
-      const x = i % 2 ? 0.2 : -0.2, y = i < 2 ? 0.98 : 0.58;
-      c.box([0.17, 0.15, 0.12], D('#2a2622', 'rubber'), [x, y, 0.29]);
-      c.quad(0.11, 0.11, M.fuel, [x, y + 0.17, 0.2315], [0, 0, 0], fuelUV(k));
-      const L = y - 0.075 - 0.25;
-      c.box([0.025, L, 0.025], M.black, [x + 0.07, y - 0.075 - L / 2, 0.3]);
-      const n = nozzleMesh(c, k); n.position.set(x, y, 0.29); n.userData.home = n.position.clone();
-      nozzles[k] = n; nozzleAt[k] = [x, y, 0.4];
-    });
-    if (o.adesivo !== false) { // the 1998 advertising stickers: the Sun of the poster, die-cut, on the front and on both sides of the body
+    // a pump serves from both sides: each side is a whole face (display, keypad, four nozzles, valve, sticker), the second one turned half a
+    // turn (pumps 1 to 4 face the shop, the faces behind them are pumps 5 to 8)
+    const face = (f, n) => {
+      f.box([0.68, 0.24, 0.02], M.dark, [-0.22, 1.45, 0.255]);
+      const display = createDisplay(r);
+      const dm = new T.Mesh(new T.PlaneGeometry(0.6, 0.6 * 24 / 84), r.glow('#ffffff', { map: display.texture })); dm.position.set(-0.22, 1.45, 0.267); f.dyn.add(dm);
+      const keypad = pumpKeypad(f, { n, cx: 0.36, cy: 1.45, z: 0.26 });
+      const nozzles = {}, nozzleAt = {};
+      FUEL_KEYS.forEach((k, i) => {
+        if (o.fuels && !o.fuels.includes(k)) return; // an entity may leave a fuel out
+        const x = i % 2 ? 0.2 : -0.2, y = i < 2 ? 0.98 : 0.58;
+        f.box([0.17, 0.15, 0.12], D('#2a2622', 'rubber'), [x, y, 0.29]);
+        f.quad(0.11, 0.11, M.fuel, [x, y + 0.17, 0.2315], [0, 0, 0], fuelUV(k));
+        const L = y - 0.075 - 0.25;
+        f.box([0.025, L, 0.025], M.black, [x + 0.07, y - 0.075 - L / 2, 0.3]);
+        const nz = nozzleMesh(f, k); nz.position.set(x, y, 0.29); nz.userData.home = nz.position.clone();
+        nozzles[k] = nz; nozzleAt[k] = [x, y, 0.4];
+      });
+      if (o.adesivo !== false) f.quad(0.26, 0.26, D('#ffffff', 'adesivoSol'), [0, 0.82, 0.2325], [0, 0, 0]); // the 1998 advertising sticker, die-cut
+      else f.quad(0.16, 0.16, M.sol, [0, 0.78, 0.2315], [0, 0, 0]);
+      // the shut-off valve low on the front, between the hoses: a red hand wheel that turns (a loose group)
+      f.box([0.12, 0.12, 0.02], D('#8a7a68', 'concrete'), [0, 0.3, 0.24]);
+      f.cyl(0.022, 0.022, 0.08, 6, M.gray, [0, 0.3, 0.29], [Math.PI / 2, 0, 0]);
+      const valveRoot = new T.Group(); valveRoot.position.set(0, 0.3, 0.335); f.dyn.add(valveRoot);
+      const wheelMat = D('#c0402a', 'plastic');
+      f.mesh(new T.TorusGeometry(0.062, 0.014, 4, 10), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
+      f.mesh(new T.BoxGeometry(0.124, 0.016, 0.016), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
+      f.mesh(new T.BoxGeometry(0.016, 0.124, 0.016), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
+      f.mesh(new T.CylinderGeometry(0.02, 0.02, 0.03, 6), M.gray, [0, 0, 0.005], [Math.PI / 2, 0, 0], valveRoot);
+      f.mesh(new T.BoxGeometry(0.024, 0.03, 0.03), D('#e8e0c8', 'plastic'), [0.062, 0, 0.012], [0, 0, 0], valveRoot); // the knob that shows the turn
+      const valveHit = f.hit([0.2, 0.2, 0.16], [0, 0.3, 0.3], 'registro', 'registro');
+      const valve = { root: valveRoot, hit: valveHit, angle: 0, setAngle(rad) { valve.angle = rad; valveRoot.rotation.z = rad; } };
+      // jammed: the display light goes out
+      const lit = new T.Color('#ffffff'), unlit = new T.Color('#070504');
+      const st = { jammed: false };
+      const setJammed = (v) => { st.jammed = Boolean(v); dm.material.uniforms.uColor.value.copy(st.jammed ? unlit : lit); };
+      return { display, setDisplay: (text) => display.set(text), nozzles, nozzleAt, displayMesh: dm, keypad, valve, setJammed, get jammed() { return st.jammed; } };
+    };
+    const front = face(c, o.n);
+    const turn = new T.Matrix4().makeRotationY(Math.PI);
+    const c2 = c.builder.ctx({ pos: [0, 0, 0], ry: Math.PI, area: c.area, matrix: c.base.clone().multiply(turn) });
+    c.dyn.add(c2.dyn);
+    const back = face(c2, o.n ? o.n + 4 : undefined);
+    if (o.adesivo !== false) { // and on both sides of the body
       const ad = D('#ffffff', 'adesivoSol');
-      c.quad(0.26, 0.26, ad, [0, 0.82, 0.2325], [0, 0, 0]);
       for (const sx of [-1, 1]) c.quad(0.4, 0.4, ad, [sx * 0.4275, 0.78, 0.02], [0, sx * Math.PI / 2, 0]);
-    } else c.quad(0.16, 0.16, M.sol, [0, 0.78, 0.2315], [0, 0, 0]);
-    c.quad(0.22, 0.22, M.sol, [0, 0.66, -0.2315], [0, Math.PI, 0]);
-    // the shut-off valve low on the front, between the hoses: a red hand wheel that turns (a loose group)
-    c.box([0.12, 0.12, 0.02], D('#8a7a68', 'concrete'), [0, 0.3, 0.24]);
-    c.cyl(0.022, 0.022, 0.08, 6, M.gray, [0, 0.3, 0.29], [Math.PI / 2, 0, 0]);
-    const valveRoot = new T.Group(); valveRoot.position.set(0, 0.3, 0.335); c.dyn.add(valveRoot);
-    const wheelMat = D('#c0402a', 'plastic');
-    c.mesh(new T.TorusGeometry(0.062, 0.014, 4, 10), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
-    c.mesh(new T.BoxGeometry(0.124, 0.016, 0.016), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
-    c.mesh(new T.BoxGeometry(0.016, 0.124, 0.016), wheelMat, [0, 0, 0], [0, 0, 0], valveRoot);
-    c.mesh(new T.CylinderGeometry(0.02, 0.02, 0.03, 6), M.gray, [0, 0, 0.005], [Math.PI / 2, 0, 0], valveRoot);
-    c.mesh(new T.BoxGeometry(0.024, 0.03, 0.03), D('#e8e0c8', 'plastic'), [0.062, 0, 0.012], [0, 0, 0], valveRoot); // the knob that shows the turn
-    const valveHit = c.hit([0.2, 0.2, 0.16], [0, 0.3, 0.3], 'registro', 'registro');
-    const valve = { root: valveRoot, hit: valveHit, angle: 0, setAngle(rad) { valve.angle = rad; valveRoot.rotation.z = rad; } };
-    // jammed: the display light goes out
-    const lit = new T.Color('#ffffff'), unlit = new T.Color('#070504');
-    const pumpState = { jammed: false };
-    const setJammed = (v) => { pumpState.jammed = Boolean(v); dm.material.uniforms.uColor.value.copy(pumpState.jammed ? unlit : lit); };
+    }
     c.hit([1.3, 1.85, 0.6], [0, 0.92, 0], 'bomba', 'bomba');
-    return { display, setDisplay: (text) => display.set(text), nozzles, nozzleAt, displayMesh: dm, keypad, valve, setJammed, get jammed() { return pumpState.jammed; } };
+    return { ...front, back, get jammed() { return front.jammed; } };
   },
 
   bico(c, o) {
