@@ -345,6 +345,29 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
 
   return {
     start, stop, update, draw, end,
+    /** "Save now" in the day off (systems/snapshot.js): the bills, the purchases, the messages heard, the money, the sanity, the doors and where Heitor stands. */
+    snapshotState() {
+      const p = player?.st;
+      return {
+        v: 1, seed, clock, wallet, sanidade, visitedPharmacy, busy, ringLeft: ring ? Math.max(0, ring.until - clock) : 0,
+        contas: contas.map((c) => ({ id: c.id, valor: c.valor, paga: Boolean(c.paga) })), heard: [...heard], compras: { ...compras },
+        doors: { target: { ...doorTarget }, state: { ...doorState } },
+        player: p ? { x: p.x, z: p.z, yaw: p.yaw, pitch: p.pitch, crouch: p.crouch, stamina: p.stamina } : null,
+      };
+    },
+    /** Lays a saved day off over one that start() has just opened with the same week and seed. */
+    restoreState(s) {
+      if (!active || !s) return false;
+      clock = Number(s.clock) || 0; wallet = Number(s.wallet) || 0; sanidade = Number(s.sanidade) || 0; visitedPharmacy = Boolean(s.visitedPharmacy);
+      for (const c of contas) { const q = (s.contas || []).find((x) => x.id === c.id); if (q) c.paga = Boolean(q.paga); }
+      heard = new Set(s.heard || []); compras = { remedio: Number(s.compras?.remedio) || 0, pilha: Number(s.compras?.pilha) || 0 };
+      for (const k of Object.keys(s.doors?.target || {})) { doorTarget[k] = s.doors.target[k]; doorState[k] = s.doors.state?.[k] ?? s.doors.target[k]; doorWait[k] = false; }
+      timers = []; ring = s.ringLeft > 0 ? { until: clock + s.ringLeft, next: clock } : null; fadeIn = 0.4;
+      const q = s.player;
+      if (q && Number.isFinite(q.x) && Number.isFinite(q.z)) { player.place({ x: q.x, z: q.z }, q.yaw || 0); player.st.pitch = q.pitch || 0; player.st.crouch = Boolean(q.crouch); player.st.stamina = Number.isFinite(q.stamina) ? q.stamina : 1; }
+      stepScene(0);
+      return true;
+    },
     /** The clock of the house, HH:MM (the wall clock the scene shows). */
     get clock() { const R = T().regras, h = Math.min(R.horaMaxima, R.horaInicial + clock / R.segundosPorHora), hh = Math.floor(h) % 24; return `${String(hh).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`; },
     get active() { return active; }, get seed() { return seed; }, get scene() { return casa?.group || null; }, get casa() { return casa; }, get player() { return player; }, get interaction() { return interaction; },

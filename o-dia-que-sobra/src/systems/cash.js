@@ -41,6 +41,13 @@ export function createCash(bus, { items }) {
       return { declared, real, expected, divergence: Math.abs(real - expected), miscount: declared !== real, drawerGap: real - expected, torn };
     },
     snapshot() { return { ...stock }; },
+    /** The whole till, for "save now" (systems/snapshot.js). */
+    state() { return { stock: { ...stock }, float, sales, opened, torn, closed, tornList: [...tornList] }; },
+    restore(s) {
+      for (const d of DENOMS) stock[d] = Math.max(0, Math.floor(Number(s.stock?.[d]) || 0));
+      float = Number(s.float) || 0; sales = Number(s.sales) || 0; opened = Boolean(s.opened); torn = Number(s.torn) || 0; closed = Boolean(s.closed);
+      tornList = Array.isArray(s.tornList) ? s.tornList.map(Number) : [];
+    },
     sum,
   };
 }

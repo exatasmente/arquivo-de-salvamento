@@ -287,6 +287,13 @@ export function createTraffic(bus, { world, render, player }) {
 
   return {
     vehicles, update, add, depart, remove,
+    /** "Save now": puts a vehicle back where it was on its path (state, distance, speed) and places it. o: the saved scalars of the vehicle. */
+    restore(v, o) {
+      if (o.state === 'leaving') depart(v);
+      for (const k of ['s', 'speed', 'waited', 'ghost']) if (typeof o[k] === 'number') v[k] = o[k];
+      if (o.state === 'parked') { v.s = v.path.L; v.speed = 0; v.state = 'parked'; } else if (o.state === 'leaving' || o.state === 'arriving') v.state = o.state;
+      place(v);
+    },
     /** Is the bay of pump n free for a vehicle this long, with its cap this far from the middle? */
     bayFree: (n, len = 4.3, capZ = -1.4) => bayFree(n, bayX(n, capZ), len),
     bayX,

@@ -107,7 +107,11 @@ export async function createWorld(r, { seed }) {
     car(carSeed, extra = {}) { return carMod.buildCar(r, { seed: carSeed, ...extra }); },
     // ---- doors: 0 closed .. 1 open; the player opens them with a tap, customers' doors open by themselves
     doorIds: () => Object.keys(world.doors),
-    setDoor(id, k) { doorTarget[id] = k; waiting[id] = false; },
+    /** Doors shut for the night (the closing locks the shop door): nobody opens them, and they stay solid. */
+    shut: new Set(),
+    /** set by the game: doors the player may not open by walking up to them (the storeroom before its time, a room locked from inside) */
+    isLocked: () => false,
+    setDoor(id, k) { if (k > 0 && world.shut.has(id)) return; doorTarget[id] = k; waiting[id] = false; },
     doorOpen: (id) => (doorTarget[id] ?? 0) > 0.5,
     /** set by the game: where the player is, so a door never closes around someone standing in its frame */
     guard: null,
@@ -115,6 +119,7 @@ export async function createWorld(r, { seed }) {
       const g = world.guard;
       if (g) for (const id of Object.keys(world.doors)) {
         const col = world.doors[id].collider; if (!col) continue;
+        if (world.shut.has(id) || world.isLocked(id)) { if (!waiting[id]) doorTarget[id] = doorTarget[id] ?? 0; continue; }   // (a locked door is not opened by standing at it)
         const inFrame = g.x > col.min[0] - 0.7 && g.x < col.max[0] + 0.7 && g.z > col.min[2] - 0.7 && g.z < col.max[2] + 0.7;
         if ((doorTarget[id] ?? 0) < 0.5 && inFrame) { doorTarget[id] = 1; waiting[id] = true; }
         else if (waiting[id] && !inFrame) { doorTarget[id] = 0; waiting[id] = false; }   // it closes once the frame is clear

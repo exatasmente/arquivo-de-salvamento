@@ -10,6 +10,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   let ringing = false, ringAt = 0, phoneId = null, shopDone = false, stockDone = false, fuelDone = false;
   let ringKind = null, called = false, answered550 = false, tutNight = false;
   let t0 = 0;                  // real seconds since the night opened
+  let closingOn = false;       // the closing hour (after 05:00) is on
   const phoneMin = time.parse(data.progression.expediente.telefone);
 
   const obj = (text) => ui.setObjective(text);
@@ -33,6 +34,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   function ring(on) {
     ringing = on;
     bus.emit('loop', 'telefone', 'telefone_toca', { on, pos: phonePos().toArray() });
+    bus.emit('phone:ring', on);                // the marked goal follows the ring (goals.js): the marker and the arrow while it rings
   }
 
   /** The manager's comment at 05:50, from what the night looks like so far. */
@@ -98,14 +100,14 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
         await dialogue('Telefone', DG.telefoneMudo, 81);
       } else await dialogue(DG.gerente, managerLines(), 80);
       bus.emit('sfx', 'telefone_desliga', { pos: phonePos().toArray() });
-      obj(cash.closed ? null : 'Às seis horas, feche o caixa na registradora.');
+      obj(cash.closed ? null : closingOn ? 'Termine o fechamento e feche o caixa, na registradora.' : 'Às seis horas, feche o caixa na registradora.');
     }
     void was;
   }
 
   function finish() {
     phase = 'free'; progression.st.tutorialDone = true;
-    obj(null); tasks.addFixed(['banheiro', 'fechar-caixa']); bus.emit('tutorial:done');
+    obj(null); tasks.addFixed(['fechar-caixa']); bus.emit('tutorial:done');
   }
   function checkFinish() { if (shopDone && stockDone && phase === 'shop') finish(); }
 
@@ -152,7 +154,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
     get phase() { return phase; },
     /** Opens the night. tutorial: the first night; otherwise the night goes on by itself. */
     begin({ tutorial }) {
-      extra = null; t0 = 0; shopDone = stockDone = fuelDone = false; ringing = false; called = false; answered550 = false; ringKind = null;
+      extra = null; t0 = 0; closingOn = false; shopDone = stockDone = fuelDone = false; ringing = false; called = false; answered550 = false; ringKind = null;
       registerPhone();
       // every night opens at 23:00 with the preparation: the till stays shut until 00:00 (and in the tutorial until the manager says so)
       tutNight = tutorial; tasks.setTillEnabled(false); phase = 'prep';
@@ -187,7 +189,17 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       }
     },
     endNight() { extra = null; ring(false); phase = 'off'; obj(null); },
+    /** The closing hour begins (05:00): the line on top says what is left; the 05:50 call and the time cap go on writing it after. */
+    setClosing(on) {
+      closingOn = Boolean(on);
+      if (on && phase === 'free' && !ringing && !cash.closed) obj('Fechamento: atenda quem está no posto, feche a loja e o caixa.');
+    },
     get ringing() { return ringing; },
+    /** The 05:50 call, for "save now" (systems/snapshot.js). */
+    callState: () => ({ called, answered550 }),
+    restoreCall(s) { called = Boolean(s.called); answered550 = Boolean(s.answered550); },
     get answered550() { return answered550; },
+    /** The manager's 05:50 call is over for the night (answered), so the closing may end the shift. A night where the call can never ring (the lesson did not get to the free phase) has nothing to wait for. */
+    get callSettled() { return answered550 || phase !== 'free'; },
   };
 }

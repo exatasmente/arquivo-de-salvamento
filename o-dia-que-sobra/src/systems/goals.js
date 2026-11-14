@@ -88,6 +88,9 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     if (id === 'abrir-caixa' || id === 'fechar-caixa') return centerOf('caixa');
     if (id === 'ponto') return world.punch ? world.punch.pos.clone() : null;
     if (id === 'telefone') return anchorAt('telefone', 1.5);
+    if (id === 'fecha-porta') return centerOf('porta-loja', 1.5);
+    if (id === 'fecha-patio') return centerOf('disjuntor-cobertura', 1.6);
+    if (id === 'fecha-sinal') return progression.st.day >= lastNight ? null : centerOf('disjuntor-placa', 1.6);   // (the last night's sign is a secret's place: no marker)
     if (id === 'banheiro') return carry?.kind === 'limpeza' ? anchorAt('porta-banheiro-' + (chores.bathroom?.side || 'm'), 2.3) : centerOf('rodo');   // the mop and the bucket first
     if (id.startsWith('repor-')) {
       const sh = tasks.shelves.get(id.slice(6)); if (!sh || sh.done) return null;
@@ -122,6 +125,18 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     return t;
   }
 
+  // While the office phone rings (the manager at 05:50, the phantom call, the lesson's calls) the phone is the goal, whatever was marked
+  // before: the same marker in the world and the same arrow on the edge. It leaves when the call is answered or stops ringing, and the goal
+  // that was marked comes back. It is a phone on a desk, never a secret.
+  let ringing = false;
+  const phoneGoal = {
+    key: 'phone', text: 'Telefone tocando', short: 'Telefone tocando',
+    where: () => anchorAt('telefone', 1.5),
+    aim: () => { const b = world.aimBox('telefone', 0.1); return b ? b.getCenter(new THREE.Vector3()) : anchorAt('telefone', 1.0); },
+    stand: () => { const a = world.anchor('telefone'); return a ? ringAround(a.pos.x, a.pos.z, [1.0, 1.4]) : []; },
+  };
+  bus.on('phone:ring', (on) => { ringing = Boolean(on); });
+
   /** Everything that can be marked now, in the order of the clipboard (tasks first, then orders). */
   function list() {
     const out = [];
@@ -140,6 +155,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     return out;
   }
   const find = (k) => list().find((g) => g.key === k) || null;
+  const currentGoal = () => (ringing ? phoneGoal : key ? find(key) : null);
 
   function select(k) {
     key = k && find(k) ? k : null;
@@ -158,8 +174,8 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
   let t0 = 0;
   function frame(dt, simT, cam, size, on) {
     t0 = simT;
-    const g = on && key ? find(key) : null;
-    if (key && !g && on) { key = null; bus.emit('goal:change', null); }      // done (or gone): the marker leaves
+    const g = on ? currentGoal() : null;
+    if (key && !ringing && !g && on) { key = null; bus.emit('goal:change', null); }      // done (or gone): the marker leaves
     ui.setGoal(g ? g.short : null);
     if (!g) { marker.visible = false; ui.setArrow(null); return; }
     const p = g.where();
@@ -179,13 +195,14 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     const ex = nx / m, ey = ny / m;
     ui.setArrow({ x: (ex * 0.5 + 0.5) * w, y: (0.5 - ey * 0.5) * h, rot: Math.atan2(ex, ey) });
   }
-  const reset = () => { key = null; marker.visible = false; ui.setArrow(null); ui.setGoal(null); };
+  const reset = () => { key = null; ringing = false; marker.visible = false; ui.setArrow(null); ui.setGoal(null); };
   bus.on('shift:open', () => reset());
 
   return {
     list, orders, select, cycle, toggle, frame, reset, marker,
     get key() { return key; },
-    get current() { return key ? find(key) : null; },
+    get current() { return currentGoal(); },
+    get phoneRinging() { return ringing; },
     get visible() { return marker.visible; },
     get time() { return t0; },
   };

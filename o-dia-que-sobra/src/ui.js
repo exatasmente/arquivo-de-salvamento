@@ -399,7 +399,8 @@ export function createUI(root, api) {
   // ------------------------------------------------------------------ clipboard
   function renderSheet() {
     const d = api.sheetData();
-    const pend = d.tasks.filter((t) => !t.done), fin = d.tasks.filter((t) => t.done);
+    const closeAll = d.tasks.filter((t) => t.kind === 'fechamento');           // the closing hour's own steps, done or not, in a block of their own
+    const pend = d.tasks.filter((t) => !t.done && t.kind !== 'fechamento'), fin = d.tasks.filter((t) => t.done && t.kind !== 'fechamento');
     // hard to concentrate: lines slip away for a moment (the sanity), or the whole list goes and comes back (the pills)
     const hash = (n) => { let x = (n * 2654435761) >>> 0; x ^= x >>> 15; return x >>> 0; };
     const slip = (txt, salt) => {
@@ -410,7 +411,8 @@ export function createUI(root, api) {
     const mark = (key) => (d.goalKey === key ? '\u25B6' : ' ');
     const line = (t, i) => `<li data-g="t:${esc(t.id)}" class="${t.failed ? 'bad' : ''} ${d.goalKey === 't:' + t.id ? 'goal' : ''}">[${mark('t:' + t.id)}] ${esc(slip(t.text, i))}${t.failed ? ' (perdido)' : ''}</li>`;
     const prepRows = pend.filter((t) => t.prep), restRows = pend.filter((t) => !t.prep);
-    const tasks = d.blank ? '<li class="dim">…</li>' : restRows.length ? restRows.map(line).join('') : prepRows.length ? '' : '<li class="dim">Nada pendente agora.</li>';
+    const closeRows = closeAll.map((t, i) => (t.done ? `<li class="ok">[x] ${esc(t.text)}</li>` : line(t, i)));
+    const tasks = d.blank ? '<li class="dim">…</li>' : restRows.length ? restRows.map(line).join('') : prepRows.length || closeAll.length ? '' : '<li class="dim">Nada pendente agora.</li>';
     const doneRows = d.blank ? '' : fin.slice(-3).map((t) => `<li class="ok">[x] ${esc(t.text)}</li>`).join('');
     const orders = d.orders.map((o) => `<li data-g="${esc(o.key)}" class="${d.goalKey === o.key ? 'goal' : ''}">${d.goalKey === o.key ? '\u25B6 ' : ''}${esc(o.text)}</li>`).join('');
     const fuels = d.fuels.map((f) => `<span><i style="background:${f.cor}"></i>${esc(f.nome)}</span>`).join('');
@@ -422,6 +424,7 @@ export function createUI(root, api) {
       <section class="s-semana s-noite"><div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
       </section><section class="s-semana"><div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div></section>
       <section class="s-noite">${prepRows.length && !d.blank ? `<h4>Preparação <small class="pick">${esc(d.prep ? d.prep.replace('PREPARAÇÃO ', 'faltam ') : 'atrasada')}</small></h4><ul>${prepRows.map(line).join('')}</ul>` : ''}
+      ${closeAll.length && !d.blank ? `<h4>Fechamento <small class="pick">${esc(d.closing ? d.closing.replace('FECHAMENTO ', 'faltam ') : 'atrasado')}</small></h4><ul>${closeRows.join('')}</ul>` : ''}
       <h4>Tarefas <small class="pick">${esc(d.pickHint || '')}</small></h4><ul>${tasks}${doneRows}</ul>${fin.length > 3 ? `<div class="dim">+ ${fin.length - 3} feitas antes</div>` : ''}
       ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}</section>
       <section class="s-bicos"><h4>Bicos</h4><div class="fuels">${fuels}</div></section>
@@ -469,6 +472,7 @@ export function createUI(root, api) {
       if (sayBox.p.textContent !== txt) sayBox.p.textContent = txt;
       sayBox.hold -= dt;
       if (sayBox.hold <= 0) { sayBox.active = false; el.say.hidden = true; }
+      else if (el.say.hidden !== Boolean(modal)) el.say.hidden = Boolean(modal);     // a menu or the pause is open: the speech waits under it (it sat over the lines of the menu on the phone)
     }
     if (dlg.open && !dlg.done) {
       dlg.n += dlg.rate * dt;
@@ -502,7 +506,7 @@ export function createUI(root, api) {
       items: [{ label: () => `MOSTRAR: ${CONTROLS[dev].name}`, act: () => cycle(1), adj: cycle }, { label: () => 'VOLTAR', act: back }], onBack: back,
     });
   }
-  function cardScreen(card, back) {
+  function cardScreen(card, back, extras = []) {   // extras: [{ label, act, hint }], rows under the blocks (export and import of the card)
     const blocks = card.blocks();
     let r = 0, c = 0;
     const cols = 5;
@@ -518,23 +522,23 @@ export function createUI(root, api) {
     const draw = () => {
       el.modal.innerHTML = `<div class="screen"><div class="box card"><h1>CARTÃO DE MEMÓRIA</h1>
         <div class="grid">${blocks.map((b, i) => `<div data-cell data-i="${i}" class="blk ${b.kind} ${i === r * cols + c ? 'sel' : ''}"><small>${b.n}</small><b>${icon(b)}</b></div>`).join('')}</div>
-        <p class="detail">${esc(r < BLOCKS / cols ? detail(blocks[r * cols + c]) : 'Voltar.')}</p>
-        <ul><li data-cell data-i="back" class="${r === BLOCKS / cols ? 'sel' : ''}">VOLTAR</li></ul></div></div>`;
+        <p class="detail">${esc(r < BLOCKS / cols ? detail(blocks[r * cols + c]) : r < BLOCKS / cols + extras.length ? (extras[r - BLOCKS / cols].hint || extras[r - BLOCKS / cols].label) : 'Voltar.')}</p>
+        <ul>${extras.map((x, k) => `<li data-cell data-i="x${k}" class="${r === BLOCKS / cols + k ? 'sel' : ''}">${esc(x.label)}</li>`).join('')}<li data-cell data-i="back" class="${r === BLOCKS / cols + extras.length ? 'sel' : ''}">VOLTAR</li></ul></div></div>`;
     };
     const rows = BLOCKS / cols;
     // block 13: broken, until the first ending has been seen; then it opens on a short scene (the hook of the next game)
     const openBlock = (b) => {
       if (b.kind !== 'corrupt') return;
       if (!card.hasEnding?.(1)) { api.sfx('ui_voltar'); return; }
-      api.sfx('ui_ok'); hookScreen(() => cardScreen(card, back));
+      api.sfx('ui_ok'); hookScreen(() => cardScreen(card, back, extras));
     };
     const h = {
       handle(p) {
-        if (p.k === 'nav') { api.sfx('ui_mover'); if (p.dy) r = Math.max(0, Math.min(rows, r + p.dy)); if (p.dx && r < rows) c = (c + p.dx + cols) % cols; draw(); }
-        else if (p.k === 'confirm') { if (r === rows) back(); else openBlock(blocks[r * cols + c]); }
+        if (p.k === 'nav') { api.sfx('ui_mover'); if (p.dy) r = Math.max(0, Math.min(rows + extras.length, r + p.dy)); if (p.dx && r < rows) c = (c + p.dx + cols) % cols; draw(); }
+        else if (p.k === 'confirm') { if (r === rows + extras.length) back(); else if (r >= rows) { api.sfx('ui_ok'); extras[r - rows].act(); } else openBlock(blocks[r * cols + c]); }
         else if (p.k === 'back' || p.k === 'esc') back();
       },
-      click(cell) { if (cell.dataset.i === 'back') return back(); const i = Number(cell.dataset.i); const again = r === Math.floor(i / cols) && c === i % cols; r = Math.floor(i / cols); c = i % cols; draw(); if (again) openBlock(blocks[i]); },
+      click(cell) { if (cell.dataset.i === 'back') return back(); if (cell.dataset.i[0] === 'x') { r = rows + Number(cell.dataset.i.slice(1)); draw(); api.sfx('ui_ok'); extras[r - rows].act(); return; } const i = Number(cell.dataset.i); const again = r === Math.floor(i / cols) && c === i % cols; r = Math.floor(i / cols); c = i % cols; draw(); if (again) openBlock(blocks[i]); },
     };
     showModal('', h);
     // the "back" row is row 3 (index rows): reuse r === rows

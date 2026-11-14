@@ -14,7 +14,9 @@
 // finds the way and keeps them from walking through each other, the attendant or a car), through 1 to 4 gondolas and
 // fridges taking what they came for (the shelf's stock goes down), then to the counter. After paying they walk back to
 // the car, get in and drive off. Whoever comes on foot (the drunk, the man who asks for the bathroom, the 03:33 one)
-// walks in from the road. Whoever filled the tank and also comes in leaves the car at the pump.
+// walks in from the road. Whoever fills the tank and also comes in (the mode `bomba+loja`) goes to the shop while the car fuels: the car stays at the pump
+// only as long as it takes to fuel, then it drives off and parks in a stall (the same car, back in by the lot's way) and the person walks back to it; the shop
+// charges both at the counter, the fuel and the products on one bill. Whoever only fuels pays at the pump, as always.
 import { mulberry32 } from '../rng.js';
 import { buildHuman } from '../models/human.js';
 import { buildCustomer } from '../models/customer.js';
@@ -156,7 +158,9 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const oferta = of && mulberry32(s * 7 + 3)() < (of.chance ?? 1) ? productList(of.itens || [], rr).map((p) => ({ ...p, got: false, done: false })) : null;
     const extraAll = oferta ? oferta.reduce((a, p) => a + p.cents, 0) : 0;
     const bills = volta ? [value] : billsFor(src?.pagamento || { notas: cfg.carro.pagamento }, value + extraAll, rr);
+    const shopWanted = !tutorial && !rec && !oferta && tipo?.pedido?.modo === 'bomba+loja';        // the driver goes to the shop while the car fuels
     const c = {
+      shopWanted, away: false, atCounter: false,
       id, kind: 'car', seed: s, name: ident.name, pump: n, car, state: 'arriving', tutorial, value, text, fuel, cents: 0, bills, bill: bills.reduce((a, b) => a + b, 0),
       nozzleIn: false, nozzleType: null, fueling: false, rate: 0, wrong: false, typed: 0, ordered: false, oferta, entrega: null, extra: 0, tipo, rec, scene, lines, entry, nota: src?.pagamento?.nota,
       patience: tutorial ? 1e9 : (src?.paciencia ?? cfg.carro.paciencia), age: 0, capPos: new THREE.Vector3(), targets: [], pay: null,
@@ -172,8 +176,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const T = (t) => { c.targets.push(interaction.register(t)); };
     T({
       id: `cliente${id}`, reach: 4.2, priority: 0,
-      aim: () => (c.state === 'arriving' || c.state === 'leaving' ? null : { c: car.root.position.clone().setY(1.1), r: V.tipo === 'caminhao' ? 2.8 : 1.5 }),
-      enabled: () => !['arriving', 'leaving'].includes(c.state) && !(c.fueling),
+      aim: () => (c.state === 'arriving' || c.state === 'leaving' || c.away ? null : { c: car.root.position.clone().setY(1.1), r: V.tipo === 'caminhao' ? 2.8 : 1.5 }),
+      enabled: () => !['arriving', 'leaving'].includes(c.state) && !(c.fueling) && !c.away,
       label: () => {
         if (c.cents > 0 && !c.paying) return { text: `Receber ${money(Math.round(c.cents) + c.extra)}` };
         if (!c.ordered) return { text: 'Falar com o cliente' };
@@ -401,6 +405,44 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     bus.emit('sfx', 'gatilho_clique', { pos: c.capPos.toArray() });
     bus.emit('loop', 'bomba' + c.pump, 'bomba_corre', { on: true, pos: c.capPos.toArray() });
     bus.emit('step', 'fuel.start', c);
+    shopTrip(c);
+  }
+  /**
+   * The driver of a car that fuels and shops leaves the car while it fuels and walks into the shop (a walker with `fuelOf`: the fuel is on its bill, charged at
+   * the counter with the products). With the shop busy it is tried again each step until the fuel is paid at the pump instead.
+   */
+  function shopTrip(c) {
+    if (!c.shopWanted || c.away || c.done || c.paying || c.state === 'leaving' || (!c.fueling && c.cents <= 0)) return;
+    if (walkerBusy()) return;
+    const w = spawnWalker({ tipo: c.tipo, seed: c.seed + 1, name: c.name, owner: c, fuelOf: c });
+    if (!w) return;
+    c.away = true; c.shopWanted = false; c.walker = w;
+    c.car.setDriver(false);
+  }
+  /** The nozzle is back on the pump. If the driver is in the shop the fuel is theirs to pay at the counter: the car's job is done and it goes to park. */
+  function nozzleBack(n) {
+    const c = list.find((q) => q.kind === 'car' && q.pump === n && q.away && !q.done && q.cents > 0 && !q.nozzleIn && !q.fueling);
+    if (!c) return;
+    c.atCounter = true; c.done = true;
+    bus.emit('customer:done', c, 0);                              // (the pump's job is done: its line on the list is ticked; the money comes at the counter)
+    c.state = 'leaving'; c.leaveAfter = 0.8;
+    const w = c.walker && list.includes(c.walker) && !c.walker.done ? c.walker : null;
+    const spot = w ? traffic.reserveLot(c.car.size?.l ?? 4.3, c.car.size?.w ?? 1.8, mulberry32(c.seed * 3 + 11)) : null;
+    if (spot) { c.relocate = { spot, w }; if (c.veh) c.veh.onGone = () => moveToLot(c); }
+    else if (w) { c.hold = true; c.holdT = 0; }                    // no stall free: the car waits at the pump for them, as before
+  }
+  /** The pump's car has driven out: the same car comes back in by the lot's way and parks, and the person who is shopping walks back to it. */
+  function moveToLot(c) {
+    if (!c.relocate) { remove(c); return; }
+    const { spot, w } = c.relocate, car = c.car;
+    world.pumpDisplay(c.pump, 0);
+    c.car = null; c.veh = null; remove(c);
+    if (!w || !list.includes(w) || !car) { traffic.releaseLot(spot); if (car) render.scene.remove(car.root); return; }
+    car.setDriver(false); car.setLights(false); car.setDoor?.(0);
+    render.scene.add(car.root);
+    w.owner = null; w.car = car; w.spot = spot;
+    w.veh = traffic.addLot({ root: car.root, ...vspec(car), spot, kind: 'walk' });
+    w.veh.onGone = () => remove(w);
   }
   async function openPanel(c) {
     if (c.panel) return;
@@ -569,6 +611,9 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const got = await collect(c, Math.round(c.cents) + c.extra);
     c.paying = false;
     if (!got) return;
+    const cr = inventory.carry;
+    if (cr?.kind === 'bico' && cr.pump === c.pump && chores?.drip(c.pump)) bus.emit('hint', 'O bico pingou no chão. Devolva o bico antes de cobrar, da próxima vez.');
+    c.shopWanted = false;
     settleCar(c, got.res, got.torn);
   }
   function settleCar(c, res, torn) {
@@ -589,6 +634,14 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     bus.emit('customer:done', c, errors);
     c.leaveAfter = 1.4;
     if (!errors && c.tipo?.pedido?.modo === 'bomba+loja' && !c.oferta) { c.hold = true; c.holdT = 0; followQ.push({ t: 4, tipo: c.tipo, seed: c.seed + 1, name: c.name, owner: c }); }   // the car stays at the pump until they are back
+  }
+  /** The faults of a fuelling, counted when it is paid (at the counter for a driver who shopped): wrong nozzle, wrong value, nozzle left in the tank. */
+  function fuelFaults(c) {
+    let errors = 0;
+    if (c.wrong) { progression.error('combustivel', c.id); progression.complaint('combustivel'); errorLine(c, 'combustivel_errado', 'combustivel-errado'); errors++; }
+    if (c.typed !== c.value) { progression.error('valor-digitado', c.id); errorLine(c, c.typed < c.value ? 'faltou' : 'passou', c.typed < c.value ? 'valor-curto' : 'valor-passado'); errors++; }
+    if (c.nozzleIn) { progression.error('bico-esquecido', c.id); progression.complaint('bico'); errorLine(c, 'bico', 'bico-esquecido'); errors++; forgetNozzle(c); }
+    return errors;
   }
   function forgetNozzle(c) {
     if (c.nozzleObj) { c.car.tankCap.remove(c.nozzleObj); c.nozzleObj = null; }
@@ -619,7 +672,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
             if (cr && cr.kind === 'bico') {
               if (cr.pump !== n) return;
               inventory.clearCarry(); const k2 = `${cr.pump}-${cr.fuel}`; taken.delete(k2); showHolster(cr.pump, cr.fuel, true);
-              bus.emit('sfx', 'bico_devolve', { pos: anc.pos.toArray() }); bus.emit('step', 'fuel.returned', null); return;
+              bus.emit('sfx', 'bico_devolve', { pos: anc.pos.toArray() }); bus.emit('step', 'fuel.returned', null); nozzleBack(n); return;
             }
             if (cr) { bus.emit('hint', 'Suas mãos estão ocupadas.'); return; }
             taken.add(key); showHolster(n, t, false);
@@ -698,6 +751,13 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const rr = mulberry32(c.seed * 31 + 7);
     const legs = [{ kind: 'bell', p: { x: c.inside.x, z: c.inside.z } }];
     if (c.role === 'normal' && !c.tutorial) legs.push(...chooseStops(c, rr));
+    // now and then somebody who comes in drops something (a coffee at the machine, a pack elsewhere): seeded and rare; the floor is cleaned only after that
+    if (c.role === 'normal' && !c.tutorial && !c.rec) {
+      const sr = mulberry32(c.seed * 53 + 9), D = cfg.derrubar || data.tasks.derrubar || {}, shops = legs.filter((l) => l.kind === 'shop');
+      const cafe = shops.find((l) => l.key === 'cafeteira');
+      if (cafe && sr() < (D.chanceCafe ?? 0.3)) cafe.spill = 'cafe';
+      else if (shops.length && sr() < (D.chance ?? 0.14)) shops[Math.floor(sr() * shops.length)].spill = 'item';
+    }
     legs.push({ kind: 'stand' });
     c.legs = legs; c.legI = 0; c.nr = null; c.atLeg = false; c.legT = 0;
   }
@@ -753,7 +813,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       routeTo(c, exitPoint(c)); return false;
     }
     if (c.car) { getInCar(c); c.lv.stage = 2; return false; }
-    if (c.owner) { c.owner.hold = false; c.owner.leaveAfter = Math.min(c.owner.leaveAfter, 0.8); }
+    if (c.owner) { c.owner.hold = false; c.owner.leaveAfter = Math.min(c.owner.leaveAfter ?? 0.8, 0.8); c.owner.car?.setDriver(true); }
     remove(c); return true;
   }
 
@@ -820,8 +880,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       return null;
     }).filter(Boolean);
   }
-  function spawnWalker({ seed, tutorial = false, produtos, pagamento, tipo = null, rec = null, scene = null, entry = null, role = 'normal', name, owner = null } = {}) {
-    if (!tutorial && lateNight()) return null;
+  function spawnWalker({ seed, tutorial = false, produtos, pagamento, tipo = null, rec = null, scene = null, entry = null, role = 'normal', name, owner = null, fuelOf = null } = {}) {
+    if (!tutorial && !owner && lateNight()) return null;
     const s = seed ?? Math.floor(rng() * 1e6);
     const src = rec || tipo;
     const V = src?.veiculo || {};
@@ -846,12 +906,14 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     let ids = produtos ?? src?.pedido?.itens ?? (role === 'normal' ? Array.from({ length: rr.pick(cfg.loja.itens) }, () => rr.pick(Object.keys(items.produtos))) : []);
     if (!tutorial && role === 'normal' && !rec && !ids.some((k) => items.atras[k]) && rr() < cfg.atras.chance) ids = [...ids, rr.pick(Object.keys(items.atras))];
     const prods = productList(ids, rr);
-    const total = prods.reduce((a, p) => a + p.cents, 0);
+    const shopTotal = prods.reduce((a, p) => a + p.cents, 0), fuelCents = fuelOf ? Math.round(fuelOf.typed) : 0;
+    const total = shopTotal + fuelCents;                                  // (the fuel of a car that fuels and shops is on the same bill)
     const bills = role === 'normal' && total > 0 ? (pagamento ? [pagamento * 100] : billsFor(src?.pagamento || { notas: [10, 20, 50, 100] }, total, rr)) : [];
     const door = world.anchor('porta-loja-dentro');
     const inside = door.pos.clone().setY(0), entryPt = inside.clone().addScaledVector(door.dir, 3.2);
     const goal = role === 'observa' ? WATCH.clone() : stand;
     const c = {
+      fuelOf, fuelCents, shopTotal,
       id, kind: 'walk', seed: s, name: ident.name, human: h, state: byCar ? 'driving' : 'entering', stand: goal, entry: entryPt, inside, prods, total, bill: bills.reduce((a, b) => a + b, 0), bills, tutorial,
       patience: tutorial ? 1e9 : (src?.paciencia ?? cfg.loja.paciencia), age: 0, scanned: 0, itemObjs: [], targets: [], walkPhase: 0, bag: 0, tipo, rec, scene, noite: entry, role, nota: src?.pagamento?.nota,
       comp, tipRange: src?.pagamento?.gorjeta, cat: src?.categoria || 'comum', noTask: role !== 'normal', noCounter: role === 'banheiro' ? false : role === 'observa', pose: 'parado', tries: 0,
@@ -879,7 +941,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       aim: () => (c.state === 'entering' || c.state === 'leaving' || c.state === 'inside' ? null : { c: h.root.position.clone().setY(1.0), r: 0.5 }),
       enabled: () => ['scanning', 'ready', 'asking', 'watch', 'linger', 'placing'].includes(c.state),
       label: () => {
-        if (c.state === 'ready') return { text: `Cobrar ${money(c.total)}` };
+        if (c.state === 'ready') return { text: c.fuelCents ? `Cobrar ${money(c.total)} (bomba e loja)` : `Cobrar ${money(c.total)}` };
         if (c.state === 'asking') return { text: 'Falar com o cliente' };
         if (c.state === 'watch') return { text: c.talked ? 'Ouvir de novo' : 'Falar com o cliente' };
         if (c.state === 'linger') return { text: 'Pedir para ele sair (segure)', hold: true };
@@ -927,7 +989,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     say(c, 'Obrigado.');
     c.state = 'route'; c.nr = null;
     c.route = new THREE.Vector3(18, 0, 4.6);            // the men's room: the way there is the nav's (the bell door, the apron, the bathroom door)
-    c.routeDone = () => { c.state = 'inside'; c.insideT = 0; chores?.setBathroomBusy(true); };
+    c.bathSide = 'm';
+    c.routeDone = () => { c.state = 'inside'; c.insideT = 0; chores?.setBathroomBusy(true, 'm'); };
   }
   async function talkWatch(c) {
     if (c.talking) return; c.talking = true;
@@ -1018,13 +1081,32 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     book(c, c.total, res, torn);
     if (diff !== 0) { progression.error('troco', c.id); errorLine(c, diff < 0 ? 'troco_curto' : 'troco_longo', diff < 0 ? 'troco-curto' : 'troco-longo'); errors++; if (diff < 0) progression.complaint('troco'); }
     if (!errors) { progression.ok('venda'); thanks(c, 0); bus.emit('sfx', 'caixa_gaveta', {}); tipFor(c, 0); }
+    if (c.fuelOf) {                                 // the fuel on the same bill: its own faults count, its own point is given
+      const fc = c.fuelOf, fe = fuelFaults(fc);
+      if (!fe) progression.ok('abastecimento');
+      errors += fe;
+      if (!fc.done) { fc.done = true; fc.state = 'leaving'; fc.leaveAfter = 0.5; bus.emit('customer:done', fc, fe); }
+    }
     ui.setTotal(null);
     c.done = true;
     for (const o of c.itemObjs) o.visible = false;
     if (c.tipo?.id === 'bebado') { c.state = 'linger'; c.lingerT = 0; c.stand = counterGeo().stand.clone().add(new THREE.Vector3(-1.5, 0, 0)); }
+    else if (useBathroom(c)) { /* the way to the bathroom: it leaves from there */ }
     else { c.state = 'leaving'; c.leaveAfter = 1.2; }
     bus.emit('step', errors ? 'shop.paid-with-errors' : 'shop.paid', c);
     bus.emit('customer:done', c, errors);
+  }
+
+  /** After paying, now and then, the customer uses the bathroom (seeded, rare): the way, a few seconds inside, and then it is dirty (tasks.addBathroom). */
+  function useBathroom(c) {
+    if (c.role !== 'normal' || c.tutorial || c.rec || !tasksApi) return false;
+    const br = mulberry32(c.seed * 71 + 5), D = cfg.derrubar || data.tasks.derrubar || {};
+    if (br() >= (D.banheiro ?? 0.1) || tasksApi.bathroomDirty?.()) return false;
+    const side = br() < 0.5 ? 'm' : 'f';
+    c.bathSide = side; c.stay = 9 + br() * 8;
+    c.state = 'route'; c.nr = null; c.route = new THREE.Vector3(side === 'm' ? 18 : 22, 0, 4.6);
+    c.routeDone = () => { c.state = 'inside'; c.insideT = 0; chores?.setBathroomBusy(true, side); };
+    return true;
   }
 
   // ------------------------------------------------------------------ a dark-windowed car that only looks
@@ -1207,7 +1289,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
             if (c.hold) { c.holdT += dt; if (c.holdT > 120) c.hold = false; }       // never keep the pump for ever
             if (c.leaveAfter <= 0 && !c.hold) departCar(c);
           }
-          else if (c.state !== 'arriving' && c.age > c.patience && !c.paying && !c.fueling && !c.talking && !c.panel) abandon(c);
+          else if (c.state !== 'arriving' && c.age > c.patience && !c.paying && !c.fueling && !c.talking && !c.panel && !c.away) abandon(c);
+          if (c.shopWanted && !c.away) shopTrip(c);               // (the shop was busy when the pump started: try again)
         } else if (c.kind === 'dark') {
           if (c.state === 'parked' && c.age > c.stay) { c.state = 'leaving'; departCar(c); }
         } else if (c.state === 'leaving') departCar(c);
@@ -1241,8 +1324,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
               else if (leg.kind === 'shop') {
                 for (const tk of leg.take) if (tk.row) { tk.row.setStock(Math.max(0, tk.row.stock - 1)); bus.emit('shelf:taken', tk.row); }      // what they take is gone from the shelf; a shelf that runs low asks for a restock (tasks.js)
                 if (leg.take.length) bus.emit('sfx', 'produto_pos', { pos: [leg.p.x, 1.1, leg.p.z], gain: 0.5 });
+                if (leg.spill && chores?.spill(leg.spill, leg.p)) { say(c, leg.spill === 'cafe' ? 'Ih, derrubei o café. Desculpa!' : 'Opa, caiu aqui. Desculpa!'); bus.emit('sfx', leg.spill === 'cafe' ? 'cafeteira' : 'produto_pos', { pos: [leg.p.x, 0.3, leg.p.z] }); }
               } else if (leg.kind === 'stand') {
                 if (queuePlace(c) > 0 && c.role !== 'observa') { c.state = 'queue'; c.legI--; }
+                else if (c.fuelOf && c.fuelOf.fueling) { c.state = 'waitfuel'; c.legI--; }          // the bill has the fuel on it: it is known when the pump stops
                 else {
                   c.age = 0; c.t0 = 0; moving = false;
                   if (c.role === 'observa') { c.state = 'watch'; c.watchT = 0; h.rotation.y = Math.PI; }
@@ -1257,6 +1342,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
           const r = walkRoute(c, WALK, dt); moving = r.moved;
           if (r.done && queuePlace(c) === 0) { c.state = 'entering'; c.nr = null; c.atLeg = false; c.legI = c.legs.length - 1; }
           else if (r.done) c.nr = null;
+        } else if (c.state === 'waitfuel') {
+          if (!c.fuelOf.fueling) { c.state = 'entering'; c.nr = null; c.atLeg = false; c.legI = c.legs.length - 1; }
         } else if (c.state === 'placing') {
           if (c.age - c.t0 > 1.2) placeItems(c);
         } else if (c.state === 'watch') {
@@ -1272,7 +1359,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
           if (r.done) { moving = false; c.nr = null; c.routeDone(); }
         } else if (c.state === 'inside') {
           c.insideT += dt; h.rotation.y = Math.PI / 2;
-          if (c.insideT > Math.min(c.tipo.pedido.permanencia, 110)) { c.state = 'leaving'; c.leaveAfter = 0; c.lv = { stage: 1 }; c.nr = null; chores?.setBathroomBusy(false); c.insideT = undefined; }
+          if (c.insideT > Math.min(c.stay ?? c.tipo.pedido.permanencia, 110)) { c.state = 'leaving'; c.leaveAfter = 0; c.lv = { stage: 1 }; c.nr = null; chores?.setBathroomBusy(false); c.insideT = undefined; tasksApi?.addBathroom(c.bathSide || 'm'); }
         } else if (c.state === 'linger') {
           if (!c.nr) routeTo(c, c.stand);
           const r = walkRoute(c, 1.0, dt); moving = r.moved; c.lingerT += dt;
@@ -1349,12 +1436,137 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   registerPumps(); registerPanels(); registerScanner();
   // the walking graph and the parking routes are built behind the title screen, not at the first customer
   setTimeout(() => { nav.build(); traffic.lotAvailable(); }, 0);
+
+  // ------------------------------------------------------------------ "save now": each customer describes itself and is put back as it was (systems/snapshot.js)
+  const PRIM = (v) => v === null || ['number', 'string', 'boolean'].includes(typeof v);
+  const prim = (o, skip = []) => { const out = {}; for (const [k, v] of Object.entries(o || {})) if (!skip.includes(k) && PRIM(v) && !(typeof v === 'number' && !Number.isFinite(v))) out[k] = v; return out; };
+  const plainObj = (o) => o && typeof o === 'object' && !Array.isArray(o) && !o.isObject3D && !o.isVector3 && Object.values(o).every(PRIM);
+  const xyz = (v) => ({ x: v.x, y: v.y, z: v.z });
+  const KEEP = new Set(['id', 'kind', 'seed', 'name', 'pump', 'cat', 'tutorial', 'role', 'targets']);
+  /** One customer as plain data: its state machine, the legs and where it is on them, the order and what was served, the car and the pump. */
+  function describe(c) {
+    const h = c.human?.root;
+    const d = { kind: c.kind, seed: c.seed, id: c.id, name: c.name, pump: c.pump || 0, tipo: c.tipo?.id || null, rec: c.rec?.id || null, scene: c.scene?.id || null, role: c.role || null };
+    d.f = prim(c, ['id']); d.o = {}; d.v = {};
+    for (const [k, val] of Object.entries(c)) { if (plainObj(val)) d.o[k] = { ...val }; else if (val && val.isVector3) d.v[k] = xyz(val); }
+    d.prods = (c.prods || []).map((p) => prim(p)); d.oferta = c.oferta ? c.oferta.map((p) => prim(p)) : null; d.entrega = Boolean(c.entrega);
+    d.askBack = c.askBack ? { t: c.askBack.t, i: c.prods.indexOf(c.askBack.p) } : null;
+    d.h = h ? { x: h.position.x, z: h.position.z, ry: h.rotation.y } : null;
+    d.veh = c.veh ? prim(c.veh, ['id', 'pump', 'bay', 'north', 'kind', 'len', 'wid', 'bx']) : null;
+    d.legs = (c.legs || []).map((l) => l.kind);
+    d.items = (c.itemObjs || []).map((o) => o.visible);
+    d.nozzle = c.nozzleIn ? { ...prim(c.nozzleFrom || {}), fuel: c.nozzleFrom?.fuel ?? c.nozzleType } : null;
+    d.ownerId = c.owner ? c.owner.id : null; d.fuelOfId = c.fuelOf ? c.fuelOf.id : null; d.walkerId = c.walker ? c.walker.id : null;
+    d.lot = Boolean(c.spot);
+    return d;
+  }
+  function describeAll() {
+    const out = [];
+    for (const c of list) if ((c.kind === 'car' || c.kind === 'walk') && !c.tutorial) out.push(describe(c));
+    return { list: out, taken: [...taken] };
+  }
+  /** Overlays the saved scalars and objects on a customer that has just been made from the same seed. */
+  function lay(c, d) {
+    for (const [k, v] of Object.entries(d.f)) if (!KEEP.has(k)) c[k] = v;
+    for (const [k, v] of Object.entries(d.o || {})) if (!KEEP.has(k)) c[k] = { ...v };
+    for (const [k, v] of Object.entries(d.v || {})) if (c[k] && c[k].isVector3) c[k].set(v.x, v.y, v.z); else if (k === 'route') c.route = new THREE.Vector3(v.x, v.y, v.z);
+    (d.prods || []).forEach((p, i) => { if (c.prods[i]) Object.assign(c.prods[i], p); });
+    if (d.oferta && c.oferta) d.oferta.forEach((p, i) => { if (c.oferta[i]) Object.assign(c.oferta[i], p); });
+    if (d.entrega && c.oferta) c.entrega = c.oferta;
+  }
+  function restoreCar(d, owner = null) {
+    const rec = d.rec ? (cast.recorrentes || []).find((r) => r.id === d.rec) : null;
+    const tipo = d.tipo ? (cast.tipos || []).find((t) => t.id === d.tipo) || null : null;
+    const c = rec && d.scene ? (spawnRecurring(d.rec, d.scene) && list[list.length - 1]) : spawnCar({ pump: d.pump, seed: d.seed, tipo });
+    if (!c) return null;
+    lay(c, d);
+    if (d.veh && c.veh) traffic.restore(c.veh, d.veh);
+    if (c.fueling) bus.emit('loop', 'bomba' + c.pump, 'bomba_corre', { on: true, pos: c.capPos.toArray() });
+    world.pumpDisplay(c.pump, c.cents || 0);
+    if (d.nozzle) {
+      const fuel = d.nozzle.fuel, nz = world.prop('bico', { fuel });
+      nz.scale.setScalar(1.6); c.car.tankCap.add(nz); nz.position.set(0, 0, 0.05); nz.rotation.set(0, 0, 0); c.nozzleObj = nz; c.car.openCap?.(1);
+      c.nozzleIn = true; c.nozzleType = fuel; c.nozzleFrom = { ...d.nozzle };
+      taken.add(`${c.pump}-${fuel}`); showHolster(c.pump, fuel, false);
+    }
+    if (c.away) c.car.setDriver(false);
+    void owner;
+    return c;
+  }
+  function restoreWalker(d, byOld) {
+    const rec = d.rec ? (cast.recorrentes || []).find((r) => r.id === d.rec) : null;
+    const tipo = d.tipo ? (cast.tipos || []).find((t) => t.id === d.tipo) || null : null;
+    const owner = d.ownerId !== null ? byOld.get(d.ownerId) : null;
+    if (d.ownerId !== null && !owner) return null;
+    let c;
+    if (rec && d.scene) { const scene = scenes.find((q) => q.id === d.scene), entry = (rec.noites || []).find((n) => n.cena === d.scene); c = spawnWalker({ rec, scene, entry, seed: d.seed, role: d.role || 'observa' }); }
+    else c = spawnWalker({ tipo, seed: d.seed, name: d.name, owner, fuelOf: owner, ...(d.role && d.role !== 'normal' ? { role: d.role } : {}) });
+    if (!c) return null;
+    const h = c.human.root, p = d.h || { x: h.position.x, z: h.position.z, ry: h.rotation.y };
+    // a visitor who came by car: still in it, getting out, getting back in, or already walking
+    if (c.spot) {
+      if (d.f.inCar === false && c.inCar) stepOut(c);
+      else if (d.f.inCar && d.f.boardT > 0 && !c.boardT) { render.scene.add(h); getInCar(c); }
+      else if (d.f.state === 'exiting') render.scene.add(h);
+    }
+    lay(c, d);
+    if (d.veh && c.veh) traffic.restore(c.veh, d.veh);
+    if (!c.inCar || d.f.state === 'exiting') { h.position.set(p.x, 0, p.z); h.rotation.y = p.ry; }
+    if (c.comp && c.comp.root.parent) c.comp.root.position.copy(h.position);
+    c.nr = null;                                                            // the way is planned again from where it stands (the same way: the nav is the same)
+    if (['scanning', 'ready'].includes(d.f.state) || d.items.length) {
+      const wasNr = c.state; void wasNr;
+      placeItems(c);
+      (d.items || []).forEach((vis, i) => { if (c.itemObjs[i]) c.itemObjs[i].visible = vis; });
+      c.state = d.f.state; c.scanned = d.f.scanned || 0; if (d.askBack && c.prods[d.askBack.i]) c.askBack = { t: d.askBack.t, p: c.prods[d.askBack.i] }; else delete c.askBack;
+      ui.setTotal(money(c.prods.filter((q) => q.done).reduce((a, q) => a + q.cents, 0)));
+    }
+    if (d.f.state === 'route' && c.route) {
+      const side = c.bathSide || 'm';
+      c.routeDone = () => { c.state = 'inside'; c.insideT = 0; chores?.setBathroomBusy(true, side); };
+    }
+    if (d.f.state === 'inside') chores?.setBathroomBusy(true, c.bathSide || 'm');
+    if (owner) { owner.walker = c; owner.away = true; }
+    return c;
+  }
+  /** Puts the saved customers back. Returns { map: oldId -> customer, lost }. Cars first (the drivers who went shopping need theirs). */
+  function restoreAll(saved) {
+    const byOld = new Map(); let lost = 0;
+    taken.clear();
+    for (const d of saved.list.filter((q) => q.kind === 'car')) { const c = restoreCar(d); if (c) byOld.set(d.id, c); else lost++; }
+    for (const d of saved.list.filter((q) => q.kind === 'walk')) { const c = restoreWalker(d, byOld); if (c) byOld.set(d.id, c); else lost++; }
+    for (const k of saved.taken || []) { const [n, t] = k.split('-'); taken.add(k); showHolster(Number(n), t, false); }
+    return { map: byOld, lost };
+  }
+  /** What the hands held that belongs to a customer or a pump: the nozzle, a product on its way to the scanner, an order for a car's window. */
+  function restoreCarry(cr, map) {
+    if (!cr) return false;
+    if (cr.kind === 'bico') { taken.add(`${cr.pump}-${cr.fuel}`); showHolster(cr.pump, cr.fuel, false); inventory.setCarry({ kind: 'bico', fuel: cr.fuel, pump: cr.pump }, 'bico', { fuel: cr.fuel }); return true; }
+    const c = map.get(cr.cust); if (!c) return false;
+    if (cr.kind === 'item') {
+      const p = c.prods[cr.index]; if (!p) return false;
+      if (cr.atras) p.taken = true;
+      const counter = c.prods.filter((q) => !q.atras), o = c.itemObjs[counter.indexOf(p)]; if (o) o.visible = false;
+      inventory.setCarry({ kind: 'item', cust: c.id, index: cr.index, ...(cr.atras ? { atras: true, k: cr.k } : {}) }, cr.atras ? 'atras' : p.copo ? 'copo' : 'produto', { tipo: cr.atras ? cr.k : p.tipo });
+      return true;
+    }
+    if (cr.kind === 'entrega') {
+      const p = c.oferta?.[cr.index]; if (!p) return false;
+      inventory.setCarry({ kind: 'entrega', cust: c.id, index: cr.index, k: cr.k }, p.copo ? 'copo' : 'produto', { tipo: p.tipo });
+      return true;
+    }
+    return false;
+  }
   return {
     list, update, fastForward, closeDown, blocking, spawnRecurring, spawnCar, spawnWalker, spawnEmptyCar, releaseEmptyCar, spawnDark, freePump, beginNight,
     attach(ch, tk) { chores = ch; if (tk) tasksApi = tk; },
+    fuelFaults,
     reserve: (n) => reserved.add(n), unreserve: (n) => reserved.delete(n),
     enable(on, seed) { if (on) nav.build(); else { followQ.length = 0; for (const c of list) c.hold = false; } enabled = on; if (seed !== undefined) rng = mulberry32(seed); timer = cfg.chegada.primeiro; },
     clear() { for (const c of [...list]) remove(c); ui.setTotal(null); followQ.length = 0; recQueue = []; taken.clear(); chores?.setBathroomBusy(false); for (const [i, it] of world.interactables.entries()) { void i; if (it.kind === 'bico' && it.object3D) it.object3D.visible = true; } },
+    /** "Save now" restore: the recurring people whose hour has passed already came (systems/snapshot.js). */
+    dropRecurringBefore(m) { recQueue = recQueue.filter((q) => q.at > m); },
+    describeAll, restoreAll, restoreCarry,
     watcher: () => list.find((c) => c.rec?.id === 'homem0333' && c.state === 'watch' && !c.done) || null,
     activeCount: () => list.filter((c) => !c.done).length,
     orderStep, pendingOrderItem, takeOrderItem, orderName,

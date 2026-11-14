@@ -100,18 +100,36 @@ export function createChores(bus, { world, render, interaction, inventory, progr
       done: () => { stain[id] = 1; posto.setDirt(id, 0); onClean(); },
     }), owner.ids);
   }
-  function spawnStain() {
-    const ids = Object.keys(posto.stains || {}).filter((id) => /^mancha-(loja|bombas)/.test(id) && !(id in stain));
+  /**
+   * A stain on the floor. `want`: { area: 'loja' | 'bombas', near: {x, z}, text } picks the free stain of that area nearest to a point (what a customer
+   * dropped, the fuel that dripped); with nothing asked, one of the area's stains is drawn (the lesson's, the tests').
+   */
+  function spawnStain(want = {}) {
+    const area = want.area || null;
+    const ids = Object.keys(posto.stains || {}).filter((id) => (area ? id.startsWith('mancha-' + area) : /^mancha-(loja|bombas)/.test(id)) && !(id in stain));
     if (!ids.length) return false;
-    const id = ids[Math.floor(rr() * ids.length)];
-    const area = id.startsWith('mancha-loja') ? 'loja' : 'bombas';
+    let id;
+    if (want.near) {
+      const at = (q) => world.anchor(q)?.pos || posto.stains[q]?.root?.position || { x: 0, z: 0 };
+      id = ids.map((q) => ({ q, d: Math.hypot(at(q).x - want.near.x, at(q).z - want.near.z) })).sort((a, b) => a.d - b.d)[0].q;
+    } else id = ids[Math.floor(rr() * ids.length)];
+    const where = id.startsWith('mancha-loja') ? 'loja' : 'bombas';
     const taskId = 'mancha-' + id;
     const owner = { ids: [], on: true };
     stainTarget(id, owner, () => { owner.on = false; unreg(owner.ids); tasks.done(taskId); done('tarefa'); });
     active.set(taskId, { kind: 'mancha', owner, undo() { owner.on = false; unreg(owner.ids); posto.setDirt(id, 0); delete stain[id]; } });
-    tasks.add(taskId, fill(TX.mancha, { onde: onde(area) }), 'mancha');
+    tasks.add(taskId, want.text ? fill(want.text, { onde: onde(where), n: want.n ?? '' }) : fill(TX.mancha, { onde: onde(where) }), 'mancha');
     bus.emit('sfx', 'rodo', { gain: 0.3 });
     return true;
+  }
+  /** What a customer drops in the shop (a coffee, a pack): a stain near them, and a task. */
+  function spill(kind, near) {
+    return spawnStain({ area: 'loja', near, text: kind === 'cafe' ? TX['derrubou-cafe'] : TX.derrubou });
+  }
+  /** The fuel that dripped from a nozzle taken to the till before it went back: a stain on the floor of that pump's bay. */
+  function drip(n) {
+    const a = world.anchor('bomba' + n); if (!a) return false;
+    return spawnStain({ area: 'bombas', near: { x: a.pos.x, z: a.pos.z }, text: TX.pingou, n });
   }
 
   // ------------------------------------------------------------------ spawn: rubbish (the pump bins fill; a tied bag waits in the back)
@@ -315,7 +333,7 @@ export function createChores(bus, { world, render, interaction, inventory, progr
       refresh();
       if (B.steps.pia >= 1 && B.steps.espelho >= 1 && B.steps.chao >= 1) { tasks.done('banheiro'); done('tarefa'); }
     };
-    const occupied = () => (busyBathroom && tag === 'm' ? 'Banheiro ocupado' : null);
+    const occupied = () => (busyBathroom === tag ? 'Banheiro ocupado' : null);
     const needKit = () => occupied() || (hasKit() ? null : 'Está sujo: pegue o rodo e o balde (armário de limpeza)');
     const aimBox = (min, max) => ({ box: new THREE.Box3(new THREE.Vector3(...min), new THREE.Vector3(...max)) });
     register(workTarget({
@@ -352,6 +370,14 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     return B;
   }
 
+  /** The bathroom is cleaned up or replaced: its targets, its smudges and its floor stains go. */
+  function stopBathroom() {
+    if (!bathroom) return;
+    unreg(bathroom.owner.ids);
+    for (const n of bathroom.nodes) render.scene.remove(n);
+    for (const sid of bathroom.floor) { posto.setDirt(sid, 0); delete stain[sid]; }
+    bathroom = null;
+  }
   function done(kind) { void kind; bus.emit('sfx', 'tarefa_ok', {}); progression.ok('tarefa'); }
 
   function clear() {
@@ -380,8 +406,74 @@ export function createChores(bus, { world, render, interaction, inventory, progr
   }
 
   void boardT0;
+
+  // ------------------------------------------------------------------ "save now" (systems/snapshot.js)
+  /** What the chores hold that the task list does not say: how far each stain is cleaned, what lies on the floor, the ladder, the bags taken. */
+  function describeChores() {
+    const bags = {}; for (const [id, f] of floorBags) bags[id] = { x: f.mesh.position.x, z: f.mesh.position.z, ry: f.mesh.rotation.y };
+    const moved = {}; for (const id of posto.displaceIds || []) { const m = posto.displaced(id); if (m) moved[id] = m; }
+    return {
+      stain: { ...stain }, bags, moved, ladderAt: ladder?.at || null, down: [...down],
+      taken: [...active].filter(([, a]) => a.S && a.S.taken).map(([k]) => k),
+      bathroom: bathroom ? { side: bathroom.side, steps: { ...bathroom.steps } } : null,
+    };
+  }
+  /** Raises the task `taskId` again with the same target: the draw is made to land on it (the targets are drawn from a list). */
+  function respawn(taskId, kind) {
+    const keep = rr;
+    try {
+      for (let j = 0; j < 40; j++) {
+        rr = () => (j + 0.5) / 40;
+        const before = new Set(tasks.list.map((t) => t.id));
+        if (!spawnKind(kind)) return false;
+        const t = tasks.list.find((x) => !before.has(x.id));
+        if (t && t.id === taskId) return true;
+        if (t) { active.get(t.id)?.undo?.(); active.delete(t.id); tasks.list.splice(tasks.list.indexOf(t), 1); }
+      }
+    } finally { rr = keep; }
+    return false;
+  }
+  function spawnKind(kind) {
+    switch (kind) {
+      case 'mancha': return spawnStain();
+      case 'lixo': return spawnLixo();
+      case 'lampada': return spawnLamp();
+      case 'disjuntor': return spawnBreaker();
+      case 'bomba': return spawnPump();
+      default: return false;
+    }
+  }
+  function putBag(id, x, z, ry) {
+    const mesh = world.prop('saco'), at = new THREE.Vector3(x, 0.35, z);
+    mesh.position.set(x, 0, z); mesh.rotation.y = ry; render.scene.add(mesh);
+    const tid = interaction.register({
+      id: 'saco-solto-' + id, reach: 2.5, priority: 2,
+      aim: () => ({ c: at, r: 0.55 }), enabled: () => handsFree(), label: () => ({ text: 'Pegar o saco de lixo' }),
+      tap: () => { render.scene.remove(mesh); interaction.unregister(tid); floorBags.delete(id); inventory.setCarry({ kind: 'saco', id }, 'saco'); player.st.carryHeavy = true; bus.emit('sfx', 'lixo', {}); },
+    });
+    floorBags.set(id, { mesh, tid });
+  }
+  function restoreChores(s) {
+    for (const [id, p] of Object.entries(s.stain || {})) if (id in stain) { stain[id] = p; posto.setDirt(id, 1 - p); }
+    for (const [id, m] of Object.entries(s.moved || {})) posto.displace(id, m.offset, m.ry);
+    if (ladder && s.ladderAt) { ladder.placeUnder(s.ladderAt); ladder.root.visible = true; ladder.collider.enabled = true; }
+    for (const [id, b] of Object.entries(s.bags || {})) putBag(id.replace(/^saco-solto-/, ''), b.x, b.z, b.ry);
+    for (const k of s.taken || []) { const a = active.get(k); if (a && a.S) { a.S.taken = true; const id = k.slice(5); if (id === 'saco-lixo') posto.bag.setVisible(false); else posto.setFull(id, false); } }
+    if (s.bathroom && bathroom) Object.assign(bathroom.steps, s.bathroom.steps);
+  }
+  /** What the hands held that belongs to the chores (the squeegee and bucket, the ladder, a bag). Returns true when it was put back in the hands. */
+  function restoreHands(cr) {
+    if (!cr) return false;
+    if (cr.kind === 'limpeza') { showKit(false); inventory.setCarry({ kind: 'limpeza' }, 'rodo'); return true; }
+    if (cr.kind === 'escada' && ladder) { posto.displace('escada', [0, 0, 0], 0); ladder.root.visible = false; ladder.collider.enabled = false; inventory.setCarry({ kind: 'escada' }, 'escada'); player.st.carryHeavy = true; return true; }
+    if (cr.kind === 'saco') { inventory.setCarry({ kind: 'saco', id: cr.id }, 'saco'); player.st.carryHeavy = true; return true; }
+    return false;
+  }
   return {
-    clear, startBathroom,
+    describeChores, restoreChores, restoreHands, respawn,
+    clear, startBathroom, stopBathroom, spill, drip,
+    /** "Save now" restore: a chore that was already done is undone in the world without any points (systems/snapshot.js). */
+    resolve(taskId) { const a = active.get(taskId); if (!a) return false; a.undo?.(); active.delete(taskId); return true; },
     /** Where the bag of task `id` (lixeiraN / saco-lixo) lies on the floor after the player let go of it, or null. */
     floorBag: (id) => floorBags.get(id)?.mesh.position || null,
     begin(seed, day) { rr = mulberry32(seed * 7 + day * 13 + 1); },
@@ -389,6 +481,7 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     spawn(kind) {
       switch (kind) {
         case 'mancha': return spawnStain();
+        case 'derrubou': return spill('item', null);
         case 'lixo': return spawnLixo();
         case 'lampada': return spawnLamp();
         case 'disjuntor': return spawnBreaker();
@@ -399,7 +492,9 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     /** Trips the breaker of one area on purpose (an event). Returns true if it tripped. */
     trip: (area) => spawnBreaker(area),
     pumpStuck: (n) => stuck.has(n),
-    setBathroomBusy(v) { busyBathroom = v; },
+    /** Has the breaker of this area tripped (an event's blackout, to be fixed from the board)? */
+    isTripped: (a) => down.includes(a),
+    setBathroomBusy(v, side = 'm') { busyBathroom = v ? side : false; },
     get bathroom() { return bathroom; },
     breakersDown: () => down.map((a) => BREAKER_NAME[a]),
     update(dt) {

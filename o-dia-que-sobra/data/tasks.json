@@ -7,15 +7,14 @@
   "limpeza": { "rodoSegundos": 3.4, "piaSegundos": 2.4, "espelhoSegundos": 1.8 },
   "manutencao": { "lampadaSegundos": 3.0, "disjuntorSegundos": 2.0, "registroSegundos": 2.6 },
   "maxPendentes": 6,
+  "derrubar": { "chance": 0.14, "chanceCafe": 0.3, "banheiro": 0.1 },
   "fixas": [
     { "id": "abrir-caixa", "texto": "Abrir o caixa (a registradora no balcão)" },
     { "id": "banheiro", "texto": "Limpar o banheiro {lado}: pia, espelho e chão" },
-    { "id": "fechar-caixa", "texto": "Fechar o caixa às 06:00" }
+    { "id": "fechar-caixa", "texto": "Fechar o caixa (depois de fechar o posto)" }
   ],
   "aparecem": [
-    { "id": "repor", "porNoite": [1, 2], "janela": ["00:40", "04:30"] },
     { "id": "lixo", "porNoite": [0, 1], "janela": ["00:30", "04:30"] },
-    { "id": "mancha", "porNoite": [0, 1], "janela": ["00:50", "04:40"] },
     { "id": "lampada", "porNoite": [0, 1], "janela": ["01:00", "04:00"] },
     { "id": "disjuntor", "porNoite": [0, 1], "janela": ["01:30", "04:00"], "chance": 0.7 },
     { "id": "bomba-travada", "porNoite": [1, 1], "janela": ["01:00", "04:30"] }
@@ -23,6 +22,9 @@
   "textos": {
     "lixo": "Esvaziar o lixo da bomba {n}: levar o saco ao contêiner dos fundos",
     "mancha": "Passar o rodo na mancha ({onde})",
+    "derrubou-cafe": "Limpar o café derrubado ({onde})",
+    "derrubou": "Limpar o que caiu no chão ({onde})",
+    "pingou": "Limpar o combustível que pingou (bomba {n})",
     "lampada": "Trocar a lâmpada queimada ({onde}): escada e tubo novo",
     "disjuntor": "O disjuntor caiu ({onde}): religar no quadro de força, nos fundos",
     "bomba-travada": "Bomba {n} travada: girar o registro",

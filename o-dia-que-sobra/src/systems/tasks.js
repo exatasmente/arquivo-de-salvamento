@@ -12,6 +12,7 @@ import { dropSpot, REFUSE } from './dropspot.js';
 const LOW = 0.3;       // a shelf under this fraction of its capacity asks to be restocked
 
 export function createTasks(bus, { world, render, interaction, inventory, progression, player, data, time, cash }) {
+  let closing = null;          // the closing hour (closing.js): it says when the till may be closed
   const THREE = render.THREE;
   const items = data.items, cfg = data.tasks, cfgR = cfg.repor;
   const list = [];            // { id, text, done, failed, kind }
@@ -194,9 +195,13 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     bus.emit('step', 'stock.done', sh); bus.emit('sfx', 'tarefa_ok', {});
   }
 
-  /** A customer has taken something from this shelf: if what is left is under LOW of its capacity, it asks to be restocked. */
-  function restockIfLow(row) {
-    if (!row || row.atras || !progression.st.tutorialDone || row.stock >= row.slots * LOW) return false;
+  /**
+   * A customer has taken something from this shelf. Restocking is only the preparation's job (23:00 to 00:00), never the shift's: a shelf that
+   * runs low during the night waits for the next preparation, which restocks the emptiest ones first. Kept for the cases that ask for a job
+   * on purpose (`force`): the tests and the lessons.
+   */
+  function restockIfLow(row, force = false) {
+    if (!force || !row || row.atras || row.stock >= row.slots * LOW) return false;
     const old = shelves.get(row.id);
     if (old && !old.done) return false;                                                    // already asked for (by the plan or by a customer)
     if ([...shelves.values()].some((q) => !q.done && q.row.tipo === row.tipo)) return false;   // one job per product at a time (the boxes are by product)
@@ -217,9 +222,13 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     if (!boxes.size) initBoxes(progression.st.seed);
     const r = mulberry32(seed * 101 + 9);
     const usable = world.shelves.filter((s) => s && !s.atras && productOf(s.tipo) && !shelves.has(s.id));
-    const rows = [], pool = [...usable];
+    // the shelves the night before left emptier go first (a full shelf is drawn by the seed, as it was)
+    const fill_ = (s) => s.stock / s.slots;
+    const keyed = usable.map((row) => ({ row, k: r() }));
+    const rows = [], pool = keyed.sort((a, b) => fill_(a.row) - fill_(b.row) || a.k - b.k).map((q) => q.row);
+    const drawn = pool.every((s) => fill_(s) >= 0.999);
     while (rows.length < n && pool.length) {
-      const row = pool.splice(Math.floor(r() * pool.length), 1)[0];
+      const row = drawn ? pool.splice(Math.floor(r() * pool.length), 1)[0] : pool.shift();
       if ([...shelves.values()].some((q) => !q.done && q.row.tipo === row.tipo) || rows.some((q) => q.tipo === row.tipo)) continue;
       const produto = productOf(row.tipo);
       if (![...boxes.values()].some((b) => b.produto === produto && !b.used && !b.taken)) continue;
@@ -232,7 +241,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     });
     for (const q of reqs) {
       const produto = productOf(q.tipo);
-      setupShelf(q.row, produto).boxN = q.box;
+      setupShelf(q.row, produto, q.row.stock > 0 && q.row.stock < q.row.slots).boxN = q.box;       // (what is still on a shelf stays there)
       add('repor-' + q.row.id, fill(cfgR.titulo, { prateleira: q.row.n, produto: items.produtos[produto].nome }) + ` (caixa ${q.box})`, 'repor');
     }
     if (reqs.length) bus.emit('step', 'stock.start', reqs);
@@ -246,13 +255,15 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
   interaction.register({
     id: 'caixa-registradora', reach: 2.6, priority: 2,
     aim: () => ({ box: caixaBox() }),
-    enabled: () => (!cash.opened && till.enabled) || (cash.opened && !cash.closed && time.minutes >= endMin),
+    enabled: () => (!cash.opened && till.enabled) || (cash.opened && !cash.closed && (time.minutes >= endMin || Boolean(closing?.on))),
     label: () => {
       if (!cash.opened) return inventory.carry ? { text: 'Suas mãos estão ocupadas' } : { text: 'Abrir o caixa e contar o fundo (segure)', hold: true };
-      return { text: 'Fechar o caixa: contar a gaveta' };
+      return closing && !closing.tillReady() ? { text: 'Fechar o caixa (ainda falta fechar o posto)' } : { text: 'Fechar o caixa: contar a gaveta' };
     },
     tap: () => {
       if (!cash.opened) return bus.emit('hint', 'Segure o botão para abrir o caixa e contar o fundo.');
+      const why = closing?.missing();
+      if (why) { bus.emit('hint', why); bus.emit('sfx', 'erro', {}); return; }
       bus.emit('cash:close-request');
     },
     hold: {
@@ -298,27 +309,60 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     if (kind === 'repor') { const q = startRestock(1, progression.st.seed + Math.floor(time.minutes)); return q.length > 0; }
     return chores ? chores.spawn(kind) : false;
   }
+  /** The bathroom is dirty after a customer used it: a task on the list and the smudges on the mirrors, basins and floor of that side. One at a time. */
+  function addBathroom(side) {
+    const f = cfg.fixas.find((x) => x.id === 'banheiro');
+    const old = list.find((t) => t.id === 'banheiro');
+    if (old && !old.done) return false;                      // still dirty from the last one
+    if (old) list.splice(list.indexOf(old), 1);
+    chores?.stopBathroom();
+    add('banheiro', fill(f.texto, { lado: side === 'm' ? 'masculino' : 'feminino' }), 'fixa');
+    chores?.startBathroom(side, progression.st.seed + progression.st.day * 7 + (list.length || 1));
+    return true;
+  }
   function addFixed(ids) {
     for (const f of cfg.fixas) {
       if (!ids.includes(f.id)) continue;
-      if (f.id === 'banheiro') {
-        const side = mulberry32(progression.st.seed * 3 + progression.st.day)() < 0.5 ? 'm' : 'f';
-        add('banheiro', fill(f.texto, { lado: side === 'm' ? 'masculino' : 'feminino' }), 'fixa');
-        chores?.startBathroom(side, progression.st.seed);
-      } else add(f.id, f.texto, 'fixa');
+      if (f.id === 'banheiro') addBathroom(mulberry32(progression.st.seed * 3 + progression.st.day)() < 0.5 ? 'm' : 'f');
+      else add(f.id, f.texto, 'fixa');
     }
   }
 
+  // ------------------------------------------------------------------ "save now" (systems/snapshot.js)
+  /** The stock room's boxes (where each lies, taken, used), the cart (where it stands, pushed or not, what rides on it) and the shelf jobs' progress. */
+  function describeStock() {
+    const bx = [...boxes.values()].map((b) => { const o = world.boxes[b.n]?.root; return { n: b.n, taken: b.taken, used: b.used, produto: b.produto, vis: o ? o.visible : true, x: o ? o.position.x : 0, y: o ? o.position.y : 0, z: o ? o.position.z : 0, ry: o ? o.rotation.y : 0 }; });
+    const c = sc ? { pushing: cart.pushing, boxes: cart.boxes.map((e) => e.rec.n), x: sc.root.position.x, z: sc.root.position.z, ry: sc.root.rotation.y } : null;
+    return { boxes: bx, cart: c, shelves: [...shelves.values()].map((s) => ({ id: s.id, done: s.done, units: s.units, boxN: s.boxN || null })) };
+  }
+  function restoreStock(s) {
+    for (const q of s.boxes || []) {
+      const b = boxes.get(q.n), o = world.boxes[q.n]?.root; if (!b) continue;
+      b.taken = q.taken; b.used = q.used; if (o) { o.visible = q.vis; o.position.set(q.x, q.y, q.z); o.rotation.y = q.ry; }
+    }
+    for (const q of s.shelves || []) { const sh = shelves.get(q.id); if (sh && !sh.done) { sh.units = q.units; if (q.boxN) sh.boxN = q.boxN; } }
+    const c = s.cart;
+    if (c && sc) {
+      cart.boxes = (c.boxes || []).map((n) => ({ rec: boxes.get(n) })).filter((e) => e.rec); sc.setLoad(cart.boxes.length);
+      sc.place(c.x, c.z, c.ry);
+      if (c.pushing) { lastCx = lastCz = 0; startPush(); sc.place(c.x, c.z, c.ry); }
+    }
+  }
   return {
-    list, add, done, fail, setText, pending, addFixed,
+    describeStock, restoreStock,
+    list, add, done, fail, setText, pending, addFixed, addBathroom,
     drop,
     attach(c, cu) { chores = c; customers = cu; },
+    attachClosing(c) { closing = c; },
+    bathroomDirty: () => { const t = list.find((x) => x.id === 'banheiro'); return Boolean(t && !t.done); },
     clear() { clearBoxes(); list.length = 0; plan = []; lastSpawn = -99; bus.emit('tasks:change'); },
     /** Starts the night's list. tutorial: only the till is listed (the call teaches the rest). */
     begin({ seed, day, tutorial }) {
       rr = mulberry32(seed * 3 + day);
       chores?.begin(seed, day);
       initBoxes(seed);
+      // a shelf the nights have run down to less than half is topped up before the preparation (the morning delivery); the preparation then fills the emptiest ones
+      for (const row of world.shelves) if (row && !row.atras && row.slots && row.stock < row.slots * 0.5) row.setStock(Math.ceil(row.slots * 0.5));
       plan = makePlan(seed, day);
       if (!tutorial) addFixed(['fechar-caixa']);      // (the bathroom is part of the preparation, and the till is opened at 00:00)
       bus.emit('tasks:change');

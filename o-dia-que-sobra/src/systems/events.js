@@ -154,6 +154,16 @@ export async function createEvents(bus, ctx) {
     schedule, update, trigger, state: est, get run() { return active ? active.run : null; }, get active() { return active ? active.ev.id : null; },
     get plan() { return plan.map((p) => ({ id: p.ev.id, at: Math.round(p.at), pool: Boolean(p.pool) })); },
     get placaSorriso() { return est.placa; },
+    /** "Save now" (systems/snapshot.js): what ran tonight and the numbers the scripts share between events. */
+    snapshotState() { const n = {}; for (const k of Object.keys(est)) if (typeof est[k] === 'number' && !['shake', 'cut'].includes(k)) n[k] = est[k]; return { counts: { ...counts }, est: n }; },
+    /** The plan of the night as the seed made it, minus what already ran and what has passed (m: the game minute); the quiet before the next one is the usual. */
+    restoreState(s, m) {
+      for (const k of Object.keys(s.counts || {})) counts[k] = Number(s.counts[k]) || 0;
+      for (const k of Object.keys(s.est || {})) if (typeof s.est[k] === 'number') est[k] = s.est[k];
+      plan = plan.filter((p) => p.pool || ((counts[p.ev.id] || 0) === 0 && !(p.until !== undefined && m > p.until)));
+      for (const p of plan) if (p.pool) p.next = Math.max(p.next, m + RETRY_MIN);
+      readyAt = clock;
+    },
     reset() { if (active) { active.run.dispose?.(); active = null; } plan = []; est.naoSair = null; est.morador = null; pendingReact = null; },
   };
 }

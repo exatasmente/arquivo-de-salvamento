@@ -1,6 +1,7 @@
 // PrepSystem: the hour before the shift, every night. Heitor arrives at 23:00, punches the clock (a time clock on the wall of the office, with its sound)
-// and prepares the shop with the tasks the night already has (the bathroom, a stain, a dead tube, rubbish, a shelf), marked as "preparação". The clock runs from
+// and prepares the shop with the tasks the night already has (a dead tube, rubbish, the emptiest shelves), marked as "preparação". The clock runs from
 // 23:00 to 00:00 in 3 real minutes (a game minute is 3 s, half the rate of the shift), with no customers, no cars stopping and no scare events: only the place.
+// The hour after 05:00 is its mirror (closing.js).
 // At 00:00 the till has to be opened and the customers begin. What is left of the preparation counts once as a task not done (-6 each, right then), stays
 // pending on the list and is not counted again at the closing; doing it late still gives the points of the task.
 //
@@ -76,8 +77,9 @@ export function createPrep(bus, { world, render, interaction, time, tasks, chore
     tasks.add('ponto', 'Bater o ponto no relógio do escritório', 'preparacao');
     if (tutorial) { chores.spawn('mancha'); chores.spawn('lampada'); tasks.startRestock(1, seed); chores.spawn('lixo'); }
     else {
-      tasks.addFixed(['banheiro']);
-      chores.spawn('mancha'); chores.spawn('lampada'); chores.spawn('lixo');
+      // only what the night before left to do: a dead tube, the rubbish, the emptiest shelves. A stain on the shop floor and a dirty bathroom come
+      // later, when a customer has been (chores.js, customers.js); the shelves are only ever restocked here
+      chores.spawn('lampada'); chores.spawn('lixo');
       tasks.startRestock(progression.st.week >= 3 ? 2 : 1, seed);
     }
     tasks.setPrep(false);
@@ -126,5 +128,5 @@ export function createPrep(bus, { world, render, interaction, time, tasks, chore
     const sec = Math.max(0, Math.ceil(-time.minutes * (time.secondsPerHour / 60) / PREP_RATE));
     return `PREPARAÇÃO ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
   }
-  return { begin, end, abort, update, text, get on() { return S.on; }, get punched() { return S.punched; }, get tutorial() { return S.tutorial; } };
+  return { begin, end, abort, update, text, setPunched(v) { S.punched = Boolean(v); paint(); }, get on() { return S.on; }, get punched() { return S.punched; }, get tutorial() { return S.tutorial; } };
 }

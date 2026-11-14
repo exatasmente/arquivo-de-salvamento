@@ -186,6 +186,7 @@ function installBot(cfg) {
   function carStep(c) {
     if (c.done || ['arriving', 'leaving'].includes(c.state) || c.talking) return false;
     const carry = inventory.carry;
+    if ((c.fueling || c.panel) && !chores().pumpStuck(c.pump)) return false;       // (the pump works by itself: the hands are free for the chores meanwhile)
     if (carry && carry.kind !== 'item' && carry.kind !== 'bico' && carry.kind !== 'carrinho' && (chores().pumpStuck(c.pump) || c.ordered)) { inventory.drop(); say(`put down ${carry.kind}`); return true; }
     if (chores().pumpStuck(c.pump)) return hold('registro' + c.pump, () => !chores().pumpStuck(c.pump));
     if (!c.ordered) return use(`cliente${c.id}`, 'talk');
@@ -193,7 +194,7 @@ function installBot(cfg) {
     if (carry && carry.kind === 'item') return false;   // finish the shopper first
     if (carry && carry.kind !== 'bico' && carry.kind !== 'carrinho') { inventory.drop(); say(`put down ${carry.kind}`); return true; }
     if (c.cents > 0) {
-      if (c.nozzleIn) return use(`tampa${c.id}`, 'pull nozzle');
+      if (c.nozzleIn) return carry?.kind === 'bico' ? use(`bico${carry.pump}-${carry.fuel}`, 'return the other nozzle') : use(`tampa${c.id}`, 'pull nozzle');
       if (carry?.kind === 'bico') return use(`bico${carry.pump}-${carry.fuel}`, 'return nozzle');
       return use(`cliente${c.id}`, 'charge');
     }
@@ -257,6 +258,10 @@ function installBot(cfg) {
       else if (t.kind === 'disjuntor') { const id = 'disj-' + t.id.slice(10); if (hold(id, () => !interaction.targets.get(id)?.enabled(), 5)) return true; }
       else if (t.kind === 'bomba') { /* the jam is cleared when its car is served */ }
       else if (t.id === 'banheiro') { if (use('kit-limpeza', 'kit')) return true; }
+      else if (t.kind === 'fechamento') {     // the closing hour: lock the shop door, put out the yard light and the sign
+        if (t.id === 'fecha-porta') { if (customers.list.every((c) => c.kind !== 'walk') && use('trancar-loja', 'lock the shop')) return true; }
+        else { const id = t.id === 'fecha-patio' ? 'fecha-disjuntor-patio' : 'placa-disjuntor'; if (hold(id, () => t.done, 4)) return true; }
+      }
     }
     return false;
   }
@@ -306,7 +311,7 @@ function installBot(cfg) {
     const live = customers.list.filter((c) => !c.done && (c.kind === 'car' || c.kind === 'walk')).sort((a, b) => b.age - a.age);
     for (const c of live) if (c.kind === 'car' ? carStep(c) : walkerStep(c)) return 'customer';
     if (taskStep()) return 'task';
-    if (cash.opened && !cash.closed && time.minutes >= 360 && customers.blocking().length === 0 && use('caixa-registradora', 'close')) return 'close';
+    if (cash.opened && !cash.closed && G.closing.tillReady() && customers.blocking().length === 0 && use('caixa-registradora', 'close')) return 'close';
     return '';
   }
   /** Plays the open night until its summary is on the screen (or `budgetMs` of real time is used up: call again to go on). */
@@ -627,7 +632,7 @@ async function roundTwo(browser, base, kind, tag) {
   }
   // a cutscene never shows the marker nor the arrow: the real path, an ending that plays its cutscene with a goal marked
   const cs = await ev(async () => {
-    const G = window.__odq.game; G.goals.select('t:banheiro'); G.step(1 / 60); window.__odq.advance(2);
+    const G = window.__odq.game; G.tasks.addBathroom('m'); G.goals.select('t:banheiro'); G.step(1 / 60); window.__odq.advance(2);
     const before = G.goals.marker.visible && !document.getElementById('goalhud').hidden;
     G.campaign.ending(2);
     const m = await import('/o-dia-que-sobra/src/cutscenes/player.js');
@@ -769,10 +774,20 @@ async function doorDropCheck(browser, base, kind, tag) {
         out.push({ name, door, had, dropped, minDist: dists.length ? +Math.min(...dists).toFixed(2) : null, doorClear: !G.player.blocked(a.x, a.z), refused: !dropped && hints.some((h) => /Aqui não/.test(h)) });
         if (dropped) { if (!th.again()) out.push({ name, door, error: 'could not pick it up again' }); }
       }
-      if (G.inventory.carry) { G.player.st.x = 8; G.player.st.z = 7; B.dropVia('key'); }
+      if (G.inventory.carry) {   // (a bare spot of the shop: one where the aim finds nothing to use, wherever the night's shelf job happens to be)
+        let spot = null;
+        for (let x = 3; x <= 15 && !spot; x += 1.5) for (let z = 4; z <= 11 && !spot; z += 1.5) {
+          if (G.player.blocked(x, z) || G.world.areaAt(x, 1, z)?.id !== 'loja') continue;
+          Object.assign(G.player.st, { x, z, yaw: 0.7, pitch: -0.9 }); G.interaction.update(0, { acts: [], actDown: false });
+          if (!G.interaction.current) spot = { x, z };
+        }
+        if (spot) Object.assign(G.player.st, { x: spot.x, z: spot.z, yaw: 0.7, pitch: -0.9 });
+        B.dropVia('key');
+      }
     }
     return out;
   });
+  if (process.env.DEBUGRES) console.log(JSON.stringify(res));
   for (const r of res) {
     if (r.error) { ok(false, `${tag}: ${r.name} ${r.door || ''}: ${r.error}`); continue; }
     ok((r.dropped && r.minDist >= 1.0 && r.doorClear) || r.refused, `${tag}: ${r.name} let go standing on ${r.door}: ${r.dropped ? 'lands ' + r.minDist + ' m from the door, the doorway is free' : 'refused with "Aqui não"'}`);
@@ -979,7 +994,7 @@ async function prepCheck(browser, base, kind, tag) {
   const start = await ev(() => { const G = window.__odq.game; return { t: G.time.text(), min: G.time.minutes, hud: document.querySelector('#calhud b').textContent, prepLine: document.querySelector('#calhud i').textContent, prepTasks: G.tasks.prepList().map((t) => t.id), customers: G.customers.list.length, till: G.interaction.targets.get('caixa-registradora').enabled(), obj: document.getElementById('objective').textContent, goal: G.goals.key }; });
   ok(start.t === '23:00' && start.hud === '23:00', `${tag}: the night opens at 23:00 (${start.t}, HUD ${start.hud})`);
   ok(/^PREPARAÇÃO \d:\d\d$/.test(start.prepLine), `${tag}: the HUD shows the time left of the preparation without the clipboard ("${start.prepLine}")`);
-  ok(start.prepTasks.includes('ponto') && start.prepTasks.length >= 5, `${tag}: the preparation is made of the night's own tasks (${start.prepTasks.join(', ')})`);
+  ok(start.prepTasks.includes('ponto') && start.prepTasks.length >= 4 && !start.prepTasks.some((id) => /^(banheiro|mancha-)/.test(id)), `${tag}: the preparation is made of what the night before left (the punch clock, a tube, rubbish, a shelf; no bathroom and no stain before anyone has been) (${start.prepTasks.join(', ')})`);
   ok(start.goal === 't:ponto' && start.customers === 0 && !start.till, `${tag}: the punch clock is the marked goal, nobody is in the shop and the till cannot be opened yet (${JSON.stringify({ goal: start.goal, customers: start.customers, till: start.till })})`);
   // the shop has the same colour and light in the preparation as in the shift: no medicine effect is "on" (the clock is negative: a `-1` default counted every effect as active), no
   // CSS filter on the picture, eyelids up (the coordinator's gray shop at 23:05)
@@ -1034,7 +1049,7 @@ async function prepCheck(browser, base, kind, tag) {
   const half = await ev(async () => {
     const G = window.__odq.game, B = window.__bot, toasts = []; G.bus.on('hint', (t) => toasts.push(t));
     // does the bathroom and the stain only (a person who ran out of time)
-    B.only = 'mancha-'; let n = 0; while (G.time.minutes < -20 && n++ < 3000) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); }
+    B.only = 'lixo-'; let n = 0; while (G.time.minutes < -20 && n++ < 3000) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); }
     B.only = null;
     const before = { pts: G.progression.night.pontos, naoFeitas: G.progression.night.naoFeitas, pending: G.tasks.prepList().filter((t) => !t.done).length };
     for (let i = 0; i < 60 * 200 && G.time.minutes < 0.2; i++) { G.step(1 / 60); if (i % 60 === 0) await new Promise((r) => setTimeout(r, 0)); }
@@ -1084,28 +1099,32 @@ async function tutorialCheck(browser, base, kind, tag) {
 
 /** The last night after the preparation was added: the doubled shift (the clock goes back to 00:00 once) and the secret ending (the sign's breaker) still work. */
 async function lastNightCheck(browser, base, kind, tag) {
-  for (const secret of [false, true]) {
+  for (const variant of ['plain', 'secret', 'secret-early']) {
+    const secret = variant !== 'plain', early = variant === 'secret-early';
     const { page, errs, ctx } = await openPage(browser, base, kind, `debug=${secret ? 'secrets:all,' : ''}day:24&manual&silent&skiptutorial&nointro`);
     await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
     await botInstall(page, { prep: true });
-    const r = await page.evaluate(async (secret) => {
+    const r = await page.evaluate(async ([secret, early]) => {
       const G = window.__odq.game, B = window.__bot, out = {};
       out.start = G.time.text(); out.prep = G.prep.on;
       B.untilOpen(); out.open = G.time.text();
       G.customers.clear(); G.customers.enable(false); G.player.st.x = 8; G.player.st.z = 6; G.player.st.yaw = 0;
+      G.time.skip(300.2 - G.time.minutes); for (let i = 0; i < 10; i++) G.step(1 / 60); out.closing = G.closing.on; out.tillClosed = G.closing.tillReady();
+      if (early) B.hold('placa-disjuntor', () => !G.world.posto.breakers.isOn('placa'), 4);      // the sign is part of the closing: switched off before the call
       G.time.skip(359 - G.time.minutes + 0.2); for (let i = 0; i < 90; i++) G.step(1 / 60);
       out.stopped = G.time.text(); out.event = G.events.active ? Boolean(G.events.active.length ?? G.events.active) : null;
-      if (secret) {
+      if (secret && !early) {
         const held = B.hold('placa-disjuntor', () => G.state !== 'play', 4); await new Promise((r) => setTimeout(r, 200)); for (let i = 0; i < 120; i++) { G.step(1 / 60); }
         out.held = held; out.state = G.state; out.ending = G.campaign.endingId;
-      } else {
+      } else if (early) { out.state = G.state; out.ending = G.campaign.endingId; }
+      else {
         let back = null; for (let i = 0; i < 60 * 70 && G.state === 'play'; i++) { G.step(1 / 60); if (G.time.minutes < 30 && back === null) back = G.time.text(); }
         out.back = back; out.state = G.state; out.after = G.time.text();
       }
       return out;
-    }, secret);
-    if (secret) ok(r.state === 'ending' && r.ending === 5, `${tag}: last night, the sign's breaker at 05:59 still ends it as the secret ending (${JSON.stringify(r)})`);
-    else ok(r.start === '23:00' && r.stopped === '05:59' && r.back !== null && r.state === 'play', `${tag}: last night, the clock stops at 05:59 and goes back to 00:00 once, the shift is done twice (${JSON.stringify(r)})`);
+    }, [secret, early]);
+    if (secret) ok(r.state === 'ending' && r.ending === 5 && r.closing && !r.tillClosed, `${tag}: last night (${variant}), the sign's breaker ${early ? 'switched off in the closing, with the secrets found,' : 'at 05:59'} ends it as the secret ending; the till is not offered before six (${JSON.stringify(r)})`);
+    else ok(r.start === '23:00' && r.stopped === '05:59' && r.back !== null && r.state === 'play' && r.closing && !r.tillClosed, `${tag}: last night, the clock stops at 05:59 and goes back to 00:00 once, the shift is done twice (${JSON.stringify(r)})`);
     ok(errs.length === 0, `${tag}: console clean (last night) (${errs.slice(0, 3).join(' | ')})`);
     await ctx.close();
   }
@@ -1569,6 +1588,227 @@ async function calcCheck(browser, base, kind, tag) {
 }
 
 /** The whole check on one viewport. `full` also plays the week that turns, the endings and the film mode (desktop). */
+/** Item 16: while the phone rings it is the marked goal (marker in the world, arrow on the edge, "Telefone tocando" on the HUD); a tap on the strip walks to it; it goes when answered. */
+async function phoneCheck(browser, base, kind, tag) {
+  const touch = kind === 'mobile';
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const quiet = await ev(() => { const G = window.__odq.game; G.customers.clear(); G.customers.enable(false); G.time.skip(340 - G.time.minutes); G.player.st.x = 8; G.player.st.z = 7; G.player.st.yaw = 0; G.goals.select(null); window.__odq.advance(3); return { hud: document.getElementById('goalhud').hidden, marker: G.goals.visible }; });
+  ok(quiet.hud && !quiet.marker, `${tag}: with the phone quiet there is no phone goal`);
+  const a = await ev(() => { const G = window.__odq.game; G.time.skip(350 - G.time.minutes); for (let i = 0; i < 60 * 60 && !G.narrative.ringing; i++) G.step(1 / 60); window.__odq.advance(3); return { ringing: G.narrative.ringing, hud: document.getElementById('goalhud').textContent, marker: G.goals.visible, arrow: !document.getElementById('arrow').hidden, key: G.goals.current?.key }; });
+  ok(a.ringing && /Telefone tocando/.test(a.hud) && a.marker && a.arrow && a.key === 'phone', `${tag}: the manager's call at 05:50: the HUD says "Telefone tocando", the marker is on and the arrow is on the edge (${JSON.stringify(a)})`);
+  await shot(page, `telefone-tocando-${tag}`);
+  if (touch) {
+    const r = await ev(() => { const e = document.getElementById('goalhud').getBoundingClientRect(); return { x: e.left + e.width / 2, y: e.top + e.height / 2 }; });
+    await touchTap(page, r.x, r.y);
+  } else await ev(() => window.__odq.game.walkToGoal());
+  const w = await ev(() => { const G = window.__odq.game; for (let i = 0; i < 60 * 25 && (G.walking || i < 5); i++) G.step(1 / 60); for (let i = 0; i < 100; i++) G.step(1 / 60); const ph = G.world.anchor('telefone').pos; window.__odq.advance(2); return { dist: Math.hypot(ph.x - G.player.st.x, ph.z - G.player.st.z), target: G.interaction.current?.target.id }; });
+  ok(w.dist < 2.6 && w.target === 'telefone', `${tag}: ${touch ? 'a tap on the strip' : 'the walk'} goes to the phone and aims at it (${JSON.stringify(w)})`);
+  const b = await ev(async () => { const G = window.__odq.game, B = window.__bot; B.use('telefone', 'answer'); for (let i = 0; i < 80; i++) { if (!B.modalStep()) B.step(3); await new Promise((r) => setTimeout(r, 0)); } window.__odq.advance(2); return { ringing: G.narrative.ringing, hud: document.getElementById('goalhud').hidden, marker: G.goals.visible, key: G.goals.current?.key }; });
+  ok(!b.ringing && b.hud && !b.marker && b.key !== 'phone', `${tag}: answered, the phone goal is gone (${JSON.stringify(b)})`);
+  // the phantom call and a call nobody answers: it also goes when it stops ringing
+  const c = await ev(async () => { const G = window.__odq.game; G.time.set(120); const asked = G.narrative.ringExtra(8, async () => {}, () => {}); G.step(1 / 60); window.__odq.advance(2); const on = { asked, key: G.goals.current?.key, marker: G.goals.visible }; for (let i = 0; i < 60 * 9; i++) G.step(1 / 60); window.__odq.advance(2); return { on, off: { ringing: G.narrative.ringing, key: G.goals.current?.key, marker: G.goals.visible } }; });
+  ok(c.on.asked && c.on.key === 'phone' && c.on.marker && !c.off.ringing && c.off.key !== 'phone' && !c.off.marker, `${tag}: a phantom ring is marked while it rings and unmarked when it stops (${JSON.stringify(c)})`);
+  // a customer's speech never sits over the open pause (the phone's "SALVAR AGORA" line)
+  const sp = await ev(() => { const G = window.__odq.game, h = () => !document.getElementById('say').hidden; G.ui.say('Cliente', 'Boa noite, tudo bem por aqui?', { seed: 1, ms: 9000 }); G.step(1 / 60); const a = h(); G.openPause(); for (let i = 0; i < 5; i++) G.step(1 / 60); const b = h(); G.resume(); for (let i = 0; i < 5; i++) G.step(1 / 60); return { before: a, pause: b, after: h() }; });
+  ok(sp.before && !sp.pause && sp.after, `${tag}: the speech of a customer is hidden while the pause is open and comes back after (${JSON.stringify(sp)})`);
+  ok(errs.length === 0, `${tag}: console clean (phone) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** Item 17: the closing hour after 05:00 (full and incomplete), the clock, the list, the door, the breakers; the last night keeps its call and its secret ending. */
+async function closingCheck(browser, base, kind, tag) {
+  for (const mode of ['full', 'partial']) {
+    const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+    await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+    await botInstall(page);
+    const r = await page.evaluate(async (mode) => {
+      const G = window.__odq.game, B = window.__bot, out = {};
+      G.customers.clear(); G.customers.enable(false); B.hold('caixa-registradora', () => G.cash.opened, 4);
+      for (const t of G.tasks.list) { t.done = true; t.penalized = true; }                // (the preparation is not what this is about)
+      G.goals.select(null);
+      G.time.skip(299 - G.time.minutes); for (let i = 0; i < 200; i++) G.step(1 / 60); window.__odq.advance(2);
+      out.hud = document.querySelector('#calhud i').textContent; out.goal = G.goals.key; out.ids = G.tasks.list.filter((t) => t.kind === 'fechamento').map((t) => t.id);
+      out.enabledCustomers = G.customers.list.length;
+      const till = G.interaction.targets.get('caixa-registradora'); out.tillText = till.label().text;
+      const t0 = G.time.minutes; let n = 0; while (G.time.minutes < t0 + 1) { G.step(1 / 60); n++; } out.secPerMin = +(n / 60).toFixed(2);
+      out.tillRefusedAtStart = G.closing.tillReady() === false && Boolean(G.closing.missing());
+      window.__odq.game.ui.toggleSheet(true); window.__odq.advance(2); out.sheet = /Fechamento/.test(document.getElementById('sheet').textContent); G.ui.toggleSheet(false);
+      if (mode === 'full') {
+        const p0 = G.progression.night.pontos; let k = 0;
+        while (G.closing.on && !G.closing.stepsDone() && k++ < 400) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); }
+        out.stepsAt = G.time.text(); out.gain = G.progression.night.pontos - p0; out.door = G.world.shut.has('porta-loja'); out.yard = G.world.posto.breakers.isOn('cobertura'); out.sign = G.world.posto.breakers.isOn('placa');
+        out.waiting = G.closing.missing();
+        let j = 0; while (G.shift.open && j++ < 4000) { if (!B.decide()) B.step(30); await new Promise((r) => setTimeout(r, 0)); if (/^NOITE .*FECHADA/.test(document.querySelector('#modal h1')?.textContent || '')) break; }
+        out.endAt = G.time.text(); out.undone = G.tasks.undone(); out.pts = G.progression.night.pontos;
+      } else {
+        for (let i = 0; i < 60 * 190 && G.time.minutes < 360; i++) { G.step(1 / 60); if (i % 300 === 0) await new Promise((r) => setTimeout(r, 0)); }
+        out.t = G.time.text(); out.notDone = G.tasks.list.filter((t) => !t.done).map((t) => t.id); out.undoneAt6 = G.tasks.undone(); out.tillReady = G.closing.tillReady();
+        const before = G.progression.night.naoFeitas; B.use('caixa-registradora', 'close'); let j = 0;
+        while (j++ < 400 && !/^NOITE .*FECHADA/.test(document.querySelector('#modal h1')?.textContent || '')) { if (!B.modalStep()) B.step(10); await new Promise((r) => setTimeout(r, 0)); }
+        out.counted = G.progression.night.naoFeitas - before; out.closed = G.cash.closed;
+      }
+      return out;
+    }, mode);
+    ok(/^FECHAMENTO 2:5\d$/.test(r.hud) && r.ids.length === 3 && r.enabledCustomers === 0 && r.sheet, `${tag}/${mode}: at 05:00 the HUD counts "${r.hud}", the list gets the three steps (${r.ids.join(', ')}), nobody new arrives and the clipboard has the block`);
+    ok(r.secPerMin >= 2.9 && r.secPerMin <= 3.1, `${tag}/${mode}: the closing hour runs at 3 s per game minute, 3 real minutes in all (${r.secPerMin} s)`);
+    ok(r.tillRefusedAtStart && /ainda falta/.test(r.tillText), `${tag}/${mode}: the till says it is too soon ("${r.tillText}")`);
+    if (mode === 'full') {
+      ok(r.door && !r.yard && !r.sign && r.gain >= 24, `${tag}/full: door locked, yard light and sign off, the steps give their points (${r.gain}), done at ${r.stepsAt}`);
+      ok(r.endAt >= '05:50' && r.undone === 0, `${tag}/full: the till waits for the 05:50 call ("${r.waiting}") and closing it ends the shift at ${r.endAt}, nothing counted as not done`);
+    } else {
+      ok(r.t === '06:00' && ['fecha-porta', 'fecha-patio', 'fecha-sinal'].every((id) => r.notDone.includes(id)) && r.undoneAt6 >= 3 && r.tillReady, `${tag}/partial: at 06:00 the three steps are still pending and the till can be closed anyway (${JSON.stringify({ t: r.t, notDone: r.notDone })})`);
+      ok(r.closed, `${tag}/partial: the till closed with the steps undone, as it does today`);
+    }
+    await shot(page, `fechamento-${mode}-${tag}`);
+    ok(errs.length === 0, `${tag}/${mode}: console clean (closing) (${errs.slice(0, 3).join(' | ')})`);
+    await ctx.close();
+  }
+}
+
+/** Item 19: a car that only buys parks in a stall (never at a pump); a car that fuels and buys leaves the car while it fuels, the car moves to a stall, the counter charges fuel and products together. */
+async function carCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  // ---- only buys: a stall, on foot, the pump bays untouched
+  const a = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = { stalls: [], pumps: [] };
+    G.customers.clear(); G.customers.enable(false); B.hold('caixa-registradora', () => G.cash.opened, 4);
+    const tipo = G.data.cast.tipos.find((t) => t.id === 'enfermeira');
+    const w = G.customers.spawnWalker({ tipo, seed: 5 });
+    out.spawned = Boolean(w); out.byCar = Boolean(w && w.car); out.spot = w && w.spot && w.spot.n;
+    for (let i = 0; i < 60 * 40; i++) { G.step(1 / 60); if (G.traffic.vehicles.some((v) => v.pump && v.state !== 'gone')) out.pumps.push(1); if (w.state === 'entering' && !w.inCar && !out.walked) out.walked = true; }
+    out.parked = w.veh && w.veh.state === 'parked' && !w.veh.pump; out.onFoot = out.walked; out.pumpBay = out.pumps.length;
+    for (let n = 0; n < 4000 && G.customers.list.includes(w); n++) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); }
+    out.left = !G.customers.list.includes(w);
+    return out;
+  });
+  ok(a.spawned && a.byCar && a.spot >= 1 && a.parked && a.onFoot && a.pumpBay === 0 && a.left, `${tag}: a customer who only buys parks in stall ${a.spot}, walks to the shop and leaves, and no car takes a pump (${JSON.stringify(a)})`);
+  // ---- fuels and buys
+  const b = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = { tl: [] };
+    G.customers.clear(); G.customers.enable(false);
+    const tipo = G.data.cast.tipos.find((t) => t.id === 'terno-gasto');
+    const c = G.customers.spawnCar({ tipo, seed: 77 }); out.spawned = Boolean(c);
+    const sales0 = G.cash.sales, ptsF = G.progression.night.abastecimentos, ptsV = G.progression.night.vendas;
+    let last = '', atPumpOnly = true, sawAway = false, carMoved = false, fuelPaidAtPump = false;
+    for (let n = 0; n < 6000; n++) {
+      const a = B.decide(); if (!a) B.step(20);
+      const w = G.customers.list.find((q) => q.kind === 'walk');
+      if (c.away) sawAway = true;
+      if (w && w.fuelOf && w.car && w.spot && !G.customers.list.includes(c)) carMoved = true;
+      const sig = `${c.state}${c.away ? '/away' : ''}${c.done ? '/done' : ''}|${w ? w.state : '-'}`; if (sig !== last) { out.tl.push(sig); last = sig; }
+      await new Promise((r) => setTimeout(r, 0));
+      if (!G.customers.list.length) break;
+    }
+    out.sawAway = sawAway; out.carMoved = carMoved;
+    out.fuelCents = Math.round(c.typed); out.sold = G.cash.sales - sales0;
+    out.abast = G.progression.night.abastecimentos - ptsF; out.vendas = G.progression.night.vendas - ptsV; out.errors = G.progression.night.erros;
+    out.gone = G.customers.list.length === 0;
+    return out;
+  });
+  ok(b.spawned && b.sawAway && b.carMoved, `${tag}: the driver of a car that fuels and buys leaves it while it fuels, and the car parks in a stall (${b.tl.join(' > ')})`);
+  ok(b.sold > b.fuelCents && b.sold - b.fuelCents > 0 && b.abast === 1 && b.vendas === 1 && b.errors === 0 && b.gone, `${tag}: the counter charged the fuel (R$ ${b.fuelCents / 100}) and the products together (R$ ${b.sold / 100} in all), one fuelling and one sale counted, nothing left over`);
+  // ---- fuels only: the pump charges, nobody goes to the shop
+  const d = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = {};
+    G.customers.clear(); G.customers.enable(false);
+    const tipo = G.data.cast.tipos.find((t) => t.id === 'reclama-preco');
+    const c = G.customers.spawnCar({ tipo, seed: 31 }); const sales0 = G.cash.sales;
+    let walker = false;
+    for (let n = 0; n < 5000 && G.customers.list.includes(c) && !c.done; n++) { if (!B.decide()) B.step(20); if (G.customers.list.some((q) => q.kind === 'walk')) walker = true; await new Promise((r) => setTimeout(r, 0)); }
+    out.paid = c.done && G.cash.sales - sales0 > 0; out.walker = walker; out.away = c.away;
+    return out;
+  });
+  ok(d.paid && !d.walker && !d.away, `${tag}: a customer who only fuels pays at the pump and nobody walks into the shop (${JSON.stringify(d)})`);
+  // ---- the floor of the pump: charging with the nozzle still in the hand drips
+  const e = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = {};
+    G.customers.clear(); G.customers.enable(false);
+    const tipo = G.data.cast.tipos.find((t) => t.id === 'reclama-preco');
+    const c = G.customers.spawnCar({ tipo, seed: 41 });
+    out.before = G.tasks.list.some((t) => /^mancha-mancha-bombas/.test(t.id));
+    for (let n = 0; n < 3000 && !(c.cents > 0 && !c.fueling); n++) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); if (c.cents > 0 && !c.fueling) break; }
+    // pull the nozzle but do not give it back: charge
+    B.use('tampa' + c.id, 'pull nozzle'); out.carry = G.inventory.carry && G.inventory.carry.kind;
+    B.use('cliente' + c.id, 'charge'); for (let i = 0; i < 80; i++) { if (!B.modalStep()) B.step(3); await new Promise((r) => setTimeout(r, 0)); }
+    out.after = G.tasks.list.filter((t) => /^mancha-mancha-bombas/.test(t.id)).map((t) => t.text);
+    return out;
+  });
+  ok(!e.before && e.carry === 'bico' && e.after.length === 1 && /pingou/.test(e.after[0]), `${tag}: charging with the nozzle still in the hand drips fuel: a pump-floor task appears only then (${JSON.stringify(e)})`);
+  ok(errs.length === 0, `${tag}: console clean (cars) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** Item 18: tasks only when there is a reason: restocking only in the preparation, a dirty bathroom and a stained floor only after a customer. */
+async function reasonCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:5&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page, { prep: true });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const a = await ev(() => { const G = window.__odq.game; return { repor: G.tasks.list.filter((t) => t.kind === 'repor').map((t) => t.id), prep: G.tasks.list.filter((t) => t.prep).map((t) => t.id), banheiro: G.tasks.list.some((t) => t.id === 'banheiro'), plan: G.tasks.plan.map((p) => p.kind) }; });
+  ok(a.repor.length >= 1 && a.repor.every((id) => G_prepHas(a.prep, id)) && !a.banheiro && !a.plan.includes('repor') && !a.plan.includes('mancha'), `${tag}: the shelves are restocked in the preparation only, and neither the bathroom nor a stain is on the night's plan (${JSON.stringify(a)})`);
+  // a whole shift of customers and plan: no restocking job, no bathroom, no floor task unless somebody caused it
+  const r = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = { seenRepor: false, spills: [], baths: 0 };
+    B.untilOpen(); const seen = new Set(G.tasks.list.map((t) => t.id));       // (what the preparation made is not the shift's)
+    G.bus.on('tasks:change', () => { for (const t of G.tasks.list) { if (seen.has(t.id)) continue; seen.add(t.id); if (t.kind === 'repor') out.seenRepor = true; if (t.kind === 'mancha') out.spills.push(t.text); if (t.id === 'banheiro') out.baths++; } });
+    out.shelfBefore = G.world.shelves.filter((s) => s && !s.atras).reduce((a, s) => a + s.stock, 0);
+    let n = 0; while (G.time.minutes < 240 && n++ < 6000) { if (!B.decide()) B.step(30); await new Promise((r) => setTimeout(r, 0)); }
+    out.shelfAfter = G.world.shelves.filter((s) => s && !s.atras).reduce((a, s) => a + s.stock, 0);
+    return out;
+  });
+  ok(!r.seenRepor, `${tag}: through the shift no restocking job appears, though customers walked the shelves (${r.shelfBefore} -> ${r.shelfAfter} units after the preparation and the shift)`);
+  console.log(`   (until 04:00: ${r.spills.length} spill(s) [${r.spills.join('; ')}], ${r.baths} bathroom(s))`);
+  // the causes, forced: a customer who drops a coffee, and one who uses the bathroom
+  const c = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = {};
+    G.customers.clear(); G.customers.enable(false);
+    const had = (re) => G.tasks.list.some((t) => re.test(t.id) && !t.done);
+    out.hadStain = had(/^mancha-mancha-loja/); out.hadBath = had(/^banheiro$/);
+    const ok1 = G.chores.spill('cafe', { x: 12, z: 5 }); out.stain = G.tasks.list.filter((t) => /derrubado/.test(t.text)).map((t) => t.text);
+    G.tasks.addBathroom('f'); out.bath = G.tasks.list.find((t) => t.id === 'banheiro')?.text;
+    return { ...out, ok1 };
+  });
+  ok(c.ok1 && c.stain.length === 1 && /banheiro feminino/.test(c.bath || ''), `${tag}: a dropped coffee makes a floor task and a used bathroom a cleaning task (${JSON.stringify(c)})`);
+  ok(errs.length === 0, `${tag}: console clean (reasons) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+const G_prepHas = (prep, id) => prep.includes(id);
+
+/** The first blue before the dawn: sky and haze go from closed night to a weak grey-blue between 04:00 and 06:00, never to day; the preparation stays closed night; the flashlight still works. */
+async function dawnCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const at = (min) => ev((min) => {
+    const G = window.__odq.game; G.time.setCap(361); if (min > G.time.minutes) G.time.skip(min - G.time.minutes); else G.time.set(min);
+    G.customers.clear(); G.customers.enable(false); G.player.st.x = 2; G.player.st.z = -16; G.player.st.yaw = -0.85; G.player.st.pitch = 0.1;
+    for (let i = 0; i < 20; i++) G.step(1 / 60); window.__odq.advance(3);
+    const bg = G.world.r.scene.background, dome = G.world.r.scene.getObjectByName('dawn-dome');
+    return { t: G.time.text(), sky: [bg.r, bg.g, bg.b].map((v) => +v.toFixed(3)), glow: dome && dome.visible ? +dome.material.color.r.toFixed(3) : 0 };
+  }, min);
+  const prep = await ev(() => { const G = window.__odq.game; for (let i = 0; i < 30; i++) G.step(1 / 60); const bg = G.world.r.scene.background; return { t: G.time.text(), sky: [bg.r, bg.g, bg.b].map((v) => +v.toFixed(3)), dome: G.world.r.scene.getObjectByName('dawn-dome').visible }; });
+  ok(prep.t.startsWith('23') && !prep.dome && prep.sky[2] < 0.06, `${tag}: the preparation is closed night (${JSON.stringify(prep)})`);
+  const got = {};
+  for (const [name, min] of [['0100', 60], ['0430', 270], ['0530', 330], ['0559', 359]]) {
+    got[name] = await at(min);
+    if (OUT) await page.screenshot({ path: `${OUT}amanhecer-${name}-${tag}.png` });
+  }
+  const lum = (c) => c[0] * 0.3 + c[1] * 0.5 + c[2] * 0.2;
+  ok(lum(got['0100'].sky) < 0.04 && got['0100'].glow < 0.05, `${tag}: at 01:00 nothing has changed (${JSON.stringify(got['0100'])})`);
+  ok(lum(got['0430'].sky) < lum(got['0530'].sky) && lum(got['0530'].sky) < lum(got['0559'].sky) && got['0430'].glow < got['0530'].glow && got['0530'].glow < got['0559'].glow, `${tag}: the glow grows from 04:30 to 05:59 (${JSON.stringify(got)})`);
+  ok(lum(got['0559'].sky) < 0.12 && got['0559'].glow < 1.01, `${tag}: at 05:59 it is still dark, only a weak grey-blue (sky luminance ${lum(got['0559'].sky).toFixed(3)})`);
+  const lamp = await ev(() => { const G = window.__odq.game; G.inventory.flash.on = true; for (let i = 0; i < 20; i++) G.step(1 / 60); return G.lighting.litAt(8, 6); });
+  ok(lamp, `${tag}: the station's lights still count as light at 05:59`);
+  ok(errs.length === 0, `${tag}: console clean (dawn) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
 async function fullCheck(browser, base, kind, full) {
   const tag = kind === 'mobile' ? 'celular' : 'desktop';
   console.log(`\n== ${tag} ==`);
@@ -1677,7 +1917,7 @@ async function fullCheck(browser, base, kind, full) {
   await shot(page, `smoke-noite7-${tag}`);
   ok(errs.length === 0, `${tag}: console clean through the week turn (${errs.slice(0, 3).join(' | ')})`);
   await ctx.close();
-  if (!full) { await roundTwo(browser, base, kind, tag); await dropCheck(browser, base, kind, tag); await calcCheck(browser, base, kind, tag); await doorDropCheck(browser, base, kind, tag); await overlapCheck(browser, base, kind, tag); await prepCheck(browser, base, kind, tag); await tutorialCheck(browser, base, kind, tag); await hoseCheck(browser, base, kind, tag); await menuCheck(browser, base, kind, tag); return; }
+  if (!full) { await roundTwo(browser, base, kind, tag); await dropCheck(browser, base, kind, tag); await calcCheck(browser, base, kind, tag); await doorDropCheck(browser, base, kind, tag); await overlapCheck(browser, base, kind, tag); await prepCheck(browser, base, kind, tag); await tutorialCheck(browser, base, kind, tag); await phoneCheck(browser, base, kind, tag); await closingCheck(browser, base, kind, tag); await carCheck(browser, base, kind, tag); await reasonCheck(browser, base, kind, tag); await dawnCheck(browser, base, kind, tag); await hoseCheck(browser, base, kind, tag); await menuCheck(browser, base, kind, tag); return; }
 
   // ---- endings: 2 (the second goal lost, played) and 4 (the Sun reaches a player who stops in the dark)
   ({ page, errs, ctx } = await openPage(browser, base, kind, 'debug=miss:1,day:12&manual&silent&skiptutorial&nointro'));
@@ -1709,6 +1949,11 @@ async function fullCheck(browser, base, kind, full) {
   await smallChecks(browser, base, kind, tag);
   await prepCheck(browser, base, kind, tag);
   await tutorialCheck(browser, base, kind, tag);
+  await phoneCheck(browser, base, kind, tag);
+  await closingCheck(browser, base, kind, tag);
+  await carCheck(browser, base, kind, tag);
+  await reasonCheck(browser, base, kind, tag);
+  await dawnCheck(browser, base, kind, tag);
   await lastNightCheck(browser, base, kind, tag);
   await soundPeak(browser, base);
   await strangeCheck(browser, base, kind, tag);
@@ -1737,6 +1982,11 @@ try {
   else if (ARGS[0] === '--overlap') { await overlapCheck(browser, base, 'desktop', 'desktop'); await overlapCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--small') { await smallChecks(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--prep') { await prepCheck(browser, base, 'desktop', 'desktop'); await prepCheck(browser, base, 'mobile', 'celular'); await tutorialCheck(browser, base, 'desktop', 'desktop'); await tutorialCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--phone') { await phoneCheck(browser, base, 'desktop', 'desktop'); await phoneCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--closing') { await closingCheck(browser, base, 'desktop', 'desktop'); await closingCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--cars') { await carCheck(browser, base, 'desktop', 'desktop'); await carCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--dawn') { await dawnCheck(browser, base, 'desktop', 'desktop'); await dawnCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--reasons') { await reasonCheck(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--last') { await lastNightCheck(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--strange') { await strangeCheck(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--scare') { await soundPeak(browser, base); await scareCheck(browser, base, 'desktop', 'desktop'); }

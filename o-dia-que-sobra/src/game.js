@@ -28,6 +28,7 @@ import { createSecrets } from './systems/secrets.js';
 import { createGoals } from './systems/goals.js';
 import { getNav } from './systems/nav.js';
 import { createPrep } from './systems/prep.js';
+import { createClosing } from './systems/closing.js';
 import { createHoses } from './systems/hoses.js';
 import { mulberry32 } from './rng.js';
 import { createCoffee } from './systems/coffee.js';
@@ -35,6 +36,7 @@ import { createMirror } from './systems/mirror.js';
 import { createEntity } from './systems/entity.js';
 import { createKit } from './systems/events/kit.js';
 import { createSaveSystem } from './systems/save.js';
+import * as snapshot from './systems/snapshot.js';
 import { createAudioSystem } from './systems/audio.js';
 import { createUI } from './ui.js';
 import { showAttract } from './title.js';
@@ -103,7 +105,7 @@ export async function createGame({ root, render, input, params }) {
   const sanity = createSanity(bus, { opts });
   const progression = createProgression(bus, { rules });
   const inventory = createInventory(bus, { world, render, items: data.items, stock: progression.st });
-  const lighting = createLighting(bus, { world, render, player, flash: () => inventory.flash, opts });
+  const lighting = createLighting(bus, { world, render, player, flash: () => inventory.flash, opts, hours: () => (state === 'play' && time.minutes > 0 ? time.minutes / 60 : 0) });
   const audioSys = createAudioSystem(bus, { world, player, lighting, mod: audioMod, opts });
   const save = createSaveSystem(bus, { progression, storage: (params.debug || Object.keys(dbg).length) ? debugStorage() : undefined });
   const cash = createCash(bus, { items: data.items });
@@ -115,7 +117,7 @@ export async function createGame({ root, render, input, params }) {
     if (st === 'denied') { opts.gyro = false; saveOpts(opts); ui.toast('O giroscópio não foi liberado.'); }
   };
   if (opts.gyro && input.tilt) input.tilt.enable().then((got) => { if (!got) { opts.gyro = false; saveOpts(opts); } });
-  let lastDevice = 'keyboard', tick = 0, simT = 0, state = 'title', modalCount = 0, lastPauseAt = -1e9, nightSeedNow = 1;
+  let lastDevice = 'keyboard', tick = 0, simT = 0, state = 'title', modalCount = 0, lastPauseAt = -1e9, nightSeedNow = 1, restoreSeed = null, saveNote = '', pendingDayoff = null;
   const glyph = (k) => ({ tap: { keyboard: 'E', gamepad: 'A', touch: 'TOQUE' }, hold: { keyboard: 'SEGURE E', gamepad: 'SEGURE A', touch: 'SEGURE' } }[k][input.device()] || 'E');
   let fx = sanity.fx(0);
 
@@ -140,7 +142,7 @@ export async function createGame({ root, render, input, params }) {
       cal: progression.calendar(), weekNow: progression.st.weekPts + progression.night.pontos, meta: progression.weekRules().meta,
       tasks: tasks.list, perf: progression.night, undone: tasks.undone(),
       blank: medication.active('concentracao') && Math.floor(simT / 7) % 2 === 1, mind: fx.mind,
-      orders: goals.orders(), goalKey: goals.key, prep: prep.text(),
+      orders: goals.orders(), goalKey: goals.key, prep: prep.text(), closing: closing.text(),
       pickHint: { keyboard: 'Tab escolhe o objetivo', gamepad: '\u25C4 \u25BA escolhe o objetivo', touch: 'toque numa linha para marcar' }[input.device()] || '',
       fuels: Object.values(data.items.combustiveis).map((f) => ({ nome: f.nome, cor: f.cor })),
     }),
@@ -154,7 +156,7 @@ export async function createGame({ root, render, input, params }) {
     interaction.register({
       id: 'porta-' + id, reach: 2.4, priority: -0.5,
       aim: () => ({ box: world.aimBox(id, 0.05) }),
-      enabled: () => true,
+      enabled: () => !world.shut.has(id),
       label: () => ({ text: id === 'porta-deposito' && !secrets.depositoOpen() ? 'Porta do depósito (trancada)' : entity.locked.has(id) ? 'Porta trancada' : world.doorOpen(id) ? 'Fechar a porta' : 'Abrir a porta' }),
       tap: () => {
         if (entity.locked.has(id)) return bus.emit('hint', 'Trancada por dentro. Destranque pelo outro botão.');
@@ -166,7 +168,7 @@ export async function createGame({ root, render, input, params }) {
   const customers = createCustomers(bus, { device: () => input.device(), keyFails: () => sanity.keyFails(), world, render, interaction, inventory, progression, ui, time, sanityFx: () => fx, sanityValue: () => sanity.value, data, cash, player, traffic });
   const tasks = createTasks(bus, { world, render, interaction, inventory, progression, player, data, time, cash });
   const chores = createChores(bus, { world, render, interaction, inventory, progression, player, data, tasks, customers });
-  tasks.attach(chores, customers); customers.attach(chores);
+  tasks.attach(chores, customers); customers.attach(chores, tasks);
   const goals = createGoals(bus, { world, render, player, tasks, customers, chores, inventory, progression, ui, lastNight: rules.campanha.ultimaNoite });
   const office = createOffice(bus, { world, render, interaction, ui, time, progression, tasks, cash, data, inventory });
   const cameras = createCameras(bus, { render, world, ui, time, sanity, input, data, player, interaction, office, lighting, progression });
@@ -186,7 +188,9 @@ export async function createGame({ root, render, input, params }) {
   const events = await createEvents(bus, { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
   const hoses = createHoses({ world, render, inventory, customers, player });
   const prep = createPrep(bus, { world, render, interaction, time, tasks, chores, progression, ui, narrative, customers, goals });
-  const shift = createShift(bus, { prep, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
+  const closing = createClosing(bus, { world, render, interaction, time, tasks, progression, ui, customers, narrative, goals, inventory, chores, cash, data, lastNight: rules.campanha.ultimaNoite });
+  tasks.attachClosing(closing);
+  const shift = createShift(bus, { prep, closing, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
 
   // on the phone the passing lines (the teaching, the hints, the speech, how to let go) sit in one place above the thumbs (mobile.css);
   // the objective of the night stays at the top, under the clock
@@ -199,7 +203,7 @@ export async function createGame({ root, render, input, params }) {
   bus.on('shift:closed', (summary, week, choice) => campaign.onClosed(summary, week, choice));
   bus.on('time:hour', () => ui.setCalendar(calText()));
   bus.on('time:minute', () => { if (state === 'play') ui.setClock(time.text()); });
-  bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); ui.setPrep(prep.text()); });
+  bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); ui.setPrep(prep.text() || closing.text()); });
   // what the hands hold and how to let go of it, on the screen, for the device in use
   const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco', 'entrega']);
   const dropText = () => ({ keyboard: 'Soltar: E em lugar vazio', gamepad: 'Soltar: A em lugar vazio', touch: 'Soltar: toque em lugar vazio' }[input.device()] || 'Soltar: E em lugar vazio');
@@ -231,11 +235,12 @@ export async function createGame({ root, render, input, params }) {
     const hasRun = save.hasRun();
     const run = save.card.data.run;
     const items = [];
-    if (hasRun) items.push({ label: () => (run.fase === 'folga' ? `CONTINUAR  (FOLGA, SEMANA ${progression.weekOf(run.day - 1)})` : run.fase === 'fim' ? 'CONTINUAR  (O FIM)' : `CONTINUAR  (SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day})`), act: () => continueRun() });
+    if (hasRun) items.push({ label: () => (run.fase === 'folga' ? `CONTINUAR  (FOLGA, SEMANA ${progression.weekOf(run.day - 1)})` : run.fase === 'fim' ? 'CONTINUAR  (O FIM)' : `CONTINUAR  (SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}${run.snap && run.snap.v === snapshot.SNAP_VERSION ? ' · ' + snapshot.clockText(run.snap.minutes) : ''})`), act: () => continueRun() });
     items.push({ label: () => (hasRun ? 'NOVO JOGO' : 'COMEÇAR'), act: () => (hasRun ? confirmNew() : newCampaign()) });
     items.push({ label: () => 'OPÇÕES', act: () => optionsScreen(showTitle) });
     items.push({ label: () => 'CONTROLES', act: () => ui.controlsScreen(showTitle) });
-    items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, showTitle) });
+    items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, showTitle, cardRows(showTitle)) });
+    items.push({ label: () => 'IMPORTAR CARTÃO', act: () => importCard(showTitle) });
     const openMenu = () => ui.menu({
       title: 'O DIA QUE SOBRA', subtitle: 'Posto Bom Dia · Um novo dia sempre começa com um sorriso!',
       lines: titleLines, items, foot: () => `Semente do jogo: ${baseSeed}  (?seed=N)`,
@@ -244,7 +249,7 @@ export async function createGame({ root, render, input, params }) {
     // Tests (?manual, ?debug, ?nointro) and ?notitle go straight to the menu.
     if (!attractDone && !skipAttract) {
       attractDone = true;
-      const saved = !hasRun ? null : run.fase === 'folga' ? 'CONTINUAR · FOLGA' : run.fase === 'fim' ? 'CONTINUAR · O FIM' : `CONTINUAR · SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}`;
+      const saved = !hasRun ? null : run.fase === 'folga' ? 'CONTINUAR · FOLGA' : run.fase === 'fim' ? 'CONTINUAR · O FIM' : `CONTINUAR · SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}${run.snap && run.snap.v === snapshot.SNAP_VERSION ? ' · ' + snapshot.clockText(run.snap.minutes) : ''}`;
       attractAt = simT; attractNext = openMenu;
       attract = showAttract({ root, saved, onStart: leaveAttract });
       attract.setDevice(attractDevice());
@@ -435,7 +440,7 @@ export async function createGame({ root, render, input, params }) {
   }
   /** `chegada` then `gerente`. Holding Esc, Start or the PULAR button for a second skips what is playing and the rest of the intro. */
   async function playIntro() {
-    state = 'cutscene'; time.pause(); shift.abort(); audioSys.stopAmbient();
+    state = 'cutscene'; time.pause(); shift.abort(); audioSys.stopAmbient(); lighting.dawnOff();
     ui.closeModal(); modalCount = 0; ui.hideHud(true); ui.toggleSheet(false);
     input.setMode('ui', render.canvas);
     try {
@@ -455,9 +460,96 @@ export async function createGame({ root, render, input, params }) {
     if (!run) { newCampaign(); return; }
     progression.fromRun(run);
     ui.closeModal(); modalCount = 0;
+    pendingDayoff = run.snap && run.snap.type === 'folga' && run.snap.v === snapshot.SNAP_VERSION ? run.snap : null;
     if (campaign.resume(run)) return;
-    startNight(run.day, false, true);
+    pendingDayoff = null;
+    const snap = run.snap && run.snap.type !== 'folga' && run.snap.v === snapshot.SNAP_VERSION && run.snap.day === run.day ? run.snap : null;
+    if (snap) restoreSaved(snap);
+    else startNight(run.day, false, true);
   }
+  // ------------------------------------------------------------------ "save now", and the card as a file (systems/snapshot.js)
+  const snapSys = () => ({
+    bus, ui, time, progression, sanity, inventory, medication, cash, player, tasks, chores, customers, goals, narrative, events, prep, closing, office, world, shift, data,
+    nightSeed: nightSeedNow, baseSeed, entity, dayoff, state,
+    refresh: () => { ui.setClock(time.text()); ui.setCalendar(calText()); ui.setPrep(prep.text() || closing.text()); ui.showInventory(); },
+  });
+  /** Opens the saved night from its seed, then lays the saved moment over it. */
+  function restoreSaved(snap) {
+    restoreSeed = Number.isFinite(snap.seed) ? snap.seed : null;
+    startNight(snap.day, false, true);
+    let notes = [];
+    try { notes = snapshot.restoreNight(snapSys(), snap).notes; } catch (e) { console.error('restore', e); ui.toast('Algo do salvamento não voltou.'); }
+    ui.coach(null);
+    ui.toast(`Noite retomada às ${time.text()}.`);
+    restoreNotes = notes;
+  }
+  let restoreNotes = [];
+  /** The pause's "save now": one saved moment per night (the next one replaces it). */
+  function saveNow() {
+    // the day off: the bills paid and left, the purchases, the messages heard, the money and where Heitor stands; `paidSum` and `billsPaid` come
+    // with it so that what was paid is not charged again when the day off ends
+    if (state === 'dayoff') {
+      if (!dayoff || !dayoff.snapshotState) return report(false, '');
+      const st = progression.st, next = st.day + 1;
+      const snap = { v: snapshot.SNAP_VERSION, type: 'folga', day: next, slots: inventory.slots.slice(0, 4).map((q) => q || null), sel: inventory.sel, paidSum: st.paidSum, billsPaid: [...st.billsPaid], dayoff: dayoff.snapshotState(), debug: snapshot.debugBlock(snapSys()) };
+      return report(save.saveNow(snap, { day: next, week: progression.weekOf(next), fase: 'folga', fim: 0 }), `FOLGA · SEMANA ${progression.weekOf(st.day)} · ${dayoff.clock}`);
+    }
+    const why = snapshot.whyNotNow({ progression, shift, cash, medication });
+    if (why) { saveNote = why; ui.redrawModal(); return false; }
+    const snap = snapshot.captureNight(snapSys());
+    return report(save.saveNow(snap), `SEMANA ${progression.st.week} · NOITE ${progression.st.day} · ${time.text()}`);
+  }
+  function report(ok, what) {
+    saveNote = ok ? `Salvo: ${what}.` : 'Não foi possível salvar neste navegador.';
+    bus.emit('sfx', ok ? 'ui_ok' : 'ui_voltar', {});
+    ui.redrawModal();
+    return ok;
+  }
+  const isDebugCard = () => Boolean(params.debug || Object.keys(dbg).length);
+  /** "EXPORTAR CARTÃO": the whole card of this browser as a .json file (a download; on a phone the share sheet is a second row). */
+  function exportCard(share = false) {
+    const card = snapshot.readStoredCard(save.storage, save.key);
+    if (!card) { saveNote = 'O cartão está vazio: nada para exportar.'; ui.redrawModal(); return false; }
+    let live = null;
+    if (state === 'pause' || state === 'dayoff') { try { live = snapshot.debugBlock(snapSys()); } catch (e) { console.warn('debug block', e.message); } }
+    const text = snapshot.buildExport(card, { debug: isDebugCard(), seed: baseSeed, state: live });
+    const name = snapshot.fileName(isDebugCard());
+    if (share) snapshot.shareText(name, text).then((ok) => { saveNote = ok ? 'Cartão compartilhado.' : 'Este aparelho não compartilha arquivos.'; ui.redrawModal(); });
+    else { snapshot.downloadText(name, text); saveNote = `Cartão exportado: ${name}`; ui.redrawModal(); }
+    return true;
+  }
+  const notice = (title, lines, back) => ui.menu({ title, lines, items: [{ label: () => 'VOLTAR', act: back }], onBack: back });
+  /** "IMPORTAR CARTÃO": choose a file, check it, ask, and only then replace the card of this browser. */
+  async function importCard(back) {
+    const f = await snapshot.pickFile();
+    if (!f) return;
+    if (f.text === null) return notice('CARTÃO RECUSADO', ['O arquivo é grande demais ou não pôde ser lido.', 'Nada foi apagado.'], back);
+    const res = snapshot.parseCardFile(f.text, f.size, { lastNight: rules.campanha.ultimaNoite });
+    if (!res.ok) return notice('CARTÃO RECUSADO', [res.reason, 'Nada foi apagado.'], back);
+    const extra = res.header.debug && !isDebugCard() ? ['Este arquivo veio do cartão de testes.'] : !res.header.debug && isDebugCard() ? ['Este arquivo veio do cartão de verdade; aqui ele vai para o cartão de testes.'] : [];
+    ui.menu({
+      title: 'IMPORTAR CARTÃO', subtitle: f.name.slice(0, 48),
+      lines: [snapshot.describeCard(res.card), ...extra, 'Isto substitui o cartão deste navegador.'],
+      items: [
+        { label: () => 'NÃO, VOLTAR', act: back },
+        { label: () => 'SIM, SUBSTITUIR', act: () => {
+          const ok = snapshot.writeCard(save.storage, save.key, res.card);
+          if (!ok) return notice('CARTÃO RECUSADO', ['Não foi possível gravar neste navegador.', 'Nada foi apagado.'], back);
+          save.card.reload();
+          if (state === 'pause') { ui.closeModal(); modalCount = 0; }
+          showTitle();
+          ui.toast('Cartão importado.');
+        } },
+      ],
+      onBack: back, cls: 'wide',
+    });
+  }
+  /** The two rows under the blocks of the card screen. */
+  const cardRows = (back) => [
+    { label: 'EXPORTAR CARTÃO', hint: 'Baixa o cartão inteiro, com o salvamento, como um arquivo .json.', act: () => exportCard(false) },
+    ...(snapshot.canShareFile() ? [{ label: 'COMPARTILHAR CARTÃO', hint: 'Abre o compartilhar do aparelho com o arquivo do cartão.', act: () => exportCard(true) }] : []),
+    { label: 'IMPORTAR CARTÃO', hint: 'Escolhe um arquivo .json de cartão e o põe no lugar deste.', act: () => importCard(() => ui.cardScreen(save.card, back, cardRows(back))) },
+  ];
   /** from: the card (`fromCard`), a new run (default), or what is in memory already (`keep`: the next night of the run that is going on). */
   function startNight(day, tutorial, fromCard, keep = false) {
     audioSys.init();
@@ -465,7 +557,7 @@ export async function createGame({ root, render, input, params }) {
     else if (!keep) { progression.newRun(); }
     progression.st.fase = 'noite'; progression.st.fim = 0;
     campaign.resetNight(); secrets.beginNight();
-    nightSeedNow = baseSeed * 100 + day;
+    nightSeedNow = restoreSeed ?? baseSeed * 100 + day; restoreSeed = null;      // (a saved moment keeps the seed of its night, whatever ?seed says now)
     ui.closeModal();
     state = 'play'; modalCount = 0;
     ui.hideHud(false);
@@ -481,15 +573,17 @@ export async function createGame({ root, render, input, params }) {
     if (state !== 'play' || ui.modalOpen) return;
     if (performance.now() - lastPauseAt < 200) return;
     lastPauseAt = performance.now();
-    state = 'pause'; time.pause();
+    state = 'pause'; time.pause(); saveNote = '';
     const back = () => { resume(); };
     const root_ = () => ui.menu({
-      title: 'PAUSA', lines: ['Sair para o título perde a noite em andamento.'], foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()} · Semente ${nightSeedNow}`,
+      title: 'PAUSA', lines: () => [saveNote || 'Sair para o título perde o que não foi salvo agora.'], foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()} · Semente ${nightSeedNow}`,
       items: [
         { label: () => 'CONTINUAR', act: back },
+        { label: () => 'SALVAR AGORA', act: () => saveNow() },
         { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
-        { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_) },
+        { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_, cardRows(root_)) },
+        { label: () => 'EXPORTAR CARTÃO', act: () => exportCard(false) },
         { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
         { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
       ],
@@ -537,16 +631,20 @@ export async function createGame({ root, render, input, params }) {
     if (state !== 'dayoff' || ui.modalOpen) return;
     const back = () => ui.closeModal();
     const root_ = () => ui.menu({
-      title: 'PAUSA', lines: ['Sair para o título guarda a folga: ela recomeça depois.'], foot: () => `Folga · semana ${progression.weekOf(progression.st.day)} · Semente ${baseSeed}`,
+      title: 'PAUSA', lines: () => [saveNote || 'Sair para o título guarda a folga: ela recomeça depois.'], foot: () => `Folga · semana ${progression.weekOf(progression.st.day)} · Semente ${baseSeed}`,
       items: [
         { label: () => 'CONTINUAR', act: back },
+        { label: () => 'SALVAR AGORA', act: () => saveNow() },
         { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
+        { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_, cardRows(root_)) },
+        { label: () => 'EXPORTAR CARTÃO', act: () => exportCard(false) },
         { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
         { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
       ],
       onBack: back,
     });
+    saveNote = '';
     root_();
   });
   // the manager's message that he says he never left (week 3): the next 05:50 call mentions it
@@ -554,13 +652,22 @@ export async function createGame({ root, render, input, params }) {
   // without the day off's own file the week still turns: the sleep is counted as done
   bus.on('dayoff:start', (e) => {
     ui.setCalendar(`FOLGA \u00B7 SEMANA ${e.week}`); ui.setClock(dayoff?.clock || null);
-    if (dayoff) { dayoff.start({ ...e, seed: baseSeed * 100 + e.week }); return; }     // the day off starts from this event (its own contract: `start(info)`)
+    if (dayoff) {
+      const saved = pendingDayoff; pendingDayoff = null;
+      Promise.resolve(dayoff.start({ ...e, seed: saved?.dayoff?.seed ?? baseSeed * 100 + e.week })).then(() => {
+        if (!saved) return;
+        progression.st.paidSum = Number(saved.paidSum) || 0; progression.st.billsPaid = [...(saved.billsPaid || [])];
+        for (let i = 0; i < 4; i++) inventory.slots[i] = saved.slots?.[i] || null;
+        dayoff.restoreState(saved.dayoff); ui.setClock(dayoff.clock); ui.toast('Folga retomada.');
+      });
+      return;
+    }     // the day off starts from this event (its own contract: `start(info)`)
     if (dayoff === false && !globalThis.__odqDayoffStub) Promise.resolve().then(() => bus.emit('dayoff:end', { sanidade: Math.min(100, e.sanidade + 40) }));
   });
 
   // the endings: the cutscene `final<id>` (src/cutscenes) when there is one, then `ending:done` and the screen of the ending
   bus.on('ending', async ({ id }) => {
-    state = 'ending'; time.pause(); shift.abort(); audioSys.stopAmbient(); entity.reset();
+    state = 'ending'; time.pause(); shift.abort(); audioSys.stopAmbient(); entity.reset(); lighting.dawnOff();
     ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null); ui.closeModal(); modalCount = 0;
     input.setMode('ui', render.canvas);
     const done = () => bus.emit('ending:done', { id });
@@ -641,7 +748,7 @@ export async function createGame({ root, render, input, params }) {
     ui.update(dt);
     if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); bus.emit('carry', inventory.carry); }   // (the let-go hint follows the device in use)
     simT += dt;
-    if (state === 'play' && tick % 20 === 0) { ui.setClock(time.text()); ui.setPrep(prep.text()); }
+    if (state === 'play' && tick % 20 === 0) { ui.setClock(time.text()); ui.setPrep(prep.text() || closing.text()); }
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
     if (state === 'ending' || state === 'cutscene') return;
     if (state === 'title') { titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
@@ -663,6 +770,7 @@ export async function createGame({ root, render, input, params }) {
     inventory.hand.position.set(0.3 + Math.sin(simT * 11.3) * fx.hand, -0.3 + Math.sin(simT * 8.7 + 1) * fx.hand, -0.6);
     tasks.update(dt);
     chores.update(dt);
+    closing.update();
     traffic.update(dt);
     customers.update(dt, simT);
     narrative.update(dt);
@@ -681,6 +789,9 @@ export async function createGame({ root, render, input, params }) {
     audioSys.update();
     ui.setFx({ vignette: fx.vignette, aimX: fx.aimX, aimY: fx.aimY, filter: fx.filter, lid: fx.lid, black: fx.black });
   }
+  /** A door that stays shut for the player: the old storeroom's before it is open to them, a room locked from inside, the shop's at closing. */
+  const doorLocked = (id) => entity.locked.has(id) || world.shut.has(id) || (id === 'porta-deposito' && !secrets.depositoOpen());
+  world.isLocked = doorLocked;
   // ---- the phone: a tap on the floor walks there; the actions, the hand and the hiding place on its layer ----
   let mobilePrompt = null, walkTo = null, aiming = null, handT = 0, beatT = 0;
   const _v = new render.THREE.Vector3(), _ray = new render.THREE.Raycaster(), _ndc = new render.THREE.Vector2();
@@ -722,7 +833,7 @@ export async function createGame({ root, render, input, params }) {
       cand.push(...ring.slice(0, 3));
     }
     let route = null;
-    for (const t of cand.slice(0, 10)) { route = nav.path({ x: st.x, z: st.z }, { x: t.x, z: t.z }); if (route && route.length) break; route = null; }
+    for (const t of cand.slice(0, 10)) { route = nav.path({ x: st.x, z: st.z }, { x: t.x, z: t.z }, { doors: (d) => !doorLocked(d) }); if (route && route.length) break; route = null; }
     if (!route) { ui.toast('Não dá para chegar lá por aqui.'); return false; }
     walkTo = { route, i: 0, t: 0, best: Infinity, still: 0, aim };
     aiming = null;
@@ -772,7 +883,7 @@ export async function createGame({ root, render, input, params }) {
     while (walkTo.i < route.length - 1 && Math.hypot(wp.x - st.x, wp.z - st.z) < 0.45) { walkTo.i++; walkTo.best = Infinity; walkTo.still = 0; wp = route[walkTo.i]; }
     // a closed door on the way: it opens as the player comes near (the player would open it by hand anyway)
     for (const id of wp.doors || []) {
-      const c = world.doors?.[id]?.collider; if (!c || world.doorOpen(id)) continue;
+      const c = world.doors?.[id]?.collider; if (!c || world.doorOpen(id) || doorLocked(id)) continue;
       const cx = (c.min[0] + c.max[0]) / 2, cz = (c.min[2] + c.max[2]) / 2;
       if (Math.hypot(cx - st.x, cz - st.z) < 1.8) { world.setDoor(id, 1); bus.emit('sfx', 'porta_abre', { pos: [cx, 1.2, cz] }); }
     }
@@ -873,7 +984,8 @@ export async function createGame({ root, render, input, params }) {
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
     bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, cameras, shift, save, ui, audioSys, data,
-    opts, goals, prep, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
+    opts, goals, prep, closing, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
+    saveNow, exportCard, importCard, snapshot, get restoreNotes() { return restoreNotes; },
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; },
   };
   return api;

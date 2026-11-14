@@ -1,6 +1,7 @@
 // ShiftSystem: opens and closes the night. The shift runs from 00:00 to 06:00 (90 s per hour). No new
-// customers arrive after 05:40. At 05:50 the manager phones (the narrative system rings it). At 06:00 the
-// clock stops and the till is closed: the player counts the drawer, then the register's report is shown
+// customers arrive after 05:00, when the closing hour begins (closing.js: the clock slows to 3 real minutes, the shop door, the yard light and
+// the sign are shut off). At 05:50 the manager phones (the narrative system rings it). The till is closed once the closing is done (or at 06:00,
+// when the clock stops): the player counts the drawer, then the register's report is shown
 // against it; a difference counts. Closing the till ends the night: the tasks not done are added up, the
 // manager closes the call, the night is saved on the card, and the summary shows the whole performance. The campaign rides on this:
 // the night's points go to the week, the sixth night closes the week (goal, salary) before the save, and the last night (24) does not
@@ -14,7 +15,7 @@ import { PREP_FROM } from './prep.js';
 const label = (v) => (v >= 100 ? `R$ ${v / 100}` : `${String(v).padStart(2, '0')} cent.`);
 
 export function createShift(bus, d) {
-  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep } = d;
+  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep } = d, closeHour = d.closing;
   let open = false, closing = false, rng = mulberry32(1), counting = false, doubled = false;
   const lastNight = rules.campanha.ultimaNoite;
   const endMin = time.parse(rules.expediente.fim), noNewMin = time.parse(rules.expediente.semClientesApos);
@@ -28,7 +29,7 @@ export function createShift(bus, d) {
   });
   bus.on('time:minute', (m) => {
     if (!open) return;
-    if (m === noNewMin) customers.enable(false);
+    if (m === noNewMin) { customers.enable(false); closeHour.start(); }
   });
   bus.on('time:cap', () => {
     if (!open || closing) return;
@@ -39,17 +40,19 @@ export function createShift(bus, d) {
       return;
     }
     customers.enable(false); customers.closeDown();        // whoever is still here goes; the closing is never held by a customer
-    ui.setObjective('Seis horas. Termine os atendimentos e feche o caixa, na registradora.');
+    ui.setObjective('Seis horas. Feche o caixa, na registradora (o que faltou do fechamento conta como não feito).');
     bus.emit('sfx', 'ui_ok', {});
   });
   bus.on('cash:close-request', () => closeCash());
 
   const servedAll = () => customers.blocking().length === 0;
+  const startMsg = () => closeHour.missing();
 
   /** Counts the drawer: first the player's count, then the register's report against it. */
   async function closeCash() {
     if (!open || closing || counting || cash.closed) return;
     if (!servedAll()) { bus.emit('hint', 'Termine os atendimentos antes de fechar o caixa.'); return; }
+    const why = startMsg(); if (why) { bus.emit('hint', why); return; }
     counting = true;
     const pile = [];
     for (const dn of DENOMS) if (cash.have(dn) > 0) pile.push([label(dn), `×${cash.have(dn)}`]);
@@ -90,7 +93,7 @@ export function createShift(bus, d) {
       closing = false; counting = false; open = true; doubled = false; rng = mulberry32(seed * 11 + day);
       progression.startNight(day, seed);
       sanity.reset(startOfNight(rules, day, progression.st.sanBase), seed);
-      customers.clear(); chores.clear(); tasks.clear(); events.reset(); cash.reset(); office.reset();
+      customers.clear(); chores.clear(); tasks.clear(); events.reset(); cash.reset(); office.reset(); closeHour.begin();
       customers.beginNight(seed, day);
       inventory.slots.splice(0, 4, 'lanterna', 'pilha', 'pilha', progression.st.pilhasExtra > 0 ? 'pilha' : null); if (progression.st.pilhasExtra > 0) progression.st.pilhasExtra--; inventory.flash.charge = inventory.flash.max; inventory.flash.on = false; inventory.clearCarry();
       medication.beginNight(); coffee.reset(); mirror.reset();
@@ -120,7 +123,7 @@ export function createShift(bus, d) {
         erros: n.erros, reclamacoes: n.reclamacoes, divergencia: n.divergencia, caixa: n.caixa, ocorrencias: n.ocorrencias, carteira: Math.round(progression.st.wallet * 100) / 100,
         lista: tasks.list.map((t) => ({ texto: t.text.replace(/\s*\[.*$/, ''), feita: t.done })), registros: office.summary(), recorrentes,
       };
-      progression.st.tutorialDone = true; ui.setObjective(null); customers.clear(); chores.clear(); tasks.clear();
+      progression.st.tutorialDone = true; ui.setObjective(null); customers.clear(); chores.clear(); tasks.clear(); closeHour.finish();
       // the campaign: the night's points go to the week; the sixth night closes it (goal, salary, dismissal), all before the save
       progression.closeNight(n.pontos);
       const week = day % rules.campanha.noitesPorSemana === 0 ? progression.closeWeek() : null;
@@ -134,7 +137,7 @@ export function createShift(bus, d) {
       const choice = await ui.showSummary({ ...summary, saved: ok, next: day + 1, flags: progression.st.flags, cal, weekClosed: Boolean(week), weekPts: week ? week.pts : progression.st.weekPts, meta: r.meta, last: cal.last });
       bus.emit('shift:closed', summary, week, choice);
     },
-    abort() { prep.abort(); open = false; doubled = false; closing = false; counting = false; time.pause(); narrative.endNight(); customers.clear(); customers.enable(false); chores.clear(); tasks.clear(); events.reset(); },
+    abort() { prep.abort(); closeHour.abort(); open = false; doubled = false; closing = false; counting = false; time.pause(); narrative.endNight(); customers.clear(); customers.enable(false); chores.clear(); tasks.clear(); events.reset(); },
   };
   return this_;
 }
