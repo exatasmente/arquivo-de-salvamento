@@ -53,8 +53,6 @@
     font: clamp(20px, 5.2vw, 40px)/1.25 var(--pixel); margin: 18px 0 16px; color: var(--sun);
     text-shadow: 3px 3px 0 #7a3a00;
   }
-  .blink { animation: blink 1.1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
 
   .slots { display: grid; gap: 24px; margin: 36px 0 8px; }
   .slot {
@@ -74,6 +72,7 @@
   .hook { margin: 0; color: var(--sun); font-size: 24px; }
   .desc { margin: 0; color: var(--muted); }
   .status { font: 19px/1.2 var(--term); color: var(--muted); letter-spacing: .06em; }
+  .status b { white-space: nowrap; }
   .status b { color: var(--text); font-weight: normal; }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 4px; }
   .btn {
@@ -116,7 +115,6 @@
     h2 { font-size: 14px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .blink { animation: none; }
     .btn:hover, .btn:active { transform: none; }
   }
 </style>
@@ -139,7 +137,7 @@
           <h2>RINHA</h2>
           <p class="hook">As criaturas que a gente capturava para lutar agora capturam a gente.</p>
           <p class="desc">Você saiu de casa com fome, atrás de maçãs, e acordou numa cela. Sete lutas até o Campeão da Rinha.</p>
-          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>COMPLETO</b></div>
+          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>7 LUTAS</b></div>
           <div class="actions">
             <a class="btn" href="rinha/">JOGAR ▶</a>
             <a class="btn alt" href="https://youtu.be/JX5kI8xQINc">ASSISTIR</a>
@@ -149,6 +147,7 @@
             <ul class="videos">
               <li><a href="https://youtu.be/JX5kI8xQINc">Quanto custa uma maçã?</a></li>
               <li><a href="https://youtube.com/shorts/x_AhxWZpyrE">Quanto custa uma maçã? (parte 1, Short)</a></li>
+              <li><a href="https://youtube.com/shorts/RYriWfLZJUU">Quanto custa uma maçã? (parte 2, Short)</a></li>
             </ul>
           </details>
         </div>
@@ -163,7 +162,7 @@
           <h2>O DIA QUE SOBRA</h2>
           <p class="hook">Quatro semanas de turno da madrugada num posto de gasolina.</p>
           <p class="desc">Abasteça, atenda, reponha, feche o caixa às seis. Algo no Posto Bom Dia não quer que a folga chegue. E não olhe muito tempo para a placa.</p>
-          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>SEMANA 1</b> <span class="blink">▮</span> EM CONSTRUÇÃO</div>
+          <div class="status">TECLADO · CONTROLE · TOQUE &nbsp;|&nbsp; <b>4 SEMANAS · 5 FINAIS</b></div>
           <div class="actions">
             <a class="btn" href="o-dia-que-sobra/">JOGAR ▶</a>
             <a class="btn alt" href="https://youtube.com/shorts/BiqFRosYJT8">ASSISTIR</a>

@@ -20,8 +20,8 @@ não olhe muito tempo para a placa.
 O jogo roda no navegador, no computador ou no celular, sem instalar nada. Teclado e mouse
 (`W` `A` `S` `D`, mouse para olhar, `E` para usar e segurar `E` para manipular, `F` lanterna,
 `Q` prancheta, `Esc` pausa), controle ou toque. O progresso fica salvo no cartão de memória do
-próprio navegador. Em construção: a primeira semana está completa; as semanas seguintes, as folgas
-e os finais estão chegando.
+próprio navegador. Completo: quatro semanas de turno com as folgas entre elas, cinco finais e
+segredos para quem presta atenção.
 
 ## Rinha
 
