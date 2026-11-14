@@ -5,7 +5,7 @@
 // The opening video of the Rinha is not kept: offline the game falls back to its real-time cutscenes.
 
 // precache:start
-const VERSION = 'f12ab6ad8a65';
+const VERSION = '6cf08bdfa567';
 const PRECACHE = [
   ["assets/o-dia-que-sobra.jpg", '17931a2396ad'],
   ["assets/og.jpg", '77776032a238'],
@@ -34,7 +34,7 @@ const PRECACHE = [
   ["./", '7605d1a0f181'],
   ["index.html", '7605d1a0f181'],
   ["manifest.webmanifest", '9d52ec584d6c'],
-  ["o-dia-que-sobra/data/cast.json", 'cd7b578aef25'],
+  ["o-dia-que-sobra/data/cast.json", 'ed13d0d829be'],
   ["o-dia-que-sobra/data/customers.json", '645310903ca7'],
   ["o-dia-que-sobra/data/dayoff.pt-BR.json", '25bdfaa325ef'],
   ["o-dia-que-sobra/data/dialogue.pt-BR.json", '2bd41d6d2a94'],
@@ -82,7 +82,7 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/entities.js", '62562c77310c'],
   ["o-dia-que-sobra/src/film-manifest.json", 'e1600ee10114'],
   ["o-dia-que-sobra/src/film.js", '3abc6c5539d5'],
-  ["o-dia-que-sobra/src/game.js", 'ace0179914d9'],
+  ["o-dia-que-sobra/src/game.js", '836887688aac'],
   ["o-dia-que-sobra/src/input.js", '8c4f6f7f6bdf'],
   ["o-dia-que-sobra/src/look.js", 'a25babe004bd'],
   ["o-dia-que-sobra/src/main.js", '4afdc21a8a29'],
@@ -108,8 +108,8 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/systems/campaign.js", '47693f780c32'],
   ["o-dia-que-sobra/src/systems/cash.js", '8a91c3c68719'],
   ["o-dia-que-sobra/src/systems/chores.js", 'f46e86ccdfeb'],
-  ["o-dia-que-sobra/src/systems/coffee.js", 'f323d31f6053'],
-  ["o-dia-que-sobra/src/systems/customers.js", '154dd59af4de'],
+  ["o-dia-que-sobra/src/systems/coffee.js", '2ded23be9633'],
+  ["o-dia-que-sobra/src/systems/customers.js", '11d8838caa1e'],
   ["o-dia-que-sobra/src/systems/dayoff.js", '35258f959a6d'],
   ["o-dia-que-sobra/src/systems/dropspot.js", 'a7701bb65efe'],
   ["o-dia-que-sobra/src/systems/entity.js", 'fdab832e5ff5'],
@@ -147,7 +147,7 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/systems/events/vulto-colado.js", 'c9344e367a31'],
   ["o-dia-que-sobra/src/systems/events/vulto-corredor.js", '48896e4a2ba0'],
   ["o-dia-que-sobra/src/systems/events/vulto.js", '56771d93ade8'],
-  ["o-dia-que-sobra/src/systems/goals.js", '63323acb947e'],
+  ["o-dia-que-sobra/src/systems/goals.js", 'b1d04a8d555f'],
   ["o-dia-que-sobra/src/systems/hoses.js", '9b1571ae3ca2'],
   ["o-dia-que-sobra/src/systems/interaction.js", 'b1598b2123bc'],
   ["o-dia-que-sobra/src/systems/inventory.js", 'e8ef43ffe32a'],

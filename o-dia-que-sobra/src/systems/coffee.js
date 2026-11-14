@@ -33,6 +33,17 @@ export function createCoffee(bus, { world, render, interaction, inventory, progr
       bus.emit('hint', 'O copo está quente. Toque no vazio para beber, ou ponha no balcão.');
     },
   });
+  // the coffee of a car order (the trucker, the couple...): taken for the customer, free for the player's pocket, carried to the window
+  interaction.register({
+    id: 'cafeteira-cliente', reach: 2.4, priority: 2,
+    aim: () => ({ box: world.aimBox('cafeteira', 0.12) }),
+    enabled: () => !inventory.carry && Boolean(customers.pendingOrderItem?.(true)),
+    label: () => { const o = customers.pendingOrderItem?.(true); return { text: o ? `Pegar um café para o cliente da bomba ${o.c.pump}` : 'Pegar um café para o cliente' }; },
+    tap: () => {
+      const o = customers.pendingOrderItem?.(true); if (!o || inventory.carry) return;
+      customers.takeOrderItem(o.c, o.i);
+    },
+  });
   inventory.dropHandlers.copo = () => {
     inventory.clearCarry();
     const h = Math.floor(time.minutes / 60);

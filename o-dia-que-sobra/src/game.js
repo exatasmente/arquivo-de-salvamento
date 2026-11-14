@@ -201,7 +201,7 @@ export async function createGame({ root, render, input, params }) {
   bus.on('time:minute', () => { if (state === 'play') ui.setClock(time.text()); });
   bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); ui.setPrep(prep.text()); });
   // what the hands hold and how to let go of it, on the screen, for the device in use
-  const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco']);
+  const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco', 'entrega']);
   const dropText = () => ({ keyboard: 'Soltar: E em lugar vazio', gamepad: 'Soltar: A em lugar vazio', touch: 'Soltar: toque em lugar vazio' }[input.device()] || 'Soltar: E em lugar vazio');
   bus.on('carry', (c) => ui.setCarryHint(c && DROPPABLE.has(c.kind) ? dropText() : null));
   bus.on('interact:none', (act) => {
@@ -682,7 +682,7 @@ export async function createGame({ root, render, input, params }) {
     ui.setFx({ vignette: fx.vignette, aimX: fx.aimX, aimY: fx.aimY, filter: fx.filter, lid: fx.lid, black: fx.black });
   }
   // ---- the phone: a tap on the floor walks there; the actions, the hand and the hiding place on its layer ----
-  let mobilePrompt = null, walkTo = null, handT = 0, beatT = 0;
+  let mobilePrompt = null, walkTo = null, aiming = null, handT = 0, beatT = 0;
   const _v = new render.THREE.Vector3(), _ray = new render.THREE.Raycaster(), _ndc = new render.THREE.Vector2();
   function walkToScreen(x, y) {
     if (state !== 'play' || entity.hidden) return false;
@@ -702,39 +702,58 @@ export async function createGame({ root, render, input, params }) {
    * inside something (a wall, a shelf, the counter) walks to the nearest free spot next to it; a point that cannot be
    * reached at all (a locked door, behind glass with no way round) answers false and nothing moves.
    */
-  function planWalk(px, pz) {
+  function planWalk(px, pz, stands = [], aim = null) {
     const nav = getNav(world, player), st = player.st, R = 0.34;
-    let tx = px, tz = pz;
-    if (nav.solidAt(tx, tz, R)) {
-      let best = null;
-      for (let r = 0.4; r <= 2.6 && !best; r += 0.3) {
-        for (let i = 0; i < 16; i++) {
-          const a = (i / 16) * Math.PI * 2, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
-          if (nav.solidAt(x, z, R)) continue;
-          const d = Math.hypot(x - st.x, z - st.z);
-          if (!best || d < best.d) best = { x, z, d };
-        }
+    // a vehicle (parked at a pump, or on its way) is a solid for the player too, but the nav keeps it out of its static graph
+    const vehicles = world.colliders.filter((c) => c.vehicle && c.enabled !== false);
+    const blocked = (x, z) => Boolean(nav.solidAt(x, z, R)) || vehicles.some((c) => x > c.min[0] - R - 0.12 && x < c.max[0] + R + 0.12 && z > c.min[2] - R - 0.12 && z < c.max[2] + R + 0.12);
+    // the places to try, best first: where to stand for the thing (if the caller knows), the point itself, then free spots round it
+    // (the nearest ring first, on the player's side of it)
+    const cand = [];
+    for (const s of stands) if (s && !blocked(s.x, s.z)) cand.push({ x: s.x, z: s.z });
+    if (!blocked(px, pz)) cand.push({ x: px, z: pz });
+    for (let r = 0.4; r <= 3.4 && cand.length < 10; r += 0.3) {
+      const ring = [];
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
+        if (!blocked(x, z)) ring.push({ x, z, d: Math.hypot(x - st.x, z - st.z) });
       }
-      if (!best) return false;
-      tx = best.x; tz = best.z;
+      ring.sort((u, v) => u.d - v.d);
+      cand.push(...ring.slice(0, 3));
     }
-    const route = nav.path({ x: st.x, z: st.z }, { x: tx, z: tz });
-    if (!route || !route.length) { ui.toast('Não dá para chegar lá por aqui.'); return false; }
-    walkTo = { route, i: 0, t: 0, best: Infinity, still: 0 };
+    let route = null;
+    for (const t of cand.slice(0, 10)) { route = nav.path({ x: st.x, z: st.z }, { x: t.x, z: t.z }); if (route && route.length) break; route = null; }
+    if (!route) { ui.toast('Não dá para chegar lá por aqui.'); return false; }
+    walkTo = { route, i: 0, t: 0, best: Infinity, still: 0, aim };
+    aiming = null;
     return true;
   }
-  /** Walking to the marked goal: to the floor under the place the marker shows. */
+  /** Walking to the marked goal: to the floor by the place the marker shows, and then the view turns to what is to be used. */
   function walkToGoal() {
     const g = goals.current;
     const w = g?.where?.();
     if (!w || state !== 'play' || entity.hidden) return false;
-    if (!planWalk(w.x, w.z)) return false;
+    if (!planWalk(w.x, w.z, g.stand?.() || [], () => g.aim?.() || g.where?.() || null)) return false;
     bus.emit('sfx', 'ui_ok', {});
     return true;
   }
+  /** On arriving at a goal: the view turns (yaw and pitch, quick but not a snap) to the middle of what the goal is about. */
+  function aimStep(dt, intent) {
+    if (!aiming) return;
+    const looking = Math.abs(intent.look.yaw) + Math.abs(intent.look.pitch) > 1e-4;
+    if (state !== 'play' || entity.hidden || ui.modalOpen || looking || Math.abs(intent.moveX) + Math.abs(intent.moveY) > 0.05) { aiming = null; return; }
+    const p = aiming.p, st = player.st;
+    const dx = p.x - st.x, dz = p.z - st.z, dy = p.y - st.eye, h = Math.hypot(dx, dz);
+    const wantYaw = h > 0.05 ? Math.atan2(-dx, -dz) : st.yaw, wantPitch = Math.max(-1.0, Math.min(1.0, Math.atan2(dy, Math.max(h, 0.3))));
+    const dyaw = Math.atan2(Math.sin(wantYaw - st.yaw), Math.cos(wantYaw - st.yaw)), dpit = wantPitch - st.pitch;
+    aiming.t += dt;
+    if ((Math.abs(dyaw) < 0.01 && Math.abs(dpit) < 0.01) || aiming.t > 1.6) { aiming = null; return; }
+    intent.look.yaw += Math.sign(dyaw) * Math.min(Math.abs(dyaw), Math.max(2.2, Math.abs(dyaw) * 8) * dt);
+    intent.look.pitch += Math.sign(dpit) * Math.min(Math.abs(dpit), Math.max(1.6, Math.abs(dpit) * 8) * dt);
+  }
   /** Walking toward the tapped point: the stick's intent, until there, stuck, or the stick takes over. */
   function walkStep(dt, intent) {
-    if (!walkTo) return;
+    if (!walkTo) { aimStep(dt, intent); return; }
     if (state !== 'play' || entity.hidden || ui.modalOpen || Math.abs(intent.moveX) + Math.abs(intent.moveY) > 0.05) { walkTo = null; return; }
     const st = player.st, route = walkTo.route;
     let wp = route[walkTo.i];
@@ -750,7 +769,13 @@ export async function createGame({ root, render, input, params }) {
     const last = walkTo.i === route.length - 1;
     walkTo.t += dt;
     if (dist < walkTo.best - 0.05) { walkTo.best = dist; walkTo.still = 0; } else walkTo.still += dt;
-    if ((last && dist < 0.35) || walkTo.still > 1.5 || walkTo.t > 40) { walkTo = null; return; }
+    if ((last && dist < 0.35) || walkTo.still > 1.5 || walkTo.t > 40) {
+      // got there (or as near as it gets) on the way to a goal: the view goes to the thing to be used
+      const arrived = last && dist < 0.9, at = walkTo.aim && arrived ? walkTo.aim() : null;
+      walkTo = null;
+      if (at) aiming = { p: { x: at.x, y: at.y, z: at.z }, t: 0 };
+      return;
+    }
     // the view goes with the body: it turns to face where the player walks (quick but not a snap) and levels a little,
     // unless the finger is looking around right now (then the walk goes on sideways and the view is theirs)
     const looking = Math.abs(intent.look.yaw) + Math.abs(intent.look.pitch) > 1e-4;

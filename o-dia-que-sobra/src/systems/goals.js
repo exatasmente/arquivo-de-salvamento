@@ -24,13 +24,30 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
   const centerOf = (id, y) => { const b = world.aimBox(id, 0); if (!b) return null; b.getCenter(V); return new THREE.Vector3(V.x, y ?? b.max.y + 0.35, V.z); };
   const anchorAt = (id, y = 1.4) => { const a = world.anchor(id); return a ? new THREE.Vector3(a.pos.x, y, a.pos.z) : null; };
 
+  /** where / aim / stand of an order: the marker hangs over the next step, the camera looks at it, the walk goes to the places to stand. */
+  function stepOf(c, fallback) {
+    return {
+      where: () => { const st = customers.orderStep?.(c); return st?.at ? new THREE.Vector3(st.at.x, st.at.y + 0.45, st.at.z) : fallback(); },
+      aim: () => customers.orderStep?.(c)?.at || null,
+      stand: () => customers.orderStep?.(c)?.stand || [],
+    };
+  }
+
   /** The open orders of the night (what a customer asked for that the player has not done yet). */
   function orders() {
     const out = [];
     for (const c of customers.list) {
       if (c.done) continue;
-      if (c.kind === 'car' && c.ordered) out.push({ key: `o:car${c.id}`, text: `Bomba ${c.pump}: ${money(c.value)}`, where: () => (c.car ? new THREE.Vector3(c.car.root.position.x, 2.2, c.car.root.position.z) : anchorAt('bomba' + c.pump, 2.2)) });
-      else if (c.kind === 'walk') c.prods.forEach((p, i) => { if (p.atras && !p.done) out.push({ key: `o:atras${c.id}-${i}`, text: `Balcão: ${p.nome} (prateleira atrás do balcão)`, where: () => centerOf('atras-' + p.k) }); });
+      if (c.kind === 'car' && c.ordered) {
+        const extra = (c.entrega || []).reduce((a, p) => a + p.cents, 0);
+        const left = (c.entrega || []).filter((p) => !p.done).map((p) => customers.orderName(p).replace(/^o /, ''));
+        const text = `Bomba ${c.pump}: ${money(c.value + extra)}` + (left.length ? ` (falta levar: ${left.join(', ')})` : '');
+        out.push({
+          key: `o:car${c.id}`, text, ...stepOf(c, () => (c.car ? new THREE.Vector3(c.car.root.position.x, 2.2, c.car.root.position.z) : anchorAt('bomba' + c.pump, 2.2))),
+        });
+      } else if (c.kind === 'walk' && c.role === 'normal' && !c.noCounter && (c.state === 'scanning' || c.state === 'ready')) {
+        out.push({ key: `o:loja${c.id}`, text: `Balcão: ${c.name}`, ...stepOf(c, () => anchorAt('balcao', 1.6)) });
+      } else if (c.kind === 'walk') c.prods.forEach((p, i) => { if (p.atras && !p.done) out.push({ key: `o:atras${c.id}-${i}`, text: `Balcão: ${p.nome} (prateleira atrás do balcão)`, where: () => centerOf('atras-' + p.k) }); });
     }
     return out;
   }
@@ -80,7 +97,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
   function list() {
     const out = [];
     for (const t of tasks.list) if (!t.done && !t.failed && !FORBIDDEN.test(t.id)) out.push({ key: 't:' + t.id, text: t.text, short: shortText(t.text), where: () => whereTask(t) });
-    for (const o of orders()) out.push({ key: o.key, text: o.text, short: shortText(o.text), where: o.where });
+    for (const o of orders()) out.push({ key: o.key, text: o.text, short: shortText(o.text), where: o.where, aim: o.aim, stand: o.stand });
     return out;
   }
   const find = (k) => list().find((g) => g.key === k) || null;

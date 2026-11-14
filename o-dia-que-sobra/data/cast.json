@@ -7,7 +7,7 @@
     "tipos[]: clientes por categoria (comum, inconveniente, suspeito, sobrenatural). peso = chance relativa de sortear (0 = so por evento ou roteiro), semanaMin, horas (janela de chegada, default o expediente inteiro), veiculo, aparencia, pedido, pagamento, paciencia (segundos de jogo reais, como carro.paciencia de customers.json), falas, reacoes. Face e corpo saem do seed da instancia (aparencia nao traz seed).",
     "veiculo: { tipo: carro|taxi|caminhao|moto|a-pe, estilo: sedan|hatch|perua (buildCar), cor '#rrggbb', combustivel: comum|aditivada|etanol|diesel, vidro: normal|escuro, motorista: true|false|sorteio:<chance> }. 'caminhao' e 'moto' nao tem modelo proprio ainda (caminhao cai em perua; moto vem de Lugares, models/moto.js).",
     "aparencia: { roupa (ver OUTFITS em src/models/customer.js), look {} (sobrescreve o look do buildHuman: hair, skin, build, height em metros, beard, hairStyle...), acessorios [], manias [], sobrenatural, variantes {nome: {...}} }. Passe a aparencia inteira, mais categoria, para buildCustomer(r, { categoria, ...aparencia }, { seed }).",
-    "pedido.modo: bomba | loja | bomba+loja | balcao-nada | observa | banheiro. 'valor' em reais (lista = sorteia). 'itens' ids de items.json (produtos, atras) mais 'cafe' (cafeteira). pagamento: { notas [reais], nota: normal|rasgada|so-grande|moeda-antiga, gorjeta [min,max] em centavos }.",
+    "pedido.modo: bomba | loja | bomba+loja | balcao-nada | observa | banheiro. 'valor' em reais (lista = sorteia). 'oferta' (só em recorrentes de carro): { itens, chance 0-1 da noite, fala (o pedido de dentro do carro), sim/nao (respostas dele), paciencia (segundos a mais se o jogador aceita), gorjeta { parte, tudo } em centavos: o jogador responde JÁ TRAGO ou HOJE NÃO DÁ; recusar não pune nada; os itens são levados à janela e somam à cobrança. 'itens' ids de items.json (produtos, atras) mais 'cafe' (cafeteira). pagamento: { notas [reais], nota: normal|rasgada|so-grande|moeda-antiga, gorjeta [min,max] em centavos }.",
     "pose: nomes de customer.js (parado, impaciente, apontando, pagando, costas, fixo). 'poses' do tipo diz qual usa em cada fase: chegada, esperando, pedindo, pagando, saindo.",
     "reacoes: gentileza / demora / erro. cada uma: { falas [ate ~90 caracteres], efeito: { paciencia (segundos), gorjeta (centavos), reclamacao (0/1), afeto (recorrentes), sai (bool), sanidade } }. erro pode trazer 'porTipo': { <idDoErro>: [falas] }.",
     "ambiguo: tipos suspeitos nao dizem se sao gente. 'gente' = chance de haver alguem (motorista visivel); o resto fica vazio. O jogo nao conta ao jogador."
@@ -40,7 +40,8 @@
         "look": { "female": true, "build": "mid", "height": 1.6, "hair": "#b9b6b0", "hairStyle": "short", "skin": "#e6c29b", "shirt": "#3d5a4a", "pants": "#3a3a4a" },
         "acessorios": ["oculos", "bolsa"]
       },
-      "pedido": { "modo": "bomba", "combustivel": "etanol", "valor": [30, 40] },
+      "pedido": { "modo": "bomba", "combustivel": "etanol", "valor": [30, 40],
+        "oferta": { "itens": ["cafe"], "chance": 0.7, "fala": "Meu filho, se tiver um cafezinho quente aí, traz pra mim? Pago junto.", "sim": "Deus te pague, meu filho.", "nao": "Sem pressa, meu filho. Só o combustível, então.", "paciencia": 90, "gorjeta": { "parte": [100, 300], "tudo": [300, 700] } } },
       "pagamento": { "notas": [50], "nota": "normal", "gorjeta": [0, 200] },
       "noites": [
         { "semana": 1, "dia": 1, "cena": "cida-1" },
