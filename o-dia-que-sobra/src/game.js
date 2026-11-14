@@ -42,7 +42,7 @@ import { money } from './util.js';
 
 export const DT = 1 / 60;
 const OPT_KEY = 'o-dia-que-sobra.opts';
-const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, left: false, btn: 1, toggle: false };
+const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, gyroDead: 5, gyroFx: 28, gyroFy: 28, left: false, btn: 1, toggle: false };
 const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5], gyroSens: [0.5, 0.75, 1, 1.5, 2], btn: [0.85, 1, 1.2, 1.4] };
 /** The player's options: one key of their own in this browser (never in the memory card). A value out of range falls back to the default. */
 export function loadOpts() {
@@ -297,7 +297,11 @@ export async function createGame({ root, render, input, params }) {
   function applyOpts() {
     root.style.setProperty('--ts', String(opts.text)); audioSys.setVolume(opts.volume);
     input.touch?.mobile?.setOptions({ left: opts.left, scale: opts.btn, toggle: opts.toggle, lookSens: opts.look });
-    if (input.tilt) input.tilt.sensitivity = opts.gyroSens;
+    if (input.tilt) {
+      input.tilt.sensitivity = opts.gyroSens;
+      const c = (v, a, b) => Math.max(a, Math.min(b, Number(v) || a));
+      input.tilt.calib = { dead: c(opts.gyroDead, 2, 12), fullX: c(opts.gyroFx, 10, 50), fullY: c(opts.gyroFy, 10, 50) };
+    }
   }
   /** One setting that goes through a list of values: left/right (or a click) move along it. */
   function stepper(key, label, fmt) {
@@ -328,6 +332,7 @@ export async function createGame({ root, render, input, params }) {
           saveOpts(opts); ui.redrawModal();
         } },
         stepper('gyroSens', 'SENSIBILIDADE DO GIROSCÓPIO', (v) => `${v}×`),
+        { label: () => 'CALIBRAR O GIROSCÓPIO', act: () => gyroCalibrate(() => optionsScreen(back)) },
         { label: () => `CANHOTO: ${opts.left ? 'SIM' : 'NÃO'}`, act: () => { opts.left = !opts.left; saveOpts(opts); applyOpts(); } },
         stepper('btn', 'TAMANHO DOS BOTÕES', (v) => (v < 1 ? 'MENOR' : v === 1 ? 'NORMAL' : v < 1.3 ? 'GRANDE' : 'MAIOR')),
         { label: () => `SEGURAR AÇÕES: ${opts.toggle ? 'TOCAR LIGA E DESLIGA' : 'SEGURAR O DEDO'}`, act: () => { opts.toggle = !opts.toggle; saveOpts(opts); applyOpts(); } },
@@ -340,6 +345,78 @@ export async function createGame({ root, render, input, params }) {
       lines: ['Esquerda e direita mudam o valor. No toque, o lado esquerdo da linha abaixa e o resto sobe.', 'Reduzir clarões troca o que pisca por escurecimentos suaves.'],
       foot: () => 'Ficam salvas neste navegador.',
     });
+  }
+  /**
+   * Calibrating the gyroscope (the phone): 1) the resting pose, held the way the player will play; 2) how far each way is
+   * comfortable (that is the full speed); and the size of the still zone around rest. The screen shows the tilt live.
+   */
+  async function gyroCalibrate(back) {
+    const t = input.tilt; if (!t) return back();
+    if (!t.on) {
+      const got = await t.enable();
+      if (!got) { ui.toast('Este aparelho não deu o giroscópio.'); return back(); }
+      opts.gyro = true; saveOpts(opts);
+      if (got === 'pending') ui.toast('Toque na tela para liberar o giroscópio.');
+    }
+    const deg = (v) => `${Math.round(Math.abs(v))}°`;
+    const now = () => t.live || { x: 0, y: 0 };
+    const arrows = () => { const l = now(); return `${l.x >= 0 ? '◀' : '▶'} ${deg(l.x)}   ${l.y >= 0 ? '▲' : '▼'} ${deg(l.y)}`; };
+    const meter = () => {   // a little level: the dot is the tilt, the brackets are the still zone
+      const l = now(), W = 21, mid = 10, span = Math.max(opts.gyroFx, 12);
+      const pos = Math.max(0, Math.min(W - 1, Math.round(mid - (l.x / span) * mid)));
+      const dz = Math.max(1, Math.round((opts.gyroDead / span) * mid));
+      return Array.from({ length: W }, (_, i) => (i === pos ? '●' : i === mid - dz || i === mid + dz ? '|' : '·')).join('');
+    };
+    let timer = null;
+    const live = () => { clearInterval(timer); timer = setInterval(() => { if (!ui.modalOpen) { clearInterval(timer); return; } ui.redrawModal(); }, 120); };
+    const leave = (fn) => () => { clearInterval(timer); fn(); };
+    const DEAD = [3, 5, 8];
+    // step 1: the resting pose
+    const step1 = () => {
+      t.recenter();
+      ui.menu({
+        title: 'CALIBRAR O GIROSCÓPIO', subtitle: '1 de 2 · DESCANSO', cls: 'wide',
+        lines: () => ['Segure o celular do jeito que vai jogar, parado, e toque em PRONTO.', '', `Agora: ${arrows()}`, meter()],
+        items: [
+          { label: () => 'PRONTO', act: () => { t.recenter(); setTimeout(step2, 120); } },
+          { label: () => 'VOLTAR', act: leave(back) },
+        ],
+        onBack: leave(back),
+      });
+      live();
+    };
+    // step 2: how far is comfortable each way, and the still zone
+    const step2 = () => {
+      const max = { l: 0, r: 0, u: 0, d: 0 };
+      const watch = setInterval(() => {
+        if (!ui.modalOpen) { clearInterval(watch); return; }
+        const l = now();
+        if (l.x > 0) max.l = Math.max(max.l, l.x); else max.r = Math.max(max.r, -l.x);
+        if (l.y > 0) max.u = Math.max(max.u, l.y); else max.d = Math.max(max.d, -l.y);
+      }, 60);
+      const ok = () => Math.min(max.l, max.r) >= 8 && Math.min(max.u, max.d) >= 8;
+      ui.menu({
+        title: 'CALIBRAR O GIROSCÓPIO', subtitle: '2 de 2 · ATÉ ONDE INCLINAR', cls: 'wide',
+        lines: () => ['Incline até onde é confortável para a esquerda, a direita, para cima e para baixo. Esse é o giro mais rápido.', '',
+          `Esquerda ${deg(max.l)} · Direita ${deg(max.r)} · Cima ${deg(max.u)} · Baixo ${deg(max.d)}`, `Agora: ${arrows()}`, meter(),
+          ok() ? 'Pode salvar.' : 'Incline um pouco mais em cada direção.'],
+        items: [
+          { label: () => 'SALVAR', act: () => {
+            if (!ok()) { ui.toast('Incline um pouco mais em cada direção.'); return; }
+            const c = (v) => Math.max(10, Math.min(50, Math.round(v * 0.85)));   // a bit inside the most: the full speed without straining
+            opts.gyroFx = c(Math.min(max.l, max.r)); opts.gyroFy = c(Math.min(max.u, max.d));
+            saveOpts(opts); applyOpts(); clearInterval(watch); clearInterval(timer); ui.toast('Giroscópio calibrado.'); back();
+          } },
+          { label: () => `ZONA PARADA:\u00A0\u2039\u00A0${opts.gyroDead <= 3 ? 'PEQUENA' : opts.gyroDead <= 5 ? 'MÉDIA' : 'GRANDE'}\u00A0\u203A`, cls: 'adj',
+            act: () => {}, adj: (dx) => { const i = Math.max(0, DEAD.indexOf(opts.gyroDead)); opts.gyroDead = DEAD[Math.max(0, Math.min(2, (i < 0 ? 1 : i) + dx))]; saveOpts(opts); applyOpts(); } },
+          { label: () => 'REFAZER', act: () => { clearInterval(watch); step1(); } },
+          { label: () => 'VOLTAR', act: () => { clearInterval(watch); clearInterval(timer); back(); } },
+        ],
+        onBack: () => { clearInterval(watch); clearInterval(timer); back(); },
+      });
+      live();
+    };
+    step1();
   }
   function confirmNew() {
     ui.menu({

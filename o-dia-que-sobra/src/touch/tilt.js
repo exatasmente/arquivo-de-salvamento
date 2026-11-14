@@ -9,7 +9,7 @@
 //                        (iOS: requestPermission only works inside a touchend or a click, never a pointerdown nor a frame;
 //                        so a one-shot listener for the next touchend/click asks there), false when there is no sensor
 //                        or it was refused. onChange('on' | 'denied') says how a pending ask ended.
-//   t.recenter() · t.disable() · t.on · t.pending · t.supported · t.sensitivity = 1.5 · t.invertY = true
+//   t.recenter() · t.calib = { dead, fullX, fullY } (degrees) · t.live → { x, y } degrees from rest · t.disable() · t.on · t.pending · t.supported · t.sensitivity = 1.5 · t.invertY = true
 //
 // The tilt comes from gravity (devicemotion's accelerationIncludingGravity), in the phone's own axes. The turn to the
 // sides is the rotation of the phone around the axis out of its screen (a steering wheel): the angle of gravity in the
@@ -23,7 +23,11 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
   let on = false, last = 0, granted = false, armed = null, asking = false;
   const api = { sensitivity, invertY: false };
   // the stick's feel: dead zone, the tilt that gives the top speed, the top speed, the curve, the ramp while held
-  const DEAD = 5 * DEG, FULL = 28 * DEG, TOP = 150 * DEG, CURVE = 1.7, RAMP = 0.9, RAMP_FROM = 0.35;
+  // (the dead zone and the full tilt of each axis come from the player's calibration: t.calib, in degrees)
+  const TOP = 150 * DEG, CURVE = 1.7, RAMP = 0.9, RAMP_FROM = 0.35;
+  api.calib = { dead: 5, fullX: 28, fullY: 28 };
+  // the last tilt read from the resting pose, in degrees (left +, up +), for the calibration screen; null before a rest
+  api.live = null;
   let g = null, rest = null, held = 0, wantRest = true;
 
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -32,7 +36,8 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
     const x = v[0] / n, y = v[1] / n, z = v[2] / n;
     return { roll: Math.atan2(x, y), tilt: Math.asin(Math.max(-1, Math.min(1, z))), z };
   }
-  const rate = (d) => {
+  const rate = (d, fullDeg) => {
+    const DEAD = Math.max(1, api.calib.dead) * DEG, FULL = Math.max(api.calib.dead + 4, fullDeg) * DEG;
     const a = Math.abs(d);
     if (a <= DEAD) return 0;
     const k = Math.min(1, (a - DEAD) / (FULL - DEAD));
@@ -58,7 +63,8 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
     const p = pose(g.map((c) => c * s));
     const dRoll = wrap(p.roll - (s < 0 ? wrap(rest.roll + Math.PI) : rest.roll));
     const dTilt = p.tilt - (s < 0 ? -rest.tilt : rest.tilt);
-    let yawRate = rate(dRoll), pitchRate = -rate(dTilt);
+    api.live = { x: dRoll / DEG, y: -dTilt / DEG };
+    let yawRate = rate(dRoll, api.calib.fullX), pitchRate = -rate(dTilt, api.calib.fullY);
     if (yawRate || pitchRate) held = Math.min(RAMP, held + dt); else held = 0;
     const ramp = RAMP_FROM + (1 - RAMP_FROM) * (held / RAMP);
     const k = api.sensitivity * ramp * dt;
