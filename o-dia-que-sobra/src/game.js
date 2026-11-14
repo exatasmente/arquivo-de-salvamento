@@ -751,6 +751,22 @@ export async function createGame({ root, render, input, params }) {
     walkTo.t += dt;
     if (dist < walkTo.best - 0.05) { walkTo.best = dist; walkTo.still = 0; } else walkTo.still += dt;
     if ((last && dist < 0.35) || walkTo.still > 1.5 || walkTo.t > 40) { walkTo = null; return; }
+    // the view goes with the body: it turns to face where the player walks (quick but not a snap) and levels a little,
+    // unless the finger is looking around right now (then the walk goes on sideways and the view is theirs)
+    const looking = Math.abs(intent.look.yaw) + Math.abs(intent.look.pitch) > 1e-4;
+    if (!looking) {
+      // aim a little ahead: the waypoint after this one when this one is close, so the turn starts before the corner
+      const nx = walkTo.i < route.length - 1 && dist < 1.4 ? route[walkTo.i + 1] : wp;
+      const want = Math.atan2(-(nx.x - st.x), -(nx.z - st.z));
+      const d = Math.atan2(Math.sin(want - st.yaw), Math.cos(want - st.yaw));
+      const turn = Math.sign(d) * Math.min(Math.abs(d), Math.max(2.4, Math.abs(d) * 7) * dt);
+      intent.look.yaw += turn;
+      intent.look.pitch += (-0.08 - st.pitch) * Math.min(1, dt * 3);
+    }
+    // a long way is run, a short one walked (and the last metre always walked, to stop where tapped)
+    let rest = dist;
+    for (let j = walkTo.i + 1; j < route.length; j++) rest += Math.hypot(route[j].x - route[j - 1].x, route[j].z - route[j - 1].z);
+    if (rest > 3.5 && !(last && dist < 1.2)) intent.run = true;
     const fx_ = -Math.sin(st.yaw), fz = -Math.cos(st.yaw), rx = Math.cos(st.yaw), rz = -Math.sin(st.yaw);
     const k = (last ? Math.min(1, dist / 0.8) : 1) / dist;
     intent.moveY = (dx * fx_ + dz * fz) * k; intent.moveX = (dx * rx + dz * rz) * k;
