@@ -35,6 +35,7 @@
 // scales how much each area is darkened (1 = as designed).
 import { D, FUEL_KEYS, createBuilder, mulberry32 } from './paint.js';
 import { placeProp, boxFaces, PRODUTO_TIPOS, BREAKERS } from '../models/props.js';
+import { createHose } from '../models/hose.js';
 import { createEntities } from '../../vendor/engine/entities.js';
 import { ENTITY_TYPES, buildEntity } from '../entities.js';
 
@@ -267,10 +268,15 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
     if (PR(bid).travada) pump.setJammed(true);
     colOf(bid, { id: 'bomba' + n });
     anchor('bomba' + n, [x, 0, -6.55], [0, 0, -1]);
-    const nz = {};
+    const nz = {}, hoses = {};
     FUEL_KEYS.forEach((k) => {
       const l = pump.nozzleAt[k]; if (!l) return; // a pump may leave a fuel out
       const w = [x + l[0], ISL_Y + l[1], PUMP_Z + l[2]];
+      // the hose of this nozzle: out of the body of the pump a little under its hook; hangs in a loop while the nozzle is on the hook
+      const hs = createHose(r); group.add(hs.root);
+      const from = [w[0], w[1] - 0.5, w[2] - 0.12], rest = [w[0], w[1] - 0.04, w[2] + 0.02];
+      hs.set(from, rest);
+      hoses[k] = { from, rest, set: (end, o) => hs.set(from, end || rest, o), hose: hs };
       anchor(`bico${n}-${k}`, w, [0, 0, 1]); nz[k] = anchors[`bico${n}-${k}`];
       inter(`bico${n}-${k}`, 'bico', pump.nozzles[k], `bico${n}-${k}`);
     });
@@ -285,7 +291,7 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
     anchor(`carroBomba${n}-r`, [x + (i % 2 ? 0.5 : -0.5), 0, -4.8], [-1, 0, 0]);
     inter('registro' + n, 'registro', pump.valve.hit, 'registro' + n);
     anchor('registro' + n, [x, 0, -6.55], [0, 0, -1]);
-    pumps[n] = { n, setDisplay: pump.setDisplay, display: pump.display, keypad: pump.keypad, nozzles: pump.nozzles, nozzleAnchors: nz, root: pump.dyn, valve: pump.valve, setJammed: pump.setJammed, get jammed() { return pump.jammed; } };
+    pumps[n] = { n, setDisplay: pump.setDisplay, display: pump.display, keypad: pump.keypad, nozzles: pump.nozzles, nozzleAnchors: nz, hoses, root: pump.dyn, valve: pump.valve, setJammed: pump.setJammed, get jammed() { return pump.jammed; } };
     props['bomba' + n] = pump;
     if (n === 4) { // the badge hangs from the luminaire over pump 4
       const ck = X('cracha');

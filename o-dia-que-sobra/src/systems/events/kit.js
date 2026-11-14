@@ -24,6 +24,14 @@ export function createKit(ctx) {
       return player.forward().dot(a);
     },
     dist: (p) => Math.hypot(p.x - player.st.x, p.z - player.st.z),
+    /** Is the flashlight on and pointing at the point (the thing in the corner of the eye goes when the light lands on it)? */
+    flashOn(p) {
+      const f = ctx.inventory?.flash; if (!f || !f.on || f.charge <= 0) return false;
+      a.copy(p).sub(player.eyePos()); const d = a.length(); if (d > f.range) return false;
+      return player.forward().dot(a.normalize()) > 0.9;
+    },
+    /** "Reduce flashes" is on: a scare becomes a dark cut with the same sound, and what vanishes fades instead of cutting. */
+    soft: () => Boolean(ctx.opts?.reduceFlash),
     /** Is the straight line from a to b free of walls and furniture (at chest height)? */
     clear(from, to) {
       const dx = to.x - from.x, dz = to.z - from.z;

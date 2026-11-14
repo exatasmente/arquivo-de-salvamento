@@ -15,3 +15,5 @@ export function run({ lighting, world, bus, sanity, event, rng }) {
     dispose() { lighting.dimLight(id, null); },
   };
 }
+/** the shop's circuit is on (a lamp that is out cannot flicker). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world }) => world.posto.breakers.isOn('loja');

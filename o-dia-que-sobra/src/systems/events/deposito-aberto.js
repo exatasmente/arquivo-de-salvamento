@@ -18,3 +18,5 @@ export function run({ world, kit, bus, sanity, progression, event, ui, time }) {
     },
   };
 }
+/** the storeroom's door is shut: there is something to find open. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world }) => !world.doorOpen('porta-deposito');

@@ -285,7 +285,7 @@ const BASE = {
           eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t), sheet, screen, daze: (t >= 105 && t < 110) || (t >= 170 && t < 175) ? 0.35 : 0,
           world: {
             state: { doors, gaveta: smooth(ramp(t, 46.0, 46.6)) * (1 - smooth(ramp(t, 49.8, 50.4))) * (t >= 41 && t < 54 ? 1 : 0), hora: FL.dawn ? 5.95 : t < 41 ? 0.35 : t < 63 ? 0.5 : 1.0 },
-            displays: display ? { [PUMP]: display } : null, pressed, hideNozzle, spot, dirt, ambient: (t >= 63.6 && t < 105) || (t >= 120 && t < 126) || (t >= 330 && t < 336) ? (t >= 330 ? 0x8a8ea4 : 0x646878) : undefined, on: (t >= 54 && t < 63) || t >= 105 ? ['escritorio-teto'] : [], armario: smooth(ramp(t, 111, 112.2)), frasco: t >= 112,
+            displays: display ? { [PUMP]: display } : null, pressed, hideNozzle, nozzleAt: nz.visible ? nz.position.toArray() : null, spot, dirt, ambient: (t >= 63.6 && t < 105) || (t >= 120 && t < 126) || (t >= 330 && t < 336) ? (t >= 330 ? 0x8a8ea4 : 0x646878) : undefined, on: (t >= 54 && t < 63) || t >= 105 ? ['escritorio-teto'] : [], armario: smooth(ramp(t, 111, 112.2)), frasco: t >= 112,
           },
         };
         void state;

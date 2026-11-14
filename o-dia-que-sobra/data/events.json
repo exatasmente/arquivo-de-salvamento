@@ -669,5 +669,202 @@
     "repetivel": true,
     "depende": [],
     "roteiro": "events/passos-fora.js"
+  },
+  {
+    "id": "morador-de-rua",
+    "nome": "O morador de rua",
+    "descricao": "Um morador de rua, o mesmo sempre, parado perto da calçada ou da lixeira em algumas noites. Fala pouco; às vezes acredita no que Heitor viu. Sem nome, sem resposta de segredo, sem explicar a história. É gente de verdade: nada de sanidade.",
+    "semanaMin": 1,
+    "horario": [
+      "01:00",
+      "04:30"
+    ],
+    "chance": 0.4,
+    "repetivel": false,
+    "todaNoite": true,
+    "maxPorNoite": 1,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": 0,
+    "alucinacao": false,
+    "consequencias": [],
+    "depende": [],
+    "roteiro": "events/morador-de-rua.js"
+  },
+  {
+    "id": "silhueta-vitrine",
+    "nome": "A silhueta na vitrine",
+    "descricao": "Uma figura escura parada do lado de fora do vidro da loja, olhando para dentro. Está ali enquanto ninguém olha e some quando se olha direto ou se ilumina. Da cabeça: rara com a sanidade alta, mais frequente com a baixa e com as semanas.",
+    "semanaMin": 1,
+    "horario": [
+      "00:50",
+      "05:20"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 55,
+    "maxPorNoite": 2,
+    "sanidadeOdds": true,
+    "crescePorSemana": 0.25,
+    "condicoes": {
+      "sanidadeMax": 99,
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "loja"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/silhueta-vitrine.js"
+  },
+  {
+    "id": "passante-canto",
+    "nome": "O passante no canto do olho",
+    "descricao": "Algo cruza a borda da visão, entre as prateleiras ou junto da parede, no passo de quem anda, e some quando se vira. Da cabeça.",
+    "semanaMin": 2,
+    "horario": [
+      "01:10",
+      "05:10"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 45,
+    "maxPorNoite": 3,
+    "sanidadeOdds": true,
+    "crescePorSemana": 0.25,
+    "condicoes": {
+      "sanidadeMax": 99,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -2,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/passante-canto.js"
+  },
+  {
+    "id": "sombra-errada",
+    "nome": "A sombra errada",
+    "descricao": "No chão da loja, do estoque ou do escritório há uma sombra comprida onde nada a faria, apontando para a lâmpada em vez de para longe dela. Some quando se olha direto ou com a lanterna. Do mundo: a luz é de verdade, a sombra não.",
+    "semanaMin": 2,
+    "horario": [
+      "01:00",
+      "05:00"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 50,
+    "maxPorNoite": 2,
+    "sanidadeOdds": true,
+    "crescePorSemana": 0.3,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "loja",
+        "estoque",
+        "escritorio"
+      ]
+    },
+    "sanidade": -2,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/sombra-errada.js"
+  },
+  {
+    "id": "vulto-corredor",
+    "nome": "O vulto do corredor",
+    "descricao": "No fundo escuro do estoque, dos fundos ou dos banheiros, uma figura parada lá no fim do caminho. Some quando se olha direto ou quando a lanterna a acha. Confere que o lugar está mesmo no escuro.",
+    "semanaMin": 2,
+    "horario": [
+      "01:30",
+      "05:10"
+    ],
+    "chance": 0.3,
+    "intervaloMin": 55,
+    "maxPorNoite": 2,
+    "sanidadeOdds": true,
+    "crescePorSemana": 0.3,
+    "condicoes": {
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "estoque",
+        "servico",
+        "banheiros",
+        "deposito"
+      ]
+    },
+    "sanidade": -3,
+    "alucinacao": false,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/vulto-corredor.js"
+  },
+  {
+    "id": "vulto-colado",
+    "nome": "O vulto colado",
+    "descricao": "Semanas 3 e 4, sanidade baixa, raro. Uma figura anda um passo atrás do jogador, sempre fora de vista. Na primeira vez que ele se vira rápido, ela está a um metro do rosto por meio segundo, com um golpe de som e uma tremida, e some. Com \"reduzir clarões\": corte escuro e o mesmo som. O susto que o design agora permite.",
+    "semanaMin": 3,
+    "horario": [
+      "01:30",
+      "05:00"
+    ],
+    "chance": 0.12,
+    "intervaloMin": 80,
+    "maxPorNoite": 1,
+    "condicoes": {
+      "sanidadeMax": 39,
+      "naoAntes": [
+        "tutorial"
+      ]
+    },
+    "sanidade": -8,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/vulto-colado.js"
+  },
+  {
+    "id": "figura-vidro",
+    "nome": "A figura no vidro",
+    "descricao": "Semana 4, sanidade baixa, raro. Do lado de fora do vidro da loja há uma figura escura, longe. Na primeira vez que o jogador olha para ela, já está colada no vidro, a meio metro do rosto, por meio segundo, com um golpe de som e uma tremida, e some. Com \"reduzir clarões\": corte escuro e o mesmo som.",
+    "semanaMin": 4,
+    "horario": [
+      "01:30",
+      "05:00"
+    ],
+    "chance": 0.12,
+    "intervaloMin": 90,
+    "maxPorNoite": 1,
+    "condicoes": {
+      "sanidadeMax": 39,
+      "naoAntes": [
+        "tutorial"
+      ],
+      "jogadorEm": [
+        "loja"
+      ]
+    },
+    "sanidade": -8,
+    "alucinacao": true,
+    "consequencias": [],
+    "repetivel": true,
+    "depende": [],
+    "roteiro": "events/figura-vidro.js"
   }
 ]

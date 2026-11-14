@@ -19,3 +19,5 @@ export function run({ world, kit, bus, sanity, progression, event, ui }) {
     },
   };
 }
+/** the stock room's door is shut (an open one shows what is behind it, not a sticker). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world }) => Boolean(world.posto.stickers) && !world.doorOpen('porta-estoque');

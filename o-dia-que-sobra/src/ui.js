@@ -16,15 +16,18 @@ export function createUI(root, api) {
     <div id="black"></div>
     <div id="hud">
       <div id="dot"></div>
-      <div id="objective" hidden></div>
-      <div id="total" hidden></div>
-      <div id="calhud" hidden><b></b><span></span></div>
-      <div id="goalhud" hidden></div>
+      <div id="top">
+        <div id="calhud" hidden><b></b><span></span><i></i></div>
+        <div id="goalhud" hidden></div>
+        <div id="objective" hidden></div>
+        <div id="total" hidden></div>
+        <div id="coach" hidden></div>
+        <div id="toast" hidden></div>
+      </div>
       <div id="arrow" hidden><i></i></div>
       <div id="carryhint" hidden></div>
       <div id="prompt" hidden><b></b><span></span><em><i></i></em></div>
-      <div id="toast" hidden></div>
-      <div id="coach" hidden></div>
+      <div id="choice" hidden></div>
       <div id="say" hidden><b></b><p></p></div>
       <div id="invstrip" hidden></div>
       <div id="sheet" class="panelbox" hidden></div>
@@ -32,7 +35,7 @@ export function createUI(root, api) {
     <div id="dlg" hidden><div class="box"><b></b><p></p><small></small></div></div>
     <div id="modal" hidden></div>`);
   const $ = (s) => root.querySelector(s);
-  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), cal: $('#calhud'), goal: $('#goalhud'), arrow: $('#arrow'), carryhint: $('#carryhint'), prompt: $('#prompt'), toast: $('#toast'), coach: $('#coach'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
+  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), cal: $('#calhud'), goal: $('#goalhud'), arrow: $('#arrow'), carryhint: $('#carryhint'), prompt: $('#prompt'), choice: $('#choice'), toast: $('#toast'), coach: $('#coach'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
   const pk = { b: el.prompt.querySelector('b'), span: el.prompt.querySelector('span'), bar: el.prompt.querySelector('i'), em: el.prompt.querySelector('em') };
   let sheetOpen = false, trayOpen = false;
 
@@ -43,16 +46,43 @@ export function createUI(root, api) {
 
   // ------------------------------------------------------------------ HUD pieces
   let lastPrompt = '';
+  /**
+   * The prompt of the central point. With `p.list` (two or more actions fit the aim) it is a list instead, one short line per action, with the key, the button or
+   * the touch area of each: the selected one is what E / A does; the keyboard also has a number for each, and R (RB on the pad) changes the selected one;
+   * on the touch screen every line is a button.
+   */
   function setPrompt(p) {
-    if (!p || !p.text) { if (lastPrompt !== '') { lastPrompt = ''; el.prompt.hidden = true; } return; }
-    const g = G(), key = `${p.text}|${p.hold}|${p.active}|${api.device()}`;
+    if (!p || !p.text) { if (lastPrompt !== '') { lastPrompt = ''; el.prompt.hidden = true; el.choice.hidden = true; } return; }
+    const g = G(), dev = api.device();
+    const key = `${p.text}|${p.hold}|${p.active}|${dev}|${p.list ? p.list.map((x) => x.text + x.hold).join('/') + '#' + p.sel : ''}`;
     if (key !== lastPrompt) {
-      lastPrompt = key; el.prompt.hidden = false;
-      pk.b.textContent = p.hold ? g.hold : g.tap; pk.span.textContent = p.text;
+      lastPrompt = key;
+      if (p.list) {
+        el.prompt.hidden = true; el.choice.hidden = false;
+        const glyph = (i, row) => (dev === 'touch' ? '' : i === p.sel ? (row.hold ? g.hold : g.tap) : dev === 'keyboard' ? String(i + 1) : '');
+        el.choice.dataset.dev = dev;
+        el.choice.innerHTML = p.list.map((row, i) => `<div class="crow${i === p.sel ? ' sel' : ''}" data-i="${i}">${glyph(i, row) ? `<b>${esc(glyph(i, row))}</b>` : ''}<span>${esc(row.text)}${row.hold && dev === 'touch' ? ' (segure)' : ''}</span><em><i></i></em></div>`).join('')
+          + (dev === 'touch' ? '' : `<small>${dev === 'gamepad' ? 'RB troca a ação' : 'R troca a ação · 1 a ' + p.list.length + ' escolhem'}</small>`);
+      } else {
+        el.choice.hidden = true; el.prompt.hidden = false;
+        pk.b.textContent = p.hold ? g.hold : g.tap; pk.span.textContent = p.text;
+      }
     }
     const show = p.progress !== null && p.progress !== undefined;
-    pk.em.style.display = show ? 'block' : 'none';
-    if (show) pk.bar.style.width = Math.round(Math.min(1, p.progress) * 100) + '%';
+    if (p.list) {
+      const row = el.choice.querySelector(p.sel >= 0 ? `.crow[data-i="${p.sel}"] em` : '.crow em'), others = el.choice.querySelectorAll('.crow em');
+      for (const e of others) e.style.display = 'none';
+      if (show && row) { row.style.display = 'block'; row.firstChild.style.width = Math.round(Math.min(1, p.progress) * 100) + '%'; }
+    } else {
+      pk.em.style.display = show ? 'block' : 'none';
+      if (show) pk.bar.style.width = Math.round(Math.min(1, p.progress) * 100) + '%';
+    }
+  }
+  /** Which row of the list of actions is under the screen point (a finger), or null. */
+  function choiceRowAt(x, y) {
+    if (el.choice.hidden) return null;
+    for (const row of el.choice.querySelectorAll('.crow')) { const r = row.getBoundingClientRect(); if (x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 3 && y <= r.bottom + 3) return Number(row.dataset.i); }
+    return null;
   }
   function setObjective(t) { if (!t) { el.obj.hidden = true; return; } el.obj.hidden = false; if (el.obj.textContent !== t) el.obj.textContent = t; }
   function setTotal(t) { if (!t) { el.total.hidden = true; return; } el.total.hidden = false; el.total.textContent = 'LEITOR  ' + t; }
@@ -62,6 +92,9 @@ export function createUI(root, api) {
   const showCal = () => { el.cal.hidden = !calT && !clkT; };
   function setCalendar(t) { calT = t || null; if (calS.textContent !== (t || '')) calS.textContent = t || ''; showCal(); }
   function setClock(t) { clkT = t || null; if (calB.textContent !== (t || '')) calB.textContent = t || ''; showCal(); }
+  const calP = el.cal.querySelector('i');
+  /** The preparation line under the clock: "PREPARAÇÃO 2:31" (null when the shift is on). */
+  function setPrep(t) { const x = t || ''; if (calP.textContent !== x) calP.textContent = x; calP.hidden = !t; }
   function setGoal(t) { if (!t) { el.goal.hidden = true; return; } el.goal.hidden = false; const x = '\u25B6 ' + t; if (el.goal.textContent !== x) el.goal.textContent = x; }
   function setCarryHint(t) { if (!t) { el.carryhint.hidden = true; return; } el.carryhint.hidden = false; if (el.carryhint.textContent !== t) el.carryhint.textContent = t; }
   /** The arrow on the edge of the screen toward a goal that is out of sight: { x, y } in pixels of the root and angle (rad, 0 = up), or null. */
@@ -375,7 +408,8 @@ export function createUI(root, api) {
     };
     const mark = (key) => (d.goalKey === key ? '\u25B6' : ' ');
     const line = (t, i) => `<li data-g="t:${esc(t.id)}" class="${t.failed ? 'bad' : ''} ${d.goalKey === 't:' + t.id ? 'goal' : ''}">[${mark('t:' + t.id)}] ${esc(slip(t.text, i))}${t.failed ? ' (perdido)' : ''}</li>`;
-    const tasks = d.blank ? '<li class="dim">…</li>' : pend.length ? pend.map(line).join('') : '<li class="dim">Nada pendente agora.</li>';
+    const prepRows = pend.filter((t) => t.prep), restRows = pend.filter((t) => !t.prep);
+    const tasks = d.blank ? '<li class="dim">…</li>' : restRows.length ? restRows.map(line).join('') : prepRows.length ? '' : '<li class="dim">Nada pendente agora.</li>';
     const doneRows = d.blank ? '' : fin.slice(-3).map((t) => `<li class="ok">[x] ${esc(t.text)}</li>`).join('');
     const orders = d.orders.map((o) => `<li data-g="${esc(o.key)}" class="${d.goalKey === o.key ? 'goal' : ''}">${d.goalKey === o.key ? '\u25B6 ' : ''}${esc(o.text)}</li>`).join('');
     const fuels = d.fuels.map((f) => `<span><i style="background:${f.cor}"></i>${esc(f.nome)}</span>`).join('');
@@ -383,6 +417,7 @@ export function createUI(root, api) {
     el.sheet.innerHTML = `<h3>PRANCHETA</h3>
       <div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
       <div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div>
+      ${prepRows.length && !d.blank ? `<h4>Preparação <small class="pick">${esc(d.prep ? d.prep.replace('PREPARAÇÃO ', 'faltam ') : 'atrasada')}</small></h4><ul>${prepRows.map(line).join('')}</ul>` : ''}
       <h4>Tarefas <small class="pick">${esc(d.pickHint || '')}</small></h4><ul>${tasks}${doneRows}</ul>${fin.length > 3 ? `<div class="dim">+ ${fin.length - 3} feitas antes</div>` : ''}
       ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}
       <h4>Bicos</h4><div class="fuels">${fuels}</div>
@@ -597,7 +632,7 @@ export function createUI(root, api) {
     return false;
   }
   return {
-    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
+    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
     toggleSheet, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },

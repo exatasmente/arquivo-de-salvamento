@@ -37,3 +37,5 @@ export function run({ world, kit, ui, sanity, progression, bus, event, rng, rend
     dispose() { render.scene.remove(h.root); },
   };
 }
+/** the counter is free (a real customer is not standing there) and the door is shut (nobody is coming in). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers, world }) => !world.doorOpen('porta-loja') && !customers.list.some((c) => c.kind === 'walk' && ['scanning', 'ready', 'placing', 'asking', 'watch', 'queue'].includes(c.state));

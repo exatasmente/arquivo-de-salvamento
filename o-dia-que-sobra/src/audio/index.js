@@ -25,6 +25,7 @@ import { LOOPS as BASE_LOOPS } from './loops.js';
 import { EXTRA_ONESHOTS, EXTRA_LOOPS } from './extra.js';
 import { playBabble, babbleTimeline } from './babble.js';
 import { FASE6_ONESHOTS, FASE6_LOOPS, FASE6_NAMES } from './fase6.js';
+import { SUSTO_ONESHOTS, SUSTO_NAMES } from './susto.js';
 
 const LEAD = 1.2;          // live events are built this far ahead
 const MAX_HRTF = 6;        // HRTF panners are costly: past this, new one-shots use equal-power
@@ -39,16 +40,16 @@ const TRIM_DB = { fluorescente: -13, rodovia: -15, insetos: -5, vento: -15, gela
 const trim = (n) => 10 ** ((TRIM_DB[n] ?? 0) / 20);
 const LOOPS = { ...BASE_LOOPS, ...EXTRA_LOOPS, ...FASE6_LOOPS };
 const LOOP_NAMES = Object.keys(LOOPS);
-const ONE = { ...ONESHOTS, ...SOL_ONESHOTS, ...EXTRA_ONESHOTS, ...FASE6_ONESHOTS };
+const ONE = { ...ONESHOTS, ...SOL_ONESHOTS, ...EXTRA_ONESHOTS, ...FASE6_ONESHOTS, ...SUSTO_ONESHOTS };
 // Phase 3 levels (dB), from the offline measurements.
 Object.assign(TRIM_DB, { telefone_mudo: -8, sono_pesado: -14, sino_fantasma: -2, motor_sem_som: -3, bomba4_liga: -3 });
 // Sounds that setHallucination never touches: the player's own body and hands, the interface, the voices.
-const HALLU_SKIP = new Set(['babble', 'respiracao', 'coracao', 'tecla', 'lanterna_clique', 'caixa_bip', 'engolir', 'frasco', 'sono_pesado', 'zumbido_ouvido', 'secretaria_inicio', 'secretaria_fita', 'secretaria_fim', 'cama_deita', 'sacola', 'papel_folha', 'vara_pega']);
+const HALLU_SKIP = new Set(['susto_golpe', 'babble', 'respiracao', 'coracao', 'tecla', 'lanterna_clique', 'caixa_bip', 'engolir', 'frasco', 'sono_pesado', 'zumbido_ouvido', 'secretaria_inicio', 'secretaria_fita', 'secretaria_fim', 'cama_deita', 'sacola', 'papel_folha', 'vara_pega']);
 // Phase 6 levels (dB): the new ambiences sit with the old ones (rms about -30 to -38), the small paper and
 // plastic sounds come up to the level of the hand sounds, the tape under a message stays under the voice.
 Object.assign(TRIM_DB, { rua_noite: -11, casa_tom: -8, farmacia_ar: -9, cracha_pega: 3, sacola: 6, papel_folha: 5, vara_pega: 2, adesivo_cola: 2, secretaria_fita: -4 });
 const hasHalluSkip = (n) => HALLU_SKIP.has(n) || n.startsWith('passo_') || n.startsWith('ui_');
-export { FASE6_NAMES };
+export { FASE6_NAMES, SUSTO_NAMES };
 export const NAMES = [...new Set([...Object.keys(ONE), ...LOOP_NAMES])];
 export const LOOP_ONLY = LOOP_NAMES.filter((n) => !ONE[n]);
 

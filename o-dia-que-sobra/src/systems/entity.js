@@ -27,12 +27,12 @@ export const ROOM_DOORS = { estoque: ['porta-estoque', 'porta-estoque-escritorio
 export const LOCKABLE = Object.fromEntries([...new Set(Object.values(ROOM_DOORS).flat())].map((d) => [d, Object.keys(ROOM_DOORS).filter((room) => ROOM_DOORS[room].includes(d))]));
 const HIDES = ['esconderijo1', 'esconderijo2', 'esconderijo3', 'esconderijo4'];
 
-export function createEntity(bus, { world, render, player, sanity, lighting, inventory, progression, time, interaction, ui, kit }) {
+export function createEntity(bus, { world, render, player, sanity, lighting, inventory, progression, time, interaction, ui, kit, opts = {} }) {
   const THREE = render.THREE;
   const nav = getNav(world, player);
   const ent = buildEntity(render, { seed: 5, stage: 1 });
   ent.root.visible = false; render.scene.add(ent.root);
-  const S = { doorT: 0, knockT: 0, hunts: null, hunt: null, aware: 0, huntN: 0, state: 'ausente', t: 0, cool: 20, pose: 'costas', since: 0, target: null, lockT: 0, darkT: 0, seenOnce: false, forced: false, sawEnter: false, black: 0, hidden: null, breath: 6, holding: false, near: 0, lastStep: 0, rng: mulberry32(9), stuck: 0, attackT: 0 };
+  const S = { shake: 0, doorT: 0, knockT: 0, hunts: null, hunt: null, aware: 0, huntN: 0, state: 'ausente', t: 0, cool: 20, pose: 'costas', since: 0, target: null, lockT: 0, darkT: 0, seenOnce: false, forced: false, sawEnter: false, black: 0, hidden: null, breath: 6, holding: false, near: 0, lastStep: 0, rng: mulberry32(9), stuck: 0, attackT: 0 };
   const locked = new Set();
   nav.setLocked(() => locked);
   const BANG = 20;                // seconds at a locked door before it goes round (or gives up: the design's 20 s)
@@ -125,6 +125,10 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     // the cut: the paper face very close, looking at the player
     const f = player.forward(); pos.set(player.st.x + f.x * 0.8, 0, player.st.z + f.z * 0.8); ent.root.visible = true; ent.root.rotation.y = Math.atan2(-f.x, -f.z);
     player.st.pitch = 0.1; say('olhando', 0);
+    // the jump scare of the ending 4 (the design allows it now, here and in two or three events of weeks 3 and 4): the paper face very close, a short hard hit and a
+    // tremor of the picture. With "reduce flashes" the same hit lands on a dark cut instead: no face, no shaking.
+    bus.emit('sfx', 'susto_golpe', {});
+    if (opts.reduceFlash) { S.black = 1; ent.root.visible = false; } else S.shake = 0.06;
     bus.emit('entity:attack');
   }
 
@@ -132,7 +136,7 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   function startChase() {
     go('perseguicao'); S.target = { x: player.st.x, z: player.st.z }; S.aware = 6; S.search = 0; S.sweep = null;
     sanity.add(S.hunt ? -4 : -20, 'perseguido'); say('correr'); bus.emit('entity:chase');
-    if (!progression.hasFlag('chase:hint')) { progression.flag('chase:hint'); bus.emit('hint', 'Ela corre. A luz a afasta: a loja, o escritório, a cobertura. Ou esconda-se.'); }
+    if (!progression.hasFlag('chase:hint')) { progression.flag('chase:hint'); bus.emit('hint', 'Ela corre. A luz a afasta. Esconda-se ou tranque-se no estoque ou no escritório.'); }
   }
   function canAppear(ctx) { return (progression.st.week >= 2 || S.forced) && (ctx.danger >= 3 || S.forced); }
 
@@ -163,7 +167,8 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     ent.update(simT, { pose: S.pose, desde: S.since, olhar: 0 });
     if (S.state === 'sumindo') { if (S.t > 2) { ent.root.visible = false; go('ausente'); S.cool = 50 + S.rng() * 50; S.forced = false; } return; }
     if (S.state === 'ataque') {
-      S.attackT += dt;
+      if (opts.reduceFlash) ent.root.visible = false;        // (a dark cut: the face is not shown)
+      S.attackT += dt; S.shake = Math.max(0, S.shake - dt * 0.14);
       if (S.attackT > 0.3) S.black = Math.min(1, (S.attackT - 0.3) / 0.25);
       if (S.attackT > 1.9) { S.black = 1; S.done = true; }
       return;
@@ -259,6 +264,8 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   for (const id of HIDES) {
     interaction.register({
       id: 'esconder-' + id, reach: 2.2, priority: 3,
+      // with the Sun about (it watches, comes or runs) hiding is the first of the list: the first E, A or touch hides; the rest of the time the work comes first
+      order: () => (S.state !== 'ausente' && S.state !== 'sumindo' ? -1 : 1),
       aim: () => ({ box: world.aimBox(id, 0.15) }),
       enabled: () => S.hidden === null && !player.st.pushing && !inventory.carry,
       label: () => ({ text: 'Esconder-se' }),
@@ -297,7 +304,7 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     S, nr, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = state === 'perseguicao' ? { x: player.st.x, z: player.st.z } : null; S.aware = state === 'perseguicao' ? 6 : 0; S.search = 0; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
     /** The Sun reaches the player now (the last night's call answered by going outside): the silent cut and the black, as in any attack. */
     catchNow() { if (S.state === 'ataque') return; if (S.hidden) leaveHide(); ent.setStage(4); attack(); },
-    leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; },
+    leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; }, get shake() { return S.shake; },
     reset() { S.doorT = 0; S.hunts = null; S.hunt = null; S.aware = 0; S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; lockedRooms.clear(); lockedRooms.clear(); locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
     darkTick(dt, inRiskDark) { S.darkT = inRiskDark ? S.darkT + dt : Math.max(0, S.darkT - dt); },
   };

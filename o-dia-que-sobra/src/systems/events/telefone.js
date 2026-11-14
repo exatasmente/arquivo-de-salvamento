@@ -36,3 +36,5 @@ export function run({ narrative, ui, sanity, progression, bus, kit, est, data, e
     dispose() { est.naoSair = null; },
   };
 }
+/** the phone is free: not the manager's call, not the lesson, not another ring. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ narrative }) => narrative.phase === 'free' && !narrative.ringing && !narrative.extraRinging;

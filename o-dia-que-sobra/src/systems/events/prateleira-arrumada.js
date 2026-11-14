@@ -20,3 +20,5 @@ export function run({ tasks, world, kit, bus, sanity, progression, event, ui, ti
     },
   };
 }
+/** the player has the hands free (not carrying the box for that very shelf). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ inventory }) => inventory.carry?.kind !== 'caixa';

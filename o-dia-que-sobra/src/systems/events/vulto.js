@@ -37,3 +37,5 @@ export function run({ kit, player, sanity, bus, progression, event, rng }) {
     dispose() { kit.dispose(fig); },
   };
 }
+/** the player is not hidden (a hiding place has no corner of the eye). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ entity }) => entity.hidden === null;

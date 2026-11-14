@@ -8,7 +8,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   const cust = data.customers, DG = data.dialogue;
   let phase = 'off';           // off | ring1 | caixa1 | fuel | ring2 | shop | free
   let ringing = false, ringAt = 0, phoneId = null, shopDone = false, stockDone = false, fuelDone = false;
-  let ringKind = null, called = false, answered550 = false;
+  let ringKind = null, called = false, answered550 = false, tutNight = false;
   let t0 = 0;                  // real seconds since the night opened
   const phoneMin = time.parse(data.progression.expediente.telefone);
 
@@ -89,8 +89,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       bus.emit('sfx', 'telefone_desliga', { pos: phonePos().toArray() });
       const t = cust.tutorial.loja;
       customers.spawnWalker({ seed: t.seed, tutorial: true, produtos: t.itens, pagamento: t.pagamento });
-      tasks.startRestock(1, progression.st.seed);
-      phase = 'shop';
+      phase = 'shop'; stockDone = true;       // (the shelf was part of the preparation: only the customer is left of the lesson)
       obj('Tem um cliente na loja. Vá ao balcão.');
     } else if (kind === 'gerente') {
       answered550 = true; tasks.done('telefone'); obj(null);
@@ -155,10 +154,19 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
     begin({ tutorial }) {
       extra = null; t0 = 0; shopDone = stockDone = fuelDone = false; ringing = false; called = false; answered550 = false; ringKind = null;
       registerPhone();
-      tasks.setTillEnabled(!tutorial);   // the tutorial opens the till when the manager says so (a till opened before the call would leave the lesson waiting for it)
-      if (tutorial) { phase = 'ring1'; ringKind = 'ring1'; ringAt = 22.5; obj('Fique por perto. O telefone vai tocar.'); }
-      else { phase = 'free'; progression.st.tutorialDone = true; obj('Abra o caixa: a registradora do balcão. Segure o botão de usar.'); }
+      // every night opens at 23:00 with the preparation: the till stays shut until 00:00 (and in the tutorial until the manager says so)
+      tutNight = tutorial; tasks.setTillEnabled(false); phase = 'prep';
+      if (!tutorial) progression.st.tutorialDone = true;
+      obj(tutorial ? 'Bata o ponto: o relógio de ponto está na parede do escritório.' : 'Prepare o posto antes da meia-noite. Comece batendo o ponto, no escritório.');
     },
+    /** The preparation is over (00:00): the night goes on by itself, or the tutorial goes on with the manager's call. */
+    endPrep() {
+      if (phase !== 'prep') return;
+      if (tutNight) { phase = 'ring1'; ringKind = 'ring1'; ringAt = t0 + 6; obj('Fique por perto. O telefone vai tocar.'); }
+      else { phase = 'free'; obj('Meia-noite. Abra o caixa: a registradora do balcão. Segure o botão de usar.'); }
+    },
+    /** The line on top of the screen (the preparation's own guidance in the tutorial). */
+    setObjective(t) { if (phase === 'prep') obj(t); },
     /** Rings the office phone on behalf of an event. Returns false if the phone is busy (the manager, the tutorial). */
     ringExtra(secs, onAnswer, onMissed) {
       if (phase !== 'free' || ringing || extra || time.minutes >= phoneMin - 3) return false;

@@ -44,3 +44,5 @@ export function run({ cameras, kit, world, bus, sanity, progression, event, ui, 
     dispose() { ghost?.remove(); if (fig) kit.dispose(fig); },
   };
 }
+/** the shop's lights are on, so the camera has a picture to put the figure in. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, cameras }) => Boolean(cameras) && world.posto.breakers.isOn('loja');

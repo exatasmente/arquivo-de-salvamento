@@ -13,6 +13,7 @@ import { mulberry32 } from '../rng.js';
 import { createKit } from './events/kit.js';
 
 const STAGE_ODDS = [0, 0.6, 1, 1.5, 2.2, 2.5];   // by sanity stage: how much likelier a hallucination is
+const SOFT_ODDS = [0.15, 0.5, 1, 1.6, 2.2, 2.5];  // the same for the things at the corner of the eye (`sanidadeOdds`): rare with a steady mind, commoner as it goes
 const RETRY_MIN = 8;                              // game minutes between rolls of a repeating event
 const GAP = 16;                                   // real seconds of quiet between two events
 
@@ -29,6 +30,27 @@ export async function createEvents(bus, ctx) {
 
   bus.on('tutorial:done', () => { readyAt = clock; });
 
+  // ---- somebody near reacts (a short box that shows it is Heitor's head): when a strange thing is seen with a customer in the shop, at the counter or at the
+  // pumps, the customer says so a moment later. The street dweller, when he is about, has his own line (events/morador-de-rua.js).
+  const REACT = { 'sino-sem-ninguem': 'sino', 'passos-fora': 'passos', 'luz-oscila': 'luz', 'telefone': 'telefone', 'telefone-fantasma': 'telefone', 'objeto-muda': 'coisa', 'porta-aberta': 'coisa', 'prateleira-arrumada': 'coisa', 'sombra-errada': 'coisa', 'adesivo-estoque': 'coisa', 'sol-por-dentro': 'coisa' };
+  const reacted = new Set(); let pendingReact = null, reactN = 0;
+  function witness() {
+    const px = player.st.x, pz = player.st.z; let best = null, bd = 13;
+    for (const c of ctx.customers.list) {
+      if (c.done || !c.name || c.kind === 'dark' || c.kind === 'empty' || c.noService || c.hold) continue;
+      if (['arriving', 'leaving', 'entering', 'route', 'inside', 'driving', 'exiting'].includes(c.state)) continue;
+      const o = c.kind === 'car' ? c.car?.root.position : c.human?.root.position; if (!o) continue;
+      const d = Math.hypot(o.x - px, o.z - pz); if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+  bus.on('event:seen', (id) => {
+    if (est.morador || reacted.has(id) || !data.dialogue.reacoesEvento) return;
+    const w = witness(); if (!w) return;
+    reacted.add(id); pendingReact = { at: clock + 1.3, who: w, kind: REACT[id] || 'visao' };
+  });
+
+
   async function load(ev) {
     if (!ev.roteiro) return null;
     if (!scripts[ev.id]) scripts[ev.id] = import(ev.roteiro.replace(/^events\//, './events/')).then((m) => (mods[ev.id] = m), (e) => { console.warn('event script', ev.id, e.message); return (mods[ev.id] = null); });
@@ -38,6 +60,7 @@ export async function createEvents(bus, ctx) {
   function schedule({ day, seed, force, tutorialDone }) {
     plan = []; clock = 0; readyAt = tutorialDone ? 0 : null; forced = force || null; lastEnd = -99;
     for (const k of Object.keys(counts)) delete counts[k];
+    reacted.clear(); pendingReact = null; est.morador = null;
     rr = mulberry32(seed * 977 + day * 31 + 5);
     kit = createKit(ctx);
     est.placa = est.placaBase(day);
@@ -47,7 +70,7 @@ export async function createEvents(bus, ctx) {
     for (const ev of records) {
       if (!ev.roteiro) continue;
       if (ev.semanaMin > progression.st.week && forced !== ev.id) continue;
-      if (!ev.repetivel && progression.hasSeen(ev.id) && forced !== ev.id) continue;
+      if (!ev.repetivel && !ev.todaNoite && progression.hasSeen(ev.id) && forced !== ev.id) continue;
       load(ev);
       if (ev.gatilho === 'shift') continue;
       const [a, b] = ev.horario.map((s) => time.parse(s));
@@ -71,6 +94,9 @@ export async function createEvents(bus, ctx) {
     if (c.semFlag && progression.hasFlag(c.semFlag)) return false;
     if (c.camera || c.folga) return false;   // needs a later phase
     if (ev.maxPorNoite && (counts[ev.id] || 0) >= ev.maxPorNoite) return false;
+    // the world is checked before anything strange happens (`can` of the script: an open door, a customer in the way, a lamp that is out)
+    const m = mods[ev.id];
+    if (m?.can) { try { if (!m.can({ ...ctx, kit, event: ev })) return false; } catch (e) { console.warn('event can', ev.id, e.message); return false; } }
     return true;
   }
   /** Not while the player is in a dialogue, a menu or the middle of a payment. */
@@ -88,6 +114,12 @@ export async function createEvents(bus, ctx) {
   }
   function update(dt, t) {
     clock += dt;
+    est.shake = Math.max(0, (est.shake || 0) - dt * 0.14); est.cut = Math.max(0, (est.cut || 0) - dt * 3);      // a scare's tremor and dark cut fade by themselves
+    if (pendingReact && clock >= pendingReact.at) {
+      const { who, kind } = pendingReact; pendingReact = null;
+      const lines = data.dialogue.reacoesEvento[kind] || data.dialogue.reacoesEvento.visao;
+      if (ctx.customers.list.includes(who) && !who.done && !ctx.ui.modalOpen) { ctx.ui.say(who.name, lines[reactN++ % lines.length], { seed: 400 + reactN, ms: 2600 }); bus.emit('event:reacted', who.name, kind); }
+    }
     if (active) {
       const cur = active;   // an event may end the night (an ending) and reset this system from inside its own update
       if (cur.run.update(dt, t)) { if (active === cur) { cur.run.dispose?.(); bus.emit('event:end', cur.ev.id); active = null; lastEnd = clock; } }
@@ -102,7 +134,8 @@ export async function createEvents(bus, ctx) {
       if (p.pool) {
         if (m < p.next) continue;
         p.next = m + RETRY_MIN;
-        if (rr() >= p.ev.chance * STAGE_ODDS[stage]) continue;
+        const odds = (p.ev.sanidadeOdds ? SOFT_ODDS : STAGE_ODDS)[stage] * (1 + (p.ev.crescePorSemana || 0) * (progression.st.week - 1));
+        if (rr() >= p.ev.chance * odds) continue;
         p.count++; p.next = m + (p.ev.intervaloMin || 40);
       } else plan.splice(plan.indexOf(p), 1);
       start(p);
@@ -121,6 +154,6 @@ export async function createEvents(bus, ctx) {
     schedule, update, trigger, state: est, get run() { return active ? active.run : null; }, get active() { return active ? active.ev.id : null; },
     get plan() { return plan.map((p) => ({ id: p.ev.id, at: Math.round(p.at), pool: Boolean(p.pool) })); },
     get placaSorriso() { return est.placa; },
-    reset() { if (active) { active.run.dispose?.(); active = null; } plan = []; est.naoSair = null; },
+    reset() { if (active) { active.run.dispose?.(); active = null; } plan = []; est.naoSair = null; est.morador = null; pendingReact = null; },
   };
 }

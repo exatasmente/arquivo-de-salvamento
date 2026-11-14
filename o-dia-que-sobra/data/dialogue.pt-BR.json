@@ -119,5 +119,39 @@
     "perdidas2": "Segunda meta perdida.",
     "folga": "Amanhã é folga. As contas estão na mesa.",
     "perdidas1Ultima": "Metas perdidas: 1. Esta era a última semana."
+  },
+  "reacoesEvento": {
+    "_nota": "Quando um evento estranho acontece com gente por perto, alguém reage numa caixa curta e mostra que é coisa da cabeça de Heitor. Por tipo de evento.",
+    "sino": [
+      "Que sino? Não tocou nada.",
+      "O sino? Eu não ouvi sino nenhum.",
+      "Alguém tocou o sino? Eu não vi ninguém."
+    ],
+    "passos": [
+      "Que passos? Não ouvi nada lá fora.",
+      "Tá tudo bem, moço? Lá fora tá quieto.",
+      "Passos? Só o vento, moço."
+    ],
+    "luz": [
+      "A luz tá normal, moço.",
+      "Que luz? Tá tudo aceso.",
+      "Tá cansado, né? A lâmpada tá firme."
+    ],
+    "telefone": [
+      "O telefone? Não tocou.",
+      "Tá tocando o quê? Eu não ouvi.",
+      "Moço, o telefone tá quieto."
+    ],
+    "visao": [
+      "Tá tudo bem, moço? Tá olhando o quê?",
+      "Não tem ninguém ali, moço.",
+      "Você tá pálido. Tá tudo bem?",
+      "Que foi? Eu não vi nada."
+    ],
+    "coisa": [
+      "Tá tudo no lugar, moço.",
+      "Tá tudo bem, moço? Parece que viu coisa.",
+      "Não mexeu em nada, não. Tá do jeito que tava."
+    ]
   }
 }

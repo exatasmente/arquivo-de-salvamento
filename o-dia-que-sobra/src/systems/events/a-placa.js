@@ -19,3 +19,5 @@ export function run({ est, kit, world, sanity, progression, event, bus, ui, time
     },
   };
 }
+/** the sign must be lit for its smile to be seen. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world }) => world.posto.breakers.isOn('placa');

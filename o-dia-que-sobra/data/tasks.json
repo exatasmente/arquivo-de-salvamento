@@ -13,10 +13,10 @@
     { "id": "fechar-caixa", "texto": "Fechar o caixa às 06:00" }
   ],
   "aparecem": [
-    { "id": "repor", "porNoite": [2, 3], "janela": ["00:40", "04:30"] },
-    { "id": "lixo", "porNoite": [1, 2], "janela": ["00:30", "04:30"] },
-    { "id": "mancha", "porNoite": [1, 2], "janela": ["00:50", "04:40"] },
-    { "id": "lampada", "porNoite": [1, 1], "janela": ["01:00", "04:00"] },
+    { "id": "repor", "porNoite": [1, 2], "janela": ["00:40", "04:30"] },
+    { "id": "lixo", "porNoite": [0, 1], "janela": ["00:30", "04:30"] },
+    { "id": "mancha", "porNoite": [0, 1], "janela": ["00:50", "04:40"] },
+    { "id": "lampada", "porNoite": [0, 1], "janela": ["01:00", "04:00"] },
     { "id": "disjuntor", "porNoite": [0, 1], "janela": ["01:30", "04:00"], "chance": 0.7 },
     { "id": "bomba-travada", "porNoite": [1, 1], "janela": ["01:00", "04:30"] }
   ],

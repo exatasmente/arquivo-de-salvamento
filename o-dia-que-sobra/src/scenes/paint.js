@@ -33,9 +33,9 @@ const spots = (g, w, h, R, n, col, wmax, hmax) => { for (let i = 0; i < n; i++) 
 // ---------------------------------------------------------------------------------------------
 // Fuels: colour and pictogram of each. The colour is the nozzle's, the car's sticker and the sign's.
 export const FUEL = {
-  comum: { color: '#4f8a4a', cell: 0, label: 'comum' },
+  comum: { color: '#b3362e', cell: 0, label: 'comum' },
   aditivada: { color: '#3f68b0', cell: 1, label: 'aditivada' },
-  etanol: { color: '#c8642a', cell: 2, label: 'etanol' },
+  etanol: { color: '#4f8a4a', cell: 2, label: 'etanol' },
   diesel: { color: '#303036', cell: 3, label: 'diesel' },
 };
 export const FUEL_KEYS = Object.keys(FUEL);

@@ -16,3 +16,5 @@ export function run({ world, bus, sanity, progression, event, ui }) {
     },
   };
 }
+/** the shop door is shut and nobody is coming in or going out through it (an open door, or a customer at the bell, and the ring is just the bell). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, customers }) => { const a = world.anchor('sino').pos; return !world.doorOpen('porta-loja') && !customers.list.some((c) => c.kind === 'walk' && c.human && !c.inCar && ['entering', 'leaving'].includes(c.state) && Math.hypot(c.human.root.position.x - a.x, c.human.root.position.z - a.z) < 9); };

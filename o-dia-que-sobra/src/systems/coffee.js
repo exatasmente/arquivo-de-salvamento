@@ -11,7 +11,7 @@ export function createCoffee(bus, { world, render, interaction, inventory, progr
   const THREE = render.THREE;
   const price = data.items.extras.cafe.preco;
   const lines = data.recurring?.personagens?.homem0333?.cafe || {};
-  let lastHour = -1, cupObj = null, cupT = 0;
+  let lastHour = NaN, cupObj = null, cupT = 0;
 
   bus.on('recurring:end', (id, info) => {
     if (id !== 'homem0333') return;
@@ -90,6 +90,6 @@ export function createCoffee(bus, { world, render, interaction, inventory, progr
   });
   return {
     update(dt) { if (cupObj) { cupT -= dt; if (cupT <= 0) { render.scene.remove(cupObj); cupObj = null; } } },
-    reset() { lastHour = -1; if (cupObj) { render.scene.remove(cupObj); cupObj = null; } },
+    reset() { lastHour = NaN; if (cupObj) { render.scene.remove(cupObj); cupObj = null; } },
   };
 }

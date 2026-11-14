@@ -53,3 +53,5 @@ export function run({ customers, world, kit, bus, sanity, progression, event, ui
   };
   function leave() { world.pumpDisplay(n, 0); customers.releaseEmptyCar(car); return true; }
 }
+/** pump 4 is free: nobody is being served there. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers }) => customers.freePump(4) === 4;

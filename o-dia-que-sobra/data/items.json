@@ -2,7 +2,7 @@
   "combustiveis": {
     "comum": {
       "nome": "Comum",
-      "cor": "#4f8a4a",
+      "cor": "#b3362e",
       "pictograma": "gota"
     },
     "aditivada": {
@@ -12,7 +12,7 @@
     },
     "etanol": {
       "nome": "Etanol",
-      "cor": "#c8642a",
+      "cor": "#4f8a4a",
       "pictograma": "folha"
     },
     "diesel": {

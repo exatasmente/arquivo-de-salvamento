@@ -26,3 +26,5 @@ export function run({ world, kit, bus, sanity, progression, event, ui, player })
     dispose() { kit.dispose(fig); },
   };
 }
+/** no customer car is parked near that stall. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers, world }) => { const a = world.anchor('vaga12').pos; return !customers.list.some((c) => c.car && Math.hypot(c.car.root.position.x - a.x, c.car.root.position.z - a.z) < 7); };

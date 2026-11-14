@@ -2,7 +2,8 @@
 // starts at 00:00; it moves only when the simulation steps, never by the real clock.
 export function createTime(bus, { secondsPerHour = 90 } = {}) {
   let minutes = 0, running = false, lastWhole = 0, cap = Infinity, capped = false, rate = 1;
-  const fmt = (m) => { const h = Math.floor(m / 60) % 24, mm = Math.floor(m % 60); return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`; };
+  // (before 00:00 the clock counts back from 23:00: the preparation of the shift)
+  const fmt = (m) => { const d = ((Math.floor(m) % 1440) + 1440) % 1440, h = Math.floor(d / 60), mm = d % 60; return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`; };
   const parse = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
   function advanceTo(m) {
     minutes = Math.min(cap, m);

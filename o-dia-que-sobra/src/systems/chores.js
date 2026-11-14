@@ -5,7 +5,7 @@
 // the work happens; letting go leaves it half done, and it stays half done.
 import { mulberry32 } from '../rng.js';
 import { fill } from '../util.js';
-import { dropSpot } from './dropspot.js';
+import { dropSpot, beside, REFUSE } from './dropspot.js';
 
 // The breakers of the board by area (the scene's own list), with the words the clipboard uses.
 const BREAKER_NAME = { loja: 'loja', cobertura: 'cobertura das bombas', estoque: 'estoque', banheiros: 'banheiros', escritorio: 'escritório', servico: 'área de serviço', estacionamento: 'poste do estacionamento', placa: 'placa do Sol' };
@@ -77,7 +77,8 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     // letting go leaves the squeegee and the bucket on the floor where the player stands; the stains keep what has been cleaned, and the kit can be picked up again
     const setAt = (obj, sp) => { const v = new THREE.Vector3(sp.x, 0, sp.z); obj.parent?.worldToLocal(v); obj.position.set(v.x, obj.position.y, v.z); obj.rotation.y = sp.yaw - (obj.parent?.rotation.y ?? 0); };
     inventory.dropHandlers.limpeza = () => {
-      const a = dropSpot({ player, world }, -0.2), b = dropSpot({ player, world }, 0.25);
+      const a = dropSpot({ player, world }); if (!a) { bus.emit('hint', REFUSE); return; }
+      const b = beside(a, player, world, 0.4);
       if (props.rodo?.dyn) setAt(props.rodo.dyn, a); if (props.balde?.dyn) setAt(props.balde.dyn, b);
       showKit(true); inventory.clearCarry(); bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Rodo e balde no chão. Mire neles para pegar de novo.')
     };
@@ -156,9 +157,11 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     });
     // a bag that is let go stays on the floor where the player stands (the task stays open); it can be picked up again
     inventory.dropHandlers.saco = (c) => {
-      const a = active.get('lixo-' + c.id); inventory.clearCarry(); player.st.carryHeavy = false;
-      if (!a) return;
-      const sp = dropSpot({ player, world }), mesh = world.prop('saco'), at = new THREE.Vector3(sp.x, 0.35, sp.z);
+      const a = active.get('lixo-' + c.id);
+      if (!a) { inventory.clearCarry(); player.st.carryHeavy = false; return; }
+      const sp = dropSpot({ player, world }); if (!sp) { bus.emit('hint', REFUSE); return; }
+      inventory.clearCarry(); player.st.carryHeavy = false;
+      const mesh = world.prop('saco'), at = new THREE.Vector3(sp.x, 0.35, sp.z);
       mesh.position.set(sp.x, 0, sp.z); mesh.rotation.y = sp.yaw; render.scene.add(mesh);
       const tid = interaction.register({
         id: 'saco-solto-' + c.id, reach: 2.5, priority: 2,
@@ -188,6 +191,7 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     // letting go leaves the ladder lying on the floor where the player stands; it can be picked up again
     inventory.dropHandlers.escada = () => {
       const sp = dropSpot({ player, world }), h = ladder.home.pos;
+      if (!sp) { bus.emit('hint', REFUSE); return; }
       posto.displace('escada', [sp.x - h[0], 0, sp.z - h[2]], sp.yaw - (ladder.home.ry || 0));
       ladder.root.visible = true; ladder.syncCollider(); ladder.collider.enabled = true;
       inventory.clearCarry(); player.st.carryHeavy = false; player.st.liftTo = 0; bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Escada no chão. Mire nela para pegar de novo.');

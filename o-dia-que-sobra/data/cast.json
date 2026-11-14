@@ -130,6 +130,7 @@
     }
   ],
   "tipos": [
+    {"id": "morador-de-rua", "nome": "Morador de rua", "categoria": "recorrente", "peso": 0, "semanaMin": 1, "veiculo": {"tipo": "a-pe"}, "aparencia": {"seed": 88, "roupa": "morador", "manias": ["cansado"]}, "pedido": {"modo": "observa"}, "pagamento": {"notas": [], "nota": "normal"}, "paciencia": 0, "poses": {"chegada": "parado", "esperando": "parado", "pedindo": "parado", "pagando": "parado", "saindo": "parado"}, "falas": {"chegada": ["Boa noite, moço."]}},
     {
       "id": "caminhoneiro",
       "nome": "Motorista de caminhão",

@@ -43,3 +43,5 @@ export function run(ctx) {
   };
   function leave() { bus.emit('loop', capKey, 'bomba_corre', { on: false }); world.pumpDisplay(n, 0); customers.releaseEmptyCar(car); return true; }
 }
+/** the pump the car is meant for is free. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers, event }) => { const n = Number((event.local || 'bomba-3').split('-')[1]) || 3; return customers.freePump(n) === n; };

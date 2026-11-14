@@ -70,6 +70,8 @@ const OUTFITS = {
   'aposentado': { look: { female: false, skirt: false, shirt: '#9a8a6a', pants: '#5a5448', hairStyle: 'short', build: 'lean' }, torso: { kind: 'xadrez', c1: '#9a8a6a', c2: '#d8d0b0' }, acc: ['bone'], bone: '#8a7a5a' },
   'moletom': { look: { female: false, skirt: false, shirt: '#5a5e66', pants: '#262a30', hairStyle: 'short' }, torso: { kind: 'moletom', c1: '#5a5e66' }, sleeves: 'long', sleeveColor: '#5a5e66', acc: ['capuz'] },
   'jaqueta-escura': { look: { female: false, skirt: false, shirt: '#23252b', pants: '#1e2026', hairStyle: 'short' }, torso: { kind: 'jaqueta', c1: '#23252b', c2: '#2c2e35' }, hem: 'jacket', sleeves: 'long', sleeveColor: '#23252b', acc: ['oculos-escuros', 'bone'], bone: '#1e2026' },
+  // the street dweller (no name in the video): a long coat worn to the colour of the pavement, a dark cap, grey stubble, head a little down
+  'morador': { look: { female: false, skirt: false, shirt: '#5a4a38', pants: '#3a3630', hairStyle: 'short', build: 'lean', beard: 'stubble', hair: '#8a8680', skin: '#a4805c', height: 1.72 }, torso: { kind: 'sobretudo', c1: '#5a4a38' }, hem: 'sobretudo', sleeves: 'long', sleeveColor: '#5a4a38', acc: ['bone'], bone: '#34343a' },
   'sobretudo': { look: { female: false, skirt: false, shirt: '#8a8a84', pants: '#3a3a3e', hairStyle: 'short', build: 'lean' }, torso: { kind: 'sobretudo', c1: '#8a8a84' }, hem: 'sobretudo', sleeves: 'long', sleeveColor: '#8a8a84', acc: [] },
   'frentista-antigo': { look: { female: false, skirt: false, shirt: '#86652a', pants: '#3e2c1c', hairStyle: 'short', build: 'lean', skin: '#b4a48c', hair: '#8c8a86', height: 1.97 }, torso: { kind: 'uniforme', c1: '#86652a' }, sleeves: 'short', acc: ['bone'], bone: '#4a3624', hem: 'belt' },
 };

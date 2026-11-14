@@ -129,7 +129,7 @@ body.touch #invstrip .slot { width: 96px; min-height: 30px; padding: 2px 6px; }
 #calhud { display: flex; flex-direction: column; gap: 1px; padding: 3px 9px 4px; letter-spacing: 1px; }
 #calhud b { font-size: calc(20px * var(--ts, 1)); color: #ff9a4a; letter-spacing: 2px; line-height: 1.05; }
 #calhud span { font-size: calc(11px * var(--ts, 1)); font-weight: normal; }
-#goalhud { position: absolute; left: max(10px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 54px * var(--ts, 1)); max-width: min(46ch, 62%); padding: 3px 9px; background: rgba(8,10,16,.66); border: 1px solid rgba(224,178,74,.8); color: #ffe39a; font-size: calc(13px * var(--ts, 1)); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#goalhud { position: absolute; left: max(10px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 64px * var(--ts, 1)); max-width: min(46ch, 62%); padding: 3px 9px; background: rgba(8,10,16,.66); border: 1px solid rgba(224,178,74,.8); color: #ffe39a; font-size: calc(13px * var(--ts, 1)); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5; }
 #arrow i { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; background: #ffd84a; clip-path: polygon(50% 0, 100% 100%, 50% 72%, 0 100%); filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 1px #000); opacity: .92; }
 #carryhint { position: absolute; left: 50%; bottom: max(64px, calc(env(safe-area-inset-bottom) + 56px)); transform: translateX(-50%); padding: 3px 10px; background: rgba(8,10,16,.72); border: 1px solid #5a5238; font-size: calc(12px * var(--ts, 1)); color: #cfc6a8; pointer-events: none; white-space: nowrap; }
@@ -169,6 +169,49 @@ body.touch #carryhint { bottom: 238px; }
   .box.calc small { display: none; }
   .cwrap .keypad { padding: 8px 10px; } .cwrap .keypad h1 { font-size: calc(17px * var(--ts, 1)); margin-bottom: 2px; }
   .cwrap .keypad .kl { font-size: 11px; margin: 1px 0; } .keypad button { padding: 6px 8px; min-width: 52px; }
+}
+
+/* actions that overlap in the aim: one short line per action, with its key; on the touch screen each line is a button */
+#choice { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 3px; min-width: min(280px, 86%); max-width: 92%; padding: 4px; background: rgba(8,10,16,.8); border: 2px solid #8a7a4a; box-shadow: 3px 3px 0 #000; font-size: calc(14px * var(--ts, 1)); pointer-events: none; }
+#choice .crow { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 3px 8px; border: 2px solid transparent; flex-wrap: wrap; }
+#choice .crow.sel { border-color: #e0b24a; background: #2a2418; color: #fff2c0; }
+#choice .crow b { color: #0a0a0e; background: #e0b24a; padding: 1px 6px; min-width: 1.2em; text-align: center; }
+#choice .crow:not(.sel) b { background: #6a6240; color: #ede5c4; }
+#choice .crow span { flex: 1; white-space: nowrap; }
+#choice .crow em { display: none; width: 100%; height: 5px; background: #1b1e29; font-style: normal; } #choice .crow em i { display: block; height: 100%; width: 0; background: #e0a526; }
+#choice small { display: block; margin: 2px 0 0; text-align: center; font-size: calc(11px * var(--ts, 1)); color: #9a8e68; font-weight: normal; }
+body.touch #choice { top: 46%; } body.touch #choice .crow { min-height: 44px; border-color: #5a5238; background: rgba(20,20,28,.85); }
+
+/* the preparation: the line under the clock, and the clipboard's own heading for it */
+#calhud i { font-style: normal; font-size: calc(12px * var(--ts, 1)); color: #ffe39a; letter-spacing: 1px; margin-top: 1px; }
+#calhud i[hidden] { display: none; }
+body.touch #goalhud { top: calc(max(8px, env(safe-area-inset-top)) + 70px * var(--ts, 1)); }
+body.touch #objective { top: calc(max(8px, env(safe-area-inset-top)) + 104px); }
+body.touch #total { top: calc(max(8px, env(safe-area-inset-top)) + 154px); }
+
+/* ONE layout for the top of the screen, at every size (round 3): the clock and the calendar, the marked goal, the narrative line, the "leitor" total, the teaching lines and the toast
+   are the children of #top, one under the other, in the flow: they cannot overlap whatever the size of the window or of the text, and what is long wraps instead of being cut. The
+   pause button (touch) is the only thing beside the stack, and the stack leaves room for it. */
+#top { position: absolute; left: max(10px, env(safe-area-inset-left)); top: max(8px, env(safe-area-inset-top)); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: min(560px, calc(100% - 20px)); pointer-events: none; z-index: 3; }
+body.touch #top { width: calc(100% - 20px - 56px - max(0px, env(safe-area-inset-right))); }
+#top > * { position: static !important; transform: none !important; left: auto !important; top: auto !important; right: auto !important; bottom: auto !important; margin: 0 !important; width: auto; max-width: 100% !important; box-sizing: border-box; }
+#top > [hidden] { display: none !important; }
+#top #goalhud { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.25; }
+#top #objective { text-align: left; font-size: calc(13px * var(--ts, 1)); }
+#top #total { font-size: calc(15px * var(--ts, 1)); padding: 3px 10px; }
+#top #coach { width: 100% !important; text-align: left; padding: 4px 9px; }
+#top #coach p { font-size: calc(12px * var(--ts, 1)); }
+#top #toast { text-align: left; }
+@media (max-width: 520px) { #top #objective { font-size: calc(12px * var(--ts, 1)); } #top #coach p { font-size: calc(11px * var(--ts, 1)); } }
+body.touch #prompt { top: 56%; } body.touch #choice { top: 54%; }
+@media (max-height: 460px) { body.touch #prompt { top: 62%; } body.touch #choice { top: 60%; } }
+body.touch #top { width: min(560px, calc(100% - 20px - 56px)); }
+@media (max-height: 460px) {
+  /* the phone on its side: the hands in a row at the bottom between the stick and the buttons, the hint of letting go above them */
+  body.touch #invstrip { left: 50% !important; transform: translateX(-50%) !important; bottom: 8px !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: stretch !important; }
+  body.touch #invstrip .slot { width: 84px; }
+  body.touch #carryhint { bottom: 62px; }
+  #top #coach p { font-size: calc(11px * var(--ts, 1)); margin: 1px 0; }
 }
 /* title screen (src/title.js): the Sun sign at night behind, one prompt low on the screen */
 #attract { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px;

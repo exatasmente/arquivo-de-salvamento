@@ -32,3 +32,5 @@ export function run({ world, kit, player, render, sanity, bus, progression, even
     dispose() { render.scene.remove(void_); },
   };
 }
+/** nobody is using a door right now. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers }) => !customers.list.some((c) => c.kind === 'walk' && (c.state === 'entering' || (c.state === 'leaving' && !c.inCar)));

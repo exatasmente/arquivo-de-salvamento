@@ -9,11 +9,12 @@ import { mulberry32 } from '../rng.js';
 import { money } from '../util.js';
 import { DENOMS } from './cash.js';
 import { startOfNight } from './sanity.js';
+import { PREP_FROM } from './prep.js';
 
 const label = (v) => (v >= 100 ? `R$ ${v / 100}` : `${String(v).padStart(2, '0')} cent.`);
 
 export function createShift(bus, d) {
-  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror } = d;
+  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep } = d;
   let open = false, closing = false, rng = mulberry32(1), counting = false, doubled = false;
   const lastNight = rules.campanha.ultimaNoite;
   const endMin = time.parse(rules.expediente.fim), noNewMin = time.parse(rules.expediente.semClientesApos);
@@ -96,10 +97,12 @@ export function createShift(bus, d) {
       player.st.carryHeavy = false; player.st.pushing = false; player.st.liftTo = 0; player.st.lift = 0;
       const sp = world.anchor('spawn');
       player.place(sp.pos, Math.atan2(-sp.dir.x, -sp.dir.z));
-      time.setCap(day >= lastNight ? endMin - 1 : endMin); time.setRate(1); time.start(0);
+      // the night opens at 23:00 with the preparation (prep.js); the clock reaches 00:00 in 3 real minutes, the till opens and the customers come then
+      time.setCap(day >= lastNight ? endMin - 1 : endMin); time.setRate(1); time.start(PREP_FROM);
+      customers.enable(false);
       tasks.begin({ seed, day, tutorial });
       narrative.begin({ tutorial });
-      if (!tutorial) customers.enable(true, seed * 3 + day);
+      prep.begin({ tutorial, seed });
       events.schedule({ day, seed, force: event, tutorialDone: !tutorial });
       bus.emit('shift:open', day);
     },
@@ -131,7 +134,7 @@ export function createShift(bus, d) {
       const choice = await ui.showSummary({ ...summary, saved: ok, next: day + 1, flags: progression.st.flags, cal, weekClosed: Boolean(week), weekPts: week ? week.pts : progression.st.weekPts, meta: r.meta, last: cal.last });
       bus.emit('shift:closed', summary, week, choice);
     },
-    abort() { open = false; doubled = false; closing = false; counting = false; time.pause(); narrative.endNight(); customers.clear(); customers.enable(false); chores.clear(); tasks.clear(); events.reset(); },
+    abort() { prep.abort(); open = false; doubled = false; closing = false; counting = false; time.pause(); narrative.endNight(); customers.clear(); customers.enable(false); chores.clear(); tasks.clear(); events.reset(); },
   };
   return this_;
 }

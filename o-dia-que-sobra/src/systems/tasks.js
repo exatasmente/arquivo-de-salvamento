@@ -7,7 +7,7 @@
 // shelf under LOW of its capacity (the 'shelf:taken' event of customers.js).
 import { mulberry32 } from '../rng.js';
 import { fill, money } from '../util.js';
-import { dropSpot } from './dropspot.js';
+import { dropSpot, REFUSE } from './dropspot.js';
 
 const LOW = 0.3;       // a shelf under this fraction of its capacity asks to be restocked
 
@@ -21,7 +21,8 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
   let plan = [], lastSpawn = -99, rr = mulberry32(1);
   const productOf = (tipo) => Object.keys(items.produtos).find((k) => items.produtos[k].tipo === tipo);
 
-  const add = (id, text, kind = 'tarefa') => { if (list.some((t) => t.id === id)) return id; list.push({ id, text, done: false, failed: false, kind }); bus.emit('tasks:change'); return id; };
+  let prepMode = false;       // what is added while it is on belongs to the preparation before the shift (23:00 to 00:00)
+  const add = (id, text, kind = 'tarefa') => { if (list.some((t) => t.id === id)) return id; list.push({ id, text, done: false, failed: false, kind, prep: prepMode }); bus.emit('tasks:change'); return id; };
   const done = (id) => { const t = list.find((x) => x.id === id); if (t && !t.done) { t.done = true; t.failed = false; bus.emit('tasks:change'); } };
   const fail = (id) => { const t = list.find((x) => x.id === id); if (t && !t.done) { t.failed = true; bus.emit('tasks:change'); } };
   const setText = (id, text) => { const t = list.find((x) => x.id === id); if (t) { t.text = text; bus.emit('tasks:change'); } };
@@ -138,6 +139,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     const rec = boxes.get(c.n), bx = world.boxes[c.n];
     if (!rec || !bx?.root) { inventory.clearCarry(); player.st.carryHeavy = false; return; }
     const sp = dropSpot({ player, world });
+    if (!sp) { bus.emit('hint', REFUSE); return; }          // (the box stays in the hands)
     bx.root.position.set(sp.x, 0, sp.z); bx.root.rotation.y = sp.yaw; bx.root.visible = true; rec.taken = false;
     inventory.clearCarry(); player.st.carryHeavy = false; bus.emit('sfx', 'caixa_papelao', {}); bus.emit('hint', 'Caixa no chão. Mire nela para pegar de novo.');
   };
@@ -318,7 +320,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
       chores?.begin(seed, day);
       initBoxes(seed);
       plan = makePlan(seed, day);
-      if (!tutorial) addFixed(['abrir-caixa', 'banheiro', 'fechar-caixa']);
+      if (!tutorial) addFixed(['fechar-caixa']);      // (the bathroom is part of the preparation, and the till is opened at 00:00)
       bus.emit('tasks:change');
     },
     startRestock, restockIfLow, openTill,
@@ -343,7 +345,11 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
       }
     },
     get plan() { return plan; },
-    undone: () => list.filter((t) => !t.done).length,
+    // what is left of the preparation at 00:00 counts as not done once, right then (`penalized`); it stays pending and is not counted again at the closing
+    undone: () => list.filter((t) => !t.done && !t.penalized).length,
+    setPrep(v) { prepMode = Boolean(v); },
+    penalizePrep() { const left = list.filter((t) => t.prep && !t.done && !t.penalized); for (const t of left) t.penalized = true; if (left.length) bus.emit('tasks:change'); return left.length; },
+    prepList: () => list.filter((t) => t.prep),
     setTillEnabled(v) { till.enabled = v; },
     allDone: () => list.every((t) => t.done),
   };

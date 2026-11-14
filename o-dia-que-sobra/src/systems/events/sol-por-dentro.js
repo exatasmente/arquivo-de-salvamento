@@ -20,3 +20,5 @@ export function run({ world, kit, bus, sanity, progression, event, ui, time, rng
     dispose() { world.posto.cups?.setCount(0); },
   };
 }
+/** the shop is lit and nobody is at the counter. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, customers }) => world.posto.breakers.isOn('loja') && !customers.list.some((c) => c.kind === 'walk' && ['scanning', 'ready', 'placing'].includes(c.state));

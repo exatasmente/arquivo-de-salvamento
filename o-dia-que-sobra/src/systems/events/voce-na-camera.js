@@ -60,3 +60,5 @@ export function run({ cameras, kit, world, bus, sanity, progression, event, ui, 
     dispose() { ghost?.remove(); },
   };
 }
+/** the stock room has power, so its camera shows something. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, cameras }) => Boolean(cameras) && world.posto.breakers.isOn('estoque');

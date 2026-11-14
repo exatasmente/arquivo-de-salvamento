@@ -26,6 +26,8 @@ import { createMedication } from './systems/medication.js';
 import { createCampaign } from './systems/campaign.js';
 import { createSecrets } from './systems/secrets.js';
 import { createGoals } from './systems/goals.js';
+import { createPrep } from './systems/prep.js';
+import { createHoses } from './systems/hoses.js';
 import { mulberry32 } from './rng.js';
 import { createCoffee } from './systems/coffee.js';
 import { createMirror } from './systems/mirror.js';
@@ -129,7 +131,7 @@ export async function createGame({ root, render, input, params }) {
       cal: progression.calendar(), weekNow: progression.st.weekPts + progression.night.pontos, meta: progression.weekRules().meta,
       tasks: tasks.list, perf: progression.night, undone: tasks.undone(),
       blank: medication.active('concentracao') && Math.floor(simT / 7) % 2 === 1, mind: fx.mind,
-      orders: goals.orders(), goalKey: goals.key,
+      orders: goals.orders(), goalKey: goals.key, prep: prep.text(),
       pickHint: { keyboard: 'Tab escolhe o objetivo', gamepad: '\u25C4 \u25BA escolhe o objetivo', touch: 'toque numa linha para marcar' }[input.device()] || '',
       fuels: Object.values(data.items.combustiveis).map((f) => ({ nome: f.nome, cor: f.cor })),
     }),
@@ -163,7 +165,7 @@ export async function createGame({ root, render, input, params }) {
   const narrative = createNarrative(bus, { world, interaction, customers, tasks, progression, time, ui, dialogue, data, cash, office });
   const mirror = createMirror({ world, render, player });
   const kit = createKit({ world, player, render, data });
-  const entity = createEntity(bus, { world, render, player, sanity, lighting, inventory, progression, time, interaction, ui, kit });
+  const entity = createEntity(bus, { world, render, player, sanity, lighting, inventory, progression, time, interaction, ui, kit, opts });
   const medication = createMedication(bus, { data, progression, sanity, time, inventory, interaction, world, ui, player, customers });
   const coffee = createCoffee(bus, { world, render, interaction, inventory, progression, sanity, time, ui, customers, data });
   world.displayFilter = (text, t) => medication.scramble(text, t);
@@ -172,14 +174,16 @@ export async function createGame({ root, render, input, params }) {
     startNight: (day) => startNight(day, false, false, true), showTitle: () => showTitle(), seed: () => baseSeed, playing: () => state === 'play',
     enterDayOff, leaveDayOff, newGame: () => { save.wipe(); newCampaign(); }, continueRun: () => continueRun(),
   } });
-  const events = await createEvents(bus, { world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
-  const shift = createShift(bus, { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
+  const events = await createEvents(bus, { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
+  const hoses = createHoses({ world, render, inventory, customers, player });
+  const prep = createPrep(bus, { world, render, interaction, time, tasks, chores, progression, ui, narrative, customers, goals });
+  const shift = createShift(bus, { prep, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
 
   bus.on('hint', (t) => ui.toast(t));
   bus.on('shift:closed', (summary, week, choice) => campaign.onClosed(summary, week, choice));
   bus.on('time:hour', () => ui.setCalendar(calText()));
   bus.on('time:minute', () => { if (state === 'play') ui.setClock(time.text()); });
-  bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); });
+  bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); ui.setPrep(prep.text()); });
   // what the hands hold and how to let go of it, on the screen, for the device in use
   const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco']);
   const dropText = () => ({ keyboard: 'Soltar: E em lugar vazio', gamepad: 'Soltar: A em lugar vazio', touch: 'Soltar: toque em lugar vazio' }[input.device()] || 'Soltar: E em lugar vazio');
@@ -368,11 +372,15 @@ export async function createGame({ root, render, input, params }) {
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
         { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_) },
         { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
+        { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
       ],
       onBack: back,
     });
     root_();
   }
+  /** "MENU INICIAL" (the channel's console menu, one folder up): saves the way "sair para o título" does (the run on the card stays as it was; with `?debug` it is the separate debug card,
+   *  so never the real one) and goes to the channel page. Nothing is written by the jump itself. */
+  function leaveToMenu() { ui.closeModal(); showTitle(); location.href = '../'; }
   function resume() { state = 'play'; time.resume(); ui.closeModal(); }
 
   document.addEventListener('pointerlockchange', () => {
@@ -416,6 +424,7 @@ export async function createGame({ root, render, input, params }) {
         { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
         { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
+        { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
       ],
       onBack: back,
     });
@@ -450,6 +459,17 @@ export async function createGame({ root, render, input, params }) {
   });
 
   // ------------------------------------------------------------------ the step
+  // keys for the list of overlapping actions (input.js does not know them): R changes the selected action, 1 to 3 do that action (hold it to hold it)
+  const extraActs = [], digitsDown = new Set();
+  addEventListener('keydown', (e) => {
+    if (state !== 'play' || ui.modalOpen || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === 'KeyR') { if (interaction.cycle(1)) bus.emit('sfx', 'ui_mover', {}); return; }
+    const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
+    if (m && (interaction.current?.all?.length || 0) > 1) { extraActs.push({ type: 'down', immediate: false, pick: Number(m[1]) - 1 }); digitsDown.add(e.code); }
+  });
+  addEventListener('keyup', (e) => { if (digitsDown.delete(e.code)) extraActs.push({ type: 'up' }); });
+  let rbWas = false;
+  const padRB = () => { const gp = (navigator.getGamepads?.() || []).find((g) => g && g.connected); const now = Boolean(gp && gp.buttons[5] && gp.buttons[5].pressed); const edge = now && !rbWas; rbWas = now; return edge; };
   function presses(list) {
     for (const p of list) {
       if (ui.modalOpen || state !== 'play') {
@@ -470,6 +490,10 @@ export async function createGame({ root, render, input, params }) {
     // the day off samples the input and runs its own modals and HUD (never two samples in a frame)
     if (state === 'dayoff') { simT += dt; if (tick % 20 === 0 && dayoff && dayoff.clock) ui.setClock(dayoff.clock); if (dayoff) { if (dayoff.update) dayoff.update(dt, simT); else dayoff.step?.(dt, simT); } return; }
     const intent = input.sample();
+    // actions that overlap in the aim: a finger on one line of the list does that action; the keys 1 to 3 do the n-th; RB changes the selected one; R too
+    for (const a of intent.acts) if (a.type === 'down' && a.screen) { const row = ui.choiceRowAt(a.screen.x, a.screen.y); if (row !== null) { a.choice = row; delete a.screen; } }
+    if (padRB()) { if (interaction.cycle(1)) bus.emit('sfx', 'ui_mover', {}); }
+    if (extraActs.length) intent.acts.push(...extraActs.splice(0));
     // a finger on the open clipboard marks a goal and does nothing else
     if (ui.sheetOpen && intent.acts.length) {
       intent.acts = intent.acts.filter((a) => { if (a.type !== 'down' || !a.screen) return true; const k = ui.sheetKeyAt(a.screen.x, a.screen.y); if (k === null) return true; if (k) goals.toggle(k); return false; });
@@ -482,9 +506,9 @@ export async function createGame({ root, render, input, params }) {
     }
     presses(intent.press);
     ui.update(dt);
-    if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); }
+    if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); bus.emit('carry', inventory.carry); }   // (the let-go hint follows the device in use)
     simT += dt;
-    if (state === 'play' && tick % 20 === 0) ui.setClock(time.text());
+    if (state === 'play' && tick % 20 === 0) { ui.setClock(time.text()); ui.setPrep(prep.text()); }
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
     if (state === 'ending' || state === 'cutscene') return;
     if (state === 'title') { titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
@@ -492,7 +516,7 @@ export async function createGame({ root, render, input, params }) {
     fx = sanity.fx(simT);
     if (medication.active('cor')) fx.filter = `saturate(0.3) contrast(0.9)${fx.filter ? ' ' + fx.filter : ''}`;
     fx.black = Math.max(entity.black, 0);
-    fx.droop = medication.sleepy; fx.lid = medication.sleepy / 0.55 * 0.28 + (medication.blinking ? 0.4 : 0); fx.black = Math.max(medication.fade, entity.black);
+    fx.droop = medication.sleepy; fx.lid = medication.sleepy / 0.55 * 0.28 + (medication.blinking ? 0.4 : 0); fx.black = Math.max(medication.fade, entity.black, events.state.cut || 0);
     // hidden: the view is through the crack of the door, darker
     if (entity.hidden) { fx.lid = Math.max(fx.lid || 0, 0.34); fx.filter = `brightness(0.5)${fx.filter ? ' ' + fx.filter : ''}`; fx.vignette = Math.max(fx.vignette, 0.7); }
     time.step(dt);
@@ -507,12 +531,13 @@ export async function createGame({ root, render, input, params }) {
     traffic.update(dt);
     customers.update(dt, simT);
     narrative.update(dt);
-    events.update(dt, simT);
+    if (time.minutes >= 0) events.update(dt, simT);      // (the preparation before 00:00 has no scare events)
+    prep.update(dt);
     cameras.update(dt, simT);
     const a = world.areaAt(player.st.x, 1, player.st.z);
     sanity.update(dt, { danger: world.danger(a), lit: lighting.litAt(player.st.x, player.st.z) || (inventory.flash.on && inventory.flash.charge > 0), calmArea: a && (a.id === 'loja' || a.id === 'escritorio') });
     const dng = world.danger(a);
-    entity.update(dt, simT, { sanity: sanity.value, danger: dng, breath: intent.breath });
+    if (time.minutes >= 0) entity.update(dt, simT, { sanity: sanity.value, danger: dng, breath: intent.breath });      // (nor the Sun)
     entity.darkTick(dt, dng >= 3 && !lighting.litAt(player.st.x, player.st.z) && !(inventory.flash.on && inventory.flash.charge > 0));
     if (entity.done) { campaign.attacked(); return; }   // the Sun reached the player: ending 4
     shift.update(dt); campaign.update(dt);
@@ -527,8 +552,10 @@ export async function createGame({ root, render, input, params }) {
     if (state === 'ending' || state === 'cutscene') return;
     const f = state === 'title' ? { roll: 0, fov: 0, shakeX: Math.sin(simT * 0.2) * 0.05, shakeY: 0 } : { roll: fx.roll, fov: fx.fov, shakeX: Math.sin(simT * 1.7) * fx.sway, shakeY: Math.sin(simT * 1.3) * fx.sway };
     if (state !== 'title') { f.shakeY = (f.shakeY || 0) + Math.sin(simT * 1.9) * fx.breath; f.droop = fx.droop; }
+    { const sh = entity.shake + (events.state.shake || 0); if (sh > 0) { f.shakeX = (f.shakeX || 0) + Math.sin(simT * 61) * sh; f.shakeY = (f.shakeY || 0) + Math.cos(simT * 53) * sh; } }   // (the tremor of a scare)
     player.apply(render.camera, simT, f);
     if (state === 'play') goals.frame(0, simT, render.camera, { w: render.size.cssW, h: render.size.cssH }, true);
+    hoses.update();
     mirror.draw();
     cameras.draw();
     render.draw();
@@ -553,7 +580,7 @@ export async function createGame({ root, render, input, params }) {
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
     bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, cameras, shift, save, ui, audioSys, data,
-    goals, step, draw, showTitle, startNight, continueRun, openPause, resume,
+    opts, goals, prep, hoses, step, draw, showTitle, startNight, continueRun, openPause, resume,
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; },
   };
   return api;

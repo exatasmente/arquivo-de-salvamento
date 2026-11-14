@@ -26,3 +26,5 @@ export function run({ world, kit, bus, sanity, progression, event, ui, render, t
     dispose() { sc.setCount(0); caf1?.setBrewing?.(false); },
   };
 }
+/** the shop has power for the machine, and nobody is at the counter being served. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, customers }) => world.posto.breakers.isOn('loja') && !customers.list.some((c) => c.kind === 'walk' && ['scanning', 'ready', 'placing'].includes(c.state));

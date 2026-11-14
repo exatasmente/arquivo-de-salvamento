@@ -40,6 +40,8 @@ export function createWorld(r, { seed = 1 } = {}) {
         pm.setDisplay(f.displays?.[n] ?? '');
         for (const k of ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'ligar', 'cancelar']) pm.keypad?.setPressed?.(k, f.pressed?.[0] === n && f.pressed?.[1] === k);
         for (const [k, nz] of Object.entries(pm.nozzles ?? {})) nz.visible = !(f.hideNozzle && f.hideNozzle[0] === n && f.hideNozzle[1] === k);
+        // the hose follows the nozzle a cutscene holds (`nozzleAt`: its world point), else it hangs from its hook
+        for (const [k, h] of Object.entries(pm.hoses ?? {})) h.set(f.hideNozzle && f.hideNozzle[0] === n && f.hideNozzle[1] === k && f.nozzleAt ? f.nozzleAt : null);
       }
       posto.cups?.setCount?.(f.cups ?? 0);
       posto.props.armario?.setOpen?.(f.armario ?? 0); posto.props.frasco?.setVisible?.(Boolean(f.frasco));

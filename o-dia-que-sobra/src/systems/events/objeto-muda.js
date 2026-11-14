@@ -34,3 +34,5 @@ export function run({ world, kit, sanity, bus, progression, event, rng }) {
     dispose() { P.displace(id, [0, 0, 0], 0); },
   };
 }
+/** the shop is lit and nobody is shopping (a customer would see the thing move). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, customers }) => world.posto.breakers.isOn('loja') && !customers.list.some((c) => c.kind === 'walk' && ['scanning', 'ready', 'placing'].includes(c.state));

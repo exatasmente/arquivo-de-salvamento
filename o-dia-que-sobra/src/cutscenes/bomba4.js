@@ -85,7 +85,7 @@ const BASE = {
         return {
           eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t),
           flashes: [{ t: 35.25, s: 0.7, rise: 0.12, fall: 0.35 }],
-          world: { displays: { [PUMP]: display }, hideNozzle: t >= START - 1 && t < STOP + 1 ? [PUMP, 'comum'] : null, dimLights: { cobertura4: lampDip, cobertura3: lampDip }, state: { hora: 3.2 }, ambient: 0x474b5c },
+          world: { displays: { [PUMP]: display }, hideNozzle: t >= START - 1 && t < STOP + 1 ? [PUMP, 'comum'] : null, nozzleAt: nz.visible ? nz.position.toArray() : null, dimLights: { cobertura4: lampDip, cobertura3: lampDip }, state: { hora: 3.2 }, ambient: 0x474b5c },
         };
         void ambient; void T;
       },

@@ -13,3 +13,5 @@ export function run({ customers, progression, bus, event }) {
     },
   };
 }
+/** a pump is free for the motorbike. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers }) => Boolean(customers.freePump());

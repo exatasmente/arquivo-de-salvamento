@@ -23,3 +23,5 @@ export function run({ chores, customers, world, kit, bus, sanity, progression, e
     dispose() { if (car) { customers.releaseEmptyCar(car); } },
   };
 }
+/** the canopy is on (there is something to put out) and pump 4 is free for the car with nobody in it. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ world, customers }) => world.posto.breakers.isOn('cobertura') && customers.freePump(4) === 4;

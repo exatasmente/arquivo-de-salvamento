@@ -40,6 +40,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     const id = t.id, carry = inventory.carry;
     if (FORBIDDEN.test(id)) return null;
     if (id === 'abrir-caixa' || id === 'fechar-caixa') return centerOf('caixa');
+    if (id === 'ponto') return world.punch ? world.punch.pos.clone() : null;
     if (id === 'telefone') return anchorAt('telefone', 1.5);
     if (id === 'banheiro') return anchorAt('porta-banheiro-' + (chores.bathroom?.side || 'm'), 2.3);
     if (id.startsWith('repor-')) {
@@ -71,7 +72,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
   /** Short text for the HUD line: no brackets, no long tails. */
   function shortText(text) {
     let t = text.replace(/\s*\[.*$/, '').replace(/\s*\(.*?\)/g, '').replace(/:\s.*$/, '').trim();
-    if (t.length > 34) t = t.slice(0, 33).trimEnd() + '…';
+    if (t.length > 90) t = t.slice(0, 89).trimEnd() + '…';       // (the HUD line wraps: only a very long text is cut)
     return t;
   }
 

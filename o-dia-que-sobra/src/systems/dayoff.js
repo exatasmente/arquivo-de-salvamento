@@ -267,7 +267,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     if (casa.group.parent !== r.scene) r.scene.add(casa.group);
     casa.group.visible = true;
     player = createPlayer(quiet, { world: { r, colliders: casa.colliders } });
-    interaction = createInteraction(quiet, { world: { colliders: occl }, render: r, player, aimOffset: () => ({ x: 0, y: 0 }), ui, holdScale: () => 1 });
+    interaction = createInteraction(quiet, { world: { colliders: occl }, render: r, player, aimOffset: () => ({ x: 0, y: 0 }), ui, holdScale: () => 1, lists: false });
     const sp = casa.anchors.spawn.pos;
     player.place({ x: sp[0], z: sp[2] }, Math.atan2(-(3.6 - sp[0]), -(3.4 - sp[2])));
     player.freeSpot(sp[0], sp[2]);

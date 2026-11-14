@@ -47,6 +47,7 @@ function installBot(cfg) {
   try { Object.defineProperty(document, 'pointerLockElement', { get: () => document.body, configurable: true }); } catch { /* already there */ }
   const disp = {};
   const origDisp = world.pumpDisplay; world.pumpDisplay = (n, c) => { disp[n] = c; return origDisp.call(world, n, c); };
+  G.bus.on('prep:end', (e) => say(`PREP END left=${e.left}`)); G.bus.on('prep:punched', (t) => say(`PREP punched ${t}`));
   G.bus.on('perf:error', (k, why) => say(`ERROR ${k} ${why}`)); G.bus.on('perf:complaint', (why) => say(`COMPLAINT ${why}`));
   function say(m) { B.log.push(`${time.text()} ${m}`); if (B.log.length > 4000) B.log.shift(); }
 
@@ -61,6 +62,13 @@ function installBot(cfg) {
 
   // --- standing and aiming: find a spot on the floor from where the real pick of the game returns what we want
   const eyeY = () => player.st.eye;
+  /** Is `id` among the actions that fit the aim? Then make it the selected one (the player's R / RB), so E does it. */
+  function settle(id) {
+    interaction.update(0, EMPTY());
+    const all = interaction.current?.all || []; if (!all.some((c) => c.target.id === id)) return false;
+    for (let i = 0; i < all.length && interaction.current.target.id !== id; i++) { interaction.cycle(1); interaction.update(0, EMPTY()); }
+    return interaction.current?.target?.id === id;
+  }
   function aimAt(c, ok, radii = [1.0, 1.4, 1.8, 2.2, 2.6]) {
     const px = player.st.x, pz = player.st.z, base = Math.atan2(px - c.x, pz - c.z);
     for (const r of radii) {
@@ -87,10 +95,10 @@ function installBot(cfg) {
     const t = interaction.targets.get(id); if (!t || !t.enabled()) return false;
     const c = centerOf(t); if (!c) return false;
     const dist = Math.hypot(c.x - from.x, c.z - from.z);
-    const spot = aimAt(c, () => { interaction.update(0, EMPTY()); return interaction.current?.target?.id === id; });
+    const spot = aimAt(c, () => settle(id));
     if (!spot) { say(`cannot aim at ${id}`); return false; }
     wait(B.cfg.think + Math.max(0, dist - 1.5) / B.cfg.walk);
-    interaction.update(0, EMPTY()); if (interaction.current?.target?.id !== id) return false;   // what we aimed at changed while we thought (the phone stopped ringing)
+    if (!settle(id)) return false;   // what we aimed at changed while we thought (the phone stopped ringing)
     say(`use ${id}${label ? ' (' + label + ')' : ''}`);
     tapE();
     return true;
@@ -101,7 +109,7 @@ function installBot(cfg) {
     const t = interaction.targets.get(id); if (!t || !t.enabled()) return false;
     const c = centerOf(t); if (!c) return false;
     const dist = Math.hypot(c.x - from.x, c.z - from.z);
-    const spot = aimAt(c, () => { interaction.update(0, EMPTY()); return interaction.current?.target?.id === id; });
+    const spot = aimAt(c, () => settle(id));
     if (!spot) { say(`cannot aim at ${id}`); return false; }
     wait(B.cfg.think + Math.max(0, dist - 1.5) / B.cfg.walk);
     say(`hold ${id}`);
@@ -115,7 +123,7 @@ function installBot(cfg) {
   function pressKey(n, k) {
     const kp = world.posto.pumps[n].keypad, c = kp.worldPos(k);
     const dirOf = (yaw, pitch) => new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-    const spot = aimAt(c, () => { interaction.update(0, EMPTY()); return kp.keyAtRay(player.eyePos(), dirOf(player.st.yaw, player.st.pitch), 2.8) === k && interaction.current?.target?.id === 'teclado' + n; }, [0.8, 1.0, 1.3]);
+    const spot = aimAt(c, () => { interaction.update(0, EMPTY()); return kp.keyAtRay(player.eyePos(), dirOf(player.st.yaw, player.st.pitch), 2.8) === k && settle('teclado' + n); }, [0.8, 1.0, 1.3]);
     if (!spot) { say(`cannot aim at key ${k} of pump ${n}`); return false; }
     wait(0.35); tapE();
     return true;
@@ -234,12 +242,18 @@ function installBot(cfg) {
     if (carry) return false;
     for (const t of pend) {
       if (t.id === 'abrir-caixa' || t.id === 'fechar-caixa' || t.id === 'telefone') continue;
+      if (B.only && !(t.id === B.only || t.id.startsWith(B.only))) continue;
+      if (t.id === 'ponto') { if (use('ponto', 'punch')) return true; continue; }
       if (t.kind === 'repor') {
         const sh = tasks.shelves.get(t.id.replace('repor-', '')); if (!sh || sh.done) continue;
         const bx = world.boxes.find((b) => b && b.n === sh.boxN); if (bx && use(bx.id, 'box')) return true;
       } else if (t.kind === 'lixo') { if (use('saco-' + t.id.slice(5), 'bag')) return true; }
       else if (t.kind === 'mancha') { if (use('kit-limpeza', 'kit')) return true; }
-      else if (t.kind === 'lampada') { if (use('escada-pegar', 'ladder')) return true; }
+      else if (t.kind === 'lampada') {
+        const lid = 'lamp-' + t.id.slice(8);
+        if (world.posto.ladder?.at === t.id.slice(8)) { if (hold(lid, () => t.done, 8)) return true; }       // the ladder stands under it: climb and change the tube
+        else if (use('escada-pegar', 'ladder')) return true;
+      }
       else if (t.kind === 'disjuntor') { const id = 'disj-' + t.id.slice(10); if (hold(id, () => !interaction.targets.get(id)?.enabled(), 5)) return true; }
       else if (t.kind === 'bomba') { /* the jam is cleared when its car is served */ }
       else if (t.id === 'banheiro') { if (use('kit-limpeza', 'kit')) return true; }
@@ -367,6 +381,9 @@ function installBot(cfg) {
     step(3);
   }
   B.pad = pad; B.padPress = padPress; B.dropVia = dropVia;
+  /** The preparation (23:00 to 00:00) is not what a test is about: step the clock to midnight. */
+  B.untilOpen = () => { for (let i = 0; i < 60 * 400 && time.minutes < 0 && G.state === 'play'; i++) G.step(DT); };
+  B.aimAt = aimAt; B.settle = settle; B.centerOf = centerOf; B.EMPTY = EMPTY;
   B.flee = flee; B.stats = stats; B.decide = decide; B.step = step; B.wait = wait; B.use = use; B.hold = hold; B.modalStep = modalStep; B.playNight = playNight; B.finishNight = finishNight; B.sum = sum; B.say = say; B.tapE = tapE; B.confirm = confirm; B.kd = kd; B.ku = ku;
   window.__bot = B;
   return true;
@@ -375,15 +392,15 @@ function installBot(cfg) {
 // ---------------------------------------------------------------------------------------------------------------------------------
 async function openPage(browser, base, kind, query) {
   const mobile = kind === 'mobile';
-  const ctx = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1920, height: 1080 }, hasTouch: mobile, isMobile: mobile });
+  const ctx = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1920, height: 1080 }, hasTouch: mobile, isMobile: mobile, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const errs = [];
-  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push(`${m.type()}: ${m.text()}`); });
+  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });      // (the tests block service workers so that a route can see every request)
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${mobile ? '&touch' : ''}`);
   return { page, errs, ctx };
 }
-const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}f6b-${name}.png` }); };
+const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}f6d-${name}.png` }); };
 
 /** Plays each night of `days` on its own (a fresh page with `?debug=day:N`) and prints the points: what the goals are calibrated against. */
 async function balance(browser, base, days) {
@@ -398,7 +415,7 @@ async function balance(browser, base, days) {
     const n = s.sum.n;
     console.log(`night ${day} (week ${s.sum.week}): ${r} pts=${s.sum.pts} fuel=${n.abastecimentos} shop=${n.vendas} tasks=${n.tarefas} undone=${n.naoFeitas} errors=${n.erros} complaints=${n.reclamacoes} sanity=${s.sum.san} ending=${s.ending} chases=${s.chases.chases}${errs.length ? ' CONSOLE: ' + errs.join(' | ') : ''}`);
     if (r === 'budget') console.log(`  stuck at ${s.sum.t}; last actions: ${s.log.slice(-6).join(' / ')} ${JSON.stringify(s.dbg)}`);
-    if (process.env.LOG) console.log(s.log.filter((x) => (process.env.LOGALL ? /./ : /ERROR|COMPL|cannot|short|CHASE|flee|fled/).test(x)).join('\n'));
+    if (process.env.LOG) console.log(s.log.filter((x) => (process.env.LOGALL ? /./ : /ERROR|COMPL|cannot|short|CHASE|flee|fled|PREP/).test(x)).join('\n'));
     await ctx.close();
   }
 }
@@ -417,8 +434,10 @@ const clickText = async (page, txt) => {
 };
 const advance = (page, n = 3) => page.evaluate((n) => window.__odq.advance(n), n);
 const botInstall = async (page, extra = {}) => {
+  const { prep, ...rest } = extra; extra = rest;
   await page.evaluate(async () => { const m = await import('/o-dia-que-sobra/src/systems/nav.js'); const G = window.__odq.game; window.__nav = m.getNav(G.world, G.player); });
   await page.evaluate(installBot, { think: Number(process.env.PACE || 0.9), walk: Number(process.env.WALK || 2.8), flee: true, ...extra });
+  if (!prep) await page.evaluate(() => window.__bot.untilOpen());      // (tests that are not about the preparation start at 00:00)
 };
 /** Plays the open night to its summary. Returns the last answer of the bot. */
 async function playToSummary(page, maxSec = 240) {
@@ -550,6 +569,7 @@ async function roundTwo(browser, base, kind, tag) {
   const keyOf = () => ev(() => window.__odq.game.goals.key);
   await ev(() => { const B = window.__bot; B.kd('KeyQ'); B.step(1); B.ku('KeyQ'); B.step(2); });
   ok(await ev(() => window.__odq.game.ui.sheetOpen), `${tag}: Q opens the clipboard`);
+  await ev(() => window.__odq.game.goals.select(null));       // (the night opened with the punch clock already marked: a tap on it would unmark it)
   if (touch) {
     const row = await page.evaluate(() => { const r = document.querySelector('#sheet li[data-g]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, g: document.querySelector('#sheet li[data-g]').dataset.g }; });
     await touchTap(page, row.x, row.y); await ev(() => window.__bot.step(3));
@@ -626,7 +646,7 @@ async function dropCheck(browser, base, kind, tag) {
   const letGo = async (via) => {
     // look at a place with nothing to use (a person aims at bare floor or wall to let go)
     await ev(() => { const G = window.__odq.game; const y0 = G.player.st.yaw; for (const dy of [0, 1.2, -1.2, 2.4, 3.6]) for (const p of [-0.9, 0.5, -0.4]) { G.player.st.yaw = y0 + dy; G.player.st.pitch = p; G.interaction.update(0, { acts: [], actDown: false }); if (!G.interaction.current) return; } });
-    if (via === 'touch') { await touchTap(page, vp.width / 2, vp.height * 0.86); await ev(() => window.__bot.step(4)); }
+    if (via === 'touch') { await ev(() => window.__odq.advance(2)); await touchTap(page, vp.width / 2, vp.height / 2); await ev(() => window.__bot.step(4)); }      // (the finger on the very spot that was found empty)
     else await ev((v) => window.__bot.dropVia(v), via);
     await ev(() => window.__odq.advance(2));
   };
@@ -706,6 +726,757 @@ async function dropCheck(browser, base, kind, tag) {
   ok(g2.took && g2.carry === 'saco' && g2.done, `${tag}: the bag is picked up again and goes to the container (${JSON.stringify(g2)})`);
   // nothing falls out of the map or into a wall: every let-go spot above was checked; the end of the night puts everything back
   ok(errs.length === 0, `${tag}: console clean (let go) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** Letting go standing on a door (the shop's, the office's, the stock room's): nothing lands within a metre of it and the doorway stays open, or the player is told "Aqui não". */
+async function doorDropCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const res = await page.evaluate(() => {
+    const G = window.__odq.game, B = window.__bot, THREE = G.world.r.THREE, out = [];
+    G.tasks.startRestock(1, 7); G.chores.spawn('mancha'); G.chores.spawn('lampada'); G.chores.spawn('lixo');
+    const sh = [...G.tasks.shelves.values()].find((q) => !q.done), bx = G.world.boxes[sh.boxN];
+    const lixo = G.tasks.list.find((q) => q.kind === 'lixo').id.slice(5);
+    const things = {
+      caixa: { take: () => B.use(bx.id, 'box'), pos: () => { const p = new THREE.Vector3(); bx.root.getWorldPosition(p); return [p]; }, again: () => B.use(bx.id, 'box again') },
+      kit: { take: () => B.use('kit-limpeza', 'kit'), pos: () => ['rodo', 'balde'].map((n) => { const p = new THREE.Vector3(); G.world.posto.props[n].dyn.getWorldPosition(p); return p; }), again: () => B.use('kit-limpeza', 'kit again') },
+      escada: { take: () => B.use('escada-pegar', 'ladder'), pos: () => { const p = new THREE.Vector3(); G.world.posto.ladder.root.getWorldPosition(p); return [p]; }, again: () => B.use('escada-pegar', 'ladder again') },
+      saco: { take: () => B.use('saco-' + lixo, 'bag'), pos: () => { const f = G.chores.floorBag(lixo); return f ? [f] : []; }, again: () => B.use('saco-solto-' + lixo, 'bag again') },
+    };
+    for (const [name, th] of Object.entries(things)) {
+      if (!th.take()) { out.push({ name, error: 'could not take it' }); continue; }
+      for (const door of ['porta-loja', 'porta-escritorio', 'porta-estoque']) {
+        const a = G.world.anchor(door).pos;
+        G.player.st.x = a.x; G.player.st.z = a.z; G.player.st.yaw = 0.7;
+        const y0 = G.player.st.yaw; let found = false;
+        for (const dy of [0, 1.2, -1.2, 2.4, 3.6]) for (const p of [-0.9, 0.5, -0.4]) { if (found) break; G.player.st.yaw = y0 + dy; G.player.st.pitch = p; G.interaction.update(0, { acts: [], actDown: false }); if (!G.interaction.current) found = true; }
+        // the player stands ON the door anchor; E on nothing lets go
+        const had = G.inventory.carry && G.inventory.carry.kind;
+        const hints = []; const off = G.bus.on('hint', (t) => hints.push(t));
+        B.dropVia('key'); G.step(1 / 60);
+        const dropped = !G.inventory.carry;
+        const dists = dropped ? th.pos().map((p) => Math.hypot(p.x - a.x, p.z - a.z)) : [];
+        out.push({ name, door, had, dropped, minDist: dists.length ? +Math.min(...dists).toFixed(2) : null, doorClear: !G.player.blocked(a.x, a.z), refused: !dropped && hints.some((h) => /Aqui não/.test(h)) });
+        if (dropped) { if (!th.again()) out.push({ name, door, error: 'could not pick it up again' }); }
+      }
+      if (G.inventory.carry) { G.player.st.x = 8; G.player.st.z = 7; B.dropVia('key'); }
+    }
+    return out;
+  });
+  for (const r of res) {
+    if (r.error) { ok(false, `${tag}: ${r.name} ${r.door || ''}: ${r.error}`); continue; }
+    ok((r.dropped && r.minDist >= 1.0 && r.doorClear) || r.refused, `${tag}: ${r.name} let go standing on ${r.door}: ${r.dropped ? 'lands ' + r.minDist + ' m from the door, the doorway is free' : 'refused with "Aqui não"'}`);
+  }
+  ok(errs.length === 0, `${tag}: console clean (let go at doors) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** Actions that overlap in the aim: all are listed (one line each, with its key / button / touch area) and the player chooses; with one action nothing changes. */
+async function overlapCheck(browser, base, kind, tag) {
+  const touch = kind === 'mobile';
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const rows = () => ev(() => { const c = document.getElementById('choice'); return c.hidden ? null : { n: c.querySelectorAll('.crow').length, texts: [...c.querySelectorAll('.crow span')].map((x) => x.textContent), keys: [...c.querySelectorAll('.crow b')].map((x) => x.textContent), sel: [...c.querySelectorAll('.crow')].findIndex((x) => x.classList.contains('sel')), foot: c.querySelector('small')?.textContent || '' }; });
+  const vp = page.viewportSize();
+
+  // ---- the counter: the customer's product and hiding behind the counter
+  const w = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot;
+    const c = G.customers.spawnWalker({ seed: 23, tutorial: true, produtos: ['biscoito', 'lata'], pagamento: 20 });
+    for (let i = 0; i < 60 * 60 && c.state !== 'scanning'; i++) { B.step(1); if (i % 30 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    const item = `item${c.id}-0`, hide = 'esconder-esconderijo4', t = G.interaction.targets.get(item);
+    const ctr = B.centerOf(t); let spot = null;
+    if (ctr) spot = B.aimAt(ctr, () => { G.interaction.update(0, B.EMPTY()); const all = G.interaction.current?.all || []; return all.some((x) => x.target.id === item) && all.some((x) => x.target.id === hide); }, [0.6, 0.9, 1.2, 1.6]);
+    G.interaction.update(0, B.EMPTY());
+    return { state: c.state, item, spot: Boolean(spot), ids: (G.interaction.current?.all || []).map((x) => x.target.id), cid: c.id };
+  });
+  ok(w.spot && w.ids.length >= 2 && w.ids[0] === w.item && w.ids[w.ids.length - 1] === 'esconder-esconderijo4', `${tag}: at the counter the product and hiding both fit the aim, the product first and hiding last (${w.ids.join(' > ')})`);
+  await ev(() => window.__odq.advance(2));
+  const r1 = await rows();
+  ok(r1 && r1.n >= 2 && /Pegar/.test(r1.texts[0]) && /Esconder/.test(r1.texts[r1.n - 1]), `${tag}: the screen lists every action, one line each (${r1 && r1.texts.join(' | ')})`);
+  if (!touch) ok(r1 && r1.keys[0] === 'E' && r1.keys[1] === '2' && /R troca/.test(r1.foot), `${tag}: the keyboard keys are shown: E for the selected, the number of the others, R changes (${r1 && r1.keys.join(',')} / ${r1 && r1.foot})`);
+  await shot(page, `smoke3-lista-balcao-${tag}`);
+  // choosing: touch taps the line; keyboard presses 2; E does the selected (the product by default)
+  const choose = async (i) => {
+    if (touch) { const p = await ev((i) => { const r = document.querySelectorAll('#choice .crow')[i].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, i); await touchTap(page, p.x, p.y); await ev(() => window.__bot.step(4)); }
+    else { await ev((i) => { const B = window.__bot; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit' + (i + 1), bubbles: true })); B.step(2); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit' + (i + 1), bubbles: true })); B.step(3); }, i); }
+  };
+  if (!touch) { await ev(() => window.__bot.tapE()); } else { await ev(() => window.__bot.step(1)); }
+  if (touch) {
+    // a finger on the overlapped spot opens the list; then a tap on a line does that action: first the hiding (the last line)
+    const sc = await ev(() => { const G = window.__odq.game, c = G.interaction.targets.get('esconder-esconderijo4'); const p = G.world.r.THREE; const ctr = window.__bot.centerOf(G.interaction.targets.get(`item${window.__cid}-0`) || c); return null; });
+    void sc;
+  }
+  const afterE = await ev(() => { const G = window.__odq.game; return { carry: G.inventory.carry && G.inventory.carry.kind, hidden: G.entity.hidden }; });
+  if (!touch) ok(afterE.carry === 'item' && !afterE.hidden, `${tag}: E does the first one, the product (${JSON.stringify(afterE)})`);
+  if (!touch) {
+    // put the product on the scanner? no: let go of it and choose hiding by its number
+    await ev(() => { const G = window.__odq.game; G.inventory.drop(); });
+  }
+  void w;
+
+  // ---- the Sun about: hiding comes first, so one E, one A or one touch hides, with a product in the aim (the achado of round 3)
+  const hideSetup = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot;
+    G.inventory.clearCarry(); G.player.st.carryHeavy = false; G.entity.reset(); G.player.st.frozen = false;
+    const cid = G.customers.list.find((c) => c.kind === 'walk')?.id, item = `item${cid}-1`, hide = 'esconder-esconderijo4', t = G.interaction.targets.get(item);
+    const ctr = B.centerOf(t);
+    const both = () => { G.interaction.update(0, B.EMPTY()); const all = G.interaction.current?.all || []; return all.some((x) => x.target.id === item) && all.some((x) => x.target.id === hide); };
+    const quiet = both() ? true : Boolean(B.aimAt(ctr, both, [0.6, 0.9, 1.2, 1.6]));
+    const orderQuiet = (G.interaction.current?.all || []).map((x) => x.target.id);
+    G.entity.force('perseguicao', 4); G.entity.ent.root.position.set(-30, 0, -30); G.interaction.update(0, B.EMPTY());
+    const orderChase = (G.interaction.current?.all || []).map((x) => x.target.id);
+    window.__hide = { item, spot: { x: G.player.st.x, z: G.player.st.z, yaw: G.player.st.yaw, pitch: G.player.st.pitch } };
+    return { quiet, orderQuiet, orderChase, item };
+  });
+  ok(hideSetup.quiet && hideSetup.orderQuiet[0] === hideSetup.item && hideSetup.orderQuiet.at(-1) === 'esconder-esconderijo4', `${tag}: with the Sun away, the product comes first (${hideSetup.orderQuiet.join(' > ')})`);
+  ok(hideSetup.orderChase[0] === 'esconder-esconderijo4', `${tag}: with the Sun chasing, "Esconder-se" is the first of the list (${hideSetup.orderChase.join(' > ')})`);
+  await ev(() => window.__odq.advance(2)); await shot(page, `smoke5-lista-esconder-primeiro-${tag}`);
+  const heardKeys = await ev(() => { const c = document.getElementById('choice'); return c.hidden ? null : [...c.querySelectorAll('.crow')].map((x) => x.textContent.trim()); });
+  ok(heardKeys && /Esconder/.test(heardKeys[0]), `${tag}: the list shows "Esconder-se" in the first line (${heardKeys && heardKeys.join(' | ')})`);
+  if (!touch) {
+    const k1 = await ev(() => { const G = window.__odq.game, B = window.__bot; B.tapE(); B.step(3); return { hidden: G.entity.hidden, carry: G.inventory.carry && G.inventory.carry.kind }; });
+    ok(k1.hidden && !k1.carry, `${tag}: ONE press of E hides (${JSON.stringify(k1)})`);
+    // out again, and the same with the pad: one press of A
+    const k2 = await ev(() => { const G = window.__odq.game, B = window.__bot, h = window.__hide; B.tapE(); B.step(3); const out = !G.entity.hidden; G.entity.reset(); G.player.st.frozen = false; Object.assign(G.player.st, { x: h.spot.x, z: h.spot.z, yaw: h.spot.yaw, pitch: h.spot.pitch }); G.entity.force('perseguicao', 4); G.entity.ent.root.position.set(-30, 0, -30); G.interaction.update(0, B.EMPTY()); B.padPress(0, 3); return { out, hidden: G.entity.hidden, carry: G.inventory.carry && G.inventory.carry.kind }; });
+    ok(k2.out && k2.hidden && !k2.carry, `${tag}: E gets out, and ONE press of A on the pad hides too (${JSON.stringify(k2)})`);
+  } else {
+    // a finger on the product: with the Sun about the first touch hides, with no list in between
+    const p = await ev(() => { const G = window.__odq.game, B = window.__bot, h = window.__hide, t = G.interaction.targets.get(h.item), v = B.centerOf(t).clone(); G.entity.leaveHide?.(); G.entity.reset(); G.player.st.frozen = false; Object.assign(G.player.st, { x: h.spot.x, z: h.spot.z, yaw: h.spot.yaw, pitch: h.spot.pitch }); G.entity.force('perseguicao', 4); G.entity.ent.root.position.set(-30, 0, -30); const cam = G.world.r.camera; window.__odq.advance(2); cam.updateMatrixWorld(true); v.project(cam); return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (0.5 - v.y * 0.5) * innerHeight }; });
+    await touchTap(page, p.x, p.y); await ev(() => window.__bot.step(4));
+    const k = await ev(() => { const G = window.__odq.game; return { hidden: G.entity.hidden, choosing: G.interaction.choosing, carry: G.inventory.carry && G.inventory.carry.kind }; });
+    ok(k.hidden && !k.choosing && !k.carry, `${tag}: ONE touch on the spot hides, without opening the list (${JSON.stringify(k)})`);
+  }
+  await ev(() => { const G = window.__odq.game; G.entity.leaveHide?.(); G.entity.reset(); G.player.st.frozen = false; G.inventory.clearCarry(); });
+
+  // ---- the car: the nozzle and the customer, with the nozzle in the hands
+  const car = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot;
+    for (const c of [...G.customers.list]) if (!c.done) c.state === 'leaving' || G.customers.clear();
+    G.customers.clear(); G.entity.leaveHide?.(); G.player.st.frozen = false; G.inventory.clearCarry(); G.player.st.carryHeavy = false;
+    const c = G.customers.spawnCar({ pump: 2, seed: 5, valor: 3000, combustivel: 'comum' });
+    for (let i = 0; i < 60 * 40 && ['arriving'].includes(c.state); i++) { B.step(1); if (i % 30 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    B.use(`cliente${c.id}`, 'talk'); for (let i = 0; i < 40; i++) { if (!B.modalStep()) B.step(3); await new Promise((r) => setTimeout(r, 0)); }
+    B.use(`bico2-${c.fuel}`, 'nozzle');
+    const t = G.interaction.targets.get(`tampa${c.id}`), ctr = B.centerOf(t), both = [`tampa${c.id}`, `cliente${c.id}`];
+    const spot = B.aimAt(ctr, () => { G.interaction.update(0, B.EMPTY()); const all = G.interaction.current?.all || []; return both.every((id) => all.some((x) => x.target.id === id)); }, [0.9, 1.2, 1.6, 2.0]);
+    G.interaction.update(0, B.EMPTY());
+    window.__cid = c.id;
+    return { id: c.id, spot: Boolean(spot), ids: (G.interaction.current?.all || []).map((x) => x.target.id), carry: G.inventory.carry && G.inventory.carry.kind };
+  });
+  ok(car.spot && car.carry === 'bico' && car.ids.length >= 2, `${tag}: at the car with the nozzle in the hands, the tank cap and the customer both fit (${car.ids.join(' > ')})`);
+  await ev(() => window.__odq.advance(2));
+  const r2 = await rows();
+  ok(r2 && r2.n >= 2, `${tag}: ...and both are listed (${r2 && r2.texts.join(' | ')})`);
+  await shot(page, `smoke3-lista-carro-${tag}`);
+  const state = () => ev(() => { const G = window.__odq.game, c = G.customers.list.find((q) => q.kind === 'car'); return { carry: G.inventory.carry && G.inventory.carry.kind, nozzleIn: c.nozzleIn }; });
+  if (!touch) {
+    // 2 does the second action (the customer): the nozzle stays in the hands; R then E also does it; the pad does it with RB and A; E alone does the first (the cap)
+    await choose(1); let st = await state();
+    ok(st.carry === 'bico' && !st.nozzleIn, `${tag}: the key 2 does the second action, the customer, and the nozzle stays in the hands (${JSON.stringify(st)})`);
+    await ev(() => { const B = window.__bot; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', bubbles: true })); B.step(1); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', bubbles: true })); B.step(2); window.__odq.advance(2); });
+    const rr = await rows(); ok(rr && rr.sel === 1 && rr.keys[1] === 'E', `${tag}: R moves the selection to the second line, which now shows E (${rr && rr.keys.join(',')}, selected ${rr && rr.sel})`);
+    await ev(() => { const B = window.__bot; B.padPress(5); B.step(1); window.__odq.advance(2); });
+    const rp = await rows(); ok(rp && rp.sel === 0, `${tag}: RB on the pad changes it back (selected ${rp && rp.sel})`);
+    await ev(() => { const B = window.__bot; B.padPress(5); B.padPress(0); });
+    st = await state(); ok(st.carry === 'bico' && !st.nozzleIn, `${tag}: with the pad, RB then A does the second action (${JSON.stringify(st)})`);
+    await ev(() => { const B = window.__bot; B.padPress(5); window.__odq.advance(2); });
+    await ev(() => { const B = window.__bot; B.padPress(0); });
+    st = await state(); ok(st.nozzleIn && !st.carry, `${tag}: with the pad, A on the first line puts the nozzle in the tank (${JSON.stringify(st)})`);
+  } else {
+    // a finger on the overlapped spot opens the list, and a tap on a line does that action
+    await ev(() => { const G = window.__odq.game; G.player.st.yaw += 0.32; G.interaction.update(0, window.__bot.EMPTY()); window.__odq.advance(2); });   // the cap off the middle: the finger is what points at it
+    const tapCap = async () => {
+      const p = await ev(() => { const G = window.__odq.game, c = G.customers.list.find((q) => q.kind === 'car'), t = G.interaction.targets.get(`tampa${c.id}`), v = window.__bot.centerOf(t).clone(); const cam = G.world.r.camera; cam.updateMatrixWorld(true); v.project(cam); return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (0.5 - v.y * 0.5) * innerHeight }; });
+      await touchTap(page, p.x, p.y); await ev(() => { window.__bot.step(2); window.__odq.advance(2); });
+    };
+    await tapCap();
+    const rt = await rows();
+    ok(rt && rt.n >= 2 && (await ev(() => window.__odq.game.interaction.choosing)), `${tag}: a finger on the cap opens the list and does nothing yet (${rt && rt.texts.join(' | ')})`);
+    await shot(page, `smoke3-lista-toque-${tag}`);
+    await choose(1); let st = await state();
+    ok(st.carry === 'bico' && !st.nozzleIn, `${tag}: a tap on the second line does the customer's action, the nozzle stays in the hands (${JSON.stringify(st)})`);
+    await tapCap(); await choose(0); st = await state();
+    ok(st.nozzleIn && !st.carry, `${tag}: a tap on the first line puts the nozzle in the tank (${JSON.stringify(st)})`);
+  }
+  // one action only: nothing changes (a single prompt, no list)
+  const one = await ev(() => { const G = window.__odq.game, B = window.__bot; const t = G.interaction.targets.get('caixa-registradora'); const ctr = B.centerOf(t); B.aimAt(ctr, () => { G.interaction.update(0, B.EMPTY()); return (G.interaction.current?.all || []).length === 1 && G.interaction.current.target.id === 'caixa-registradora'; }, [1, 1.4, 1.8]); G.interaction.update(0, B.EMPTY()); window.__odq.advance(2); return { n: (G.interaction.current?.all || []).length, choice: !document.getElementById('choice').hidden, prompt: !document.getElementById('prompt').hidden }; });
+  ok(one.n === 1 && !one.choice && one.prompt, `${tag}: with one action only, the usual single prompt (${JSON.stringify(one)})`);
+  ok(errs.length === 0, `${tag}: console clean (overlapping actions) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The colours of the fuels (ethanol green, regular red, none repeated, sticker and nozzle from the same table), the tutorial never names a colour, the chase toast mentions the lock, and the let-go hint follows the device in use. */
+async function smallChecks(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:20&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const col = await page.evaluate(async () => {
+    const G = window.__odq.game, THREE = G.world.r.THREE, P = await import('/o-dia-que-sobra/src/scenes/paint.js');
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    const nozzle = {}; for (const k of Object.keys(P.FUEL)) { const o = G.world.prop('bico', { fuel: k }); let h = null; o.traverse?.((m) => { const u = m.material?.uniforms?.uColor; if (u && h === null && m.userData?.bico) h = '#' + u.value.getHexString(); }); nozzle[k] = h; }
+    return { table: Object.fromEntries(Object.entries(P.FUEL).map(([k, v]) => [k, v.color])), items: Object.fromEntries(Object.entries(G.data.items.combustiveis).map(([k, v]) => [k, v.cor])), nozzle };
+  });
+  const eq = (a, b) => a.toLowerCase() === b.toLowerCase();
+  ok(eq(col.table.etanol, '#4f8a4a') && /^#b/i.test(col.table.comum) && Number.parseInt(col.table.comum.slice(1, 3), 16) > 150 && Number.parseInt(col.table.comum.slice(3, 5), 16) < 90, `${tag}: ethanol is green and regular is red (${col.table.etanol}, ${col.table.comum})`);
+  ok(new Set(Object.values(col.table)).size === 4, `${tag}: no two fuels share a colour (${Object.values(col.table).join(' ')})`);
+  ok(Object.keys(col.table).every((k) => eq(col.table[k], col.items[k])), `${tag}: the clipboard's key (items.json) has the same colours as the nozzles and stickers`);
+  ok(Object.keys(col.table).every((k) => col.nozzle[k] && eq(col.nozzle[k], col.table[k])), `${tag}: every nozzle is painted with its fuel's colour (${JSON.stringify(col.nozzle)})`);
+  await page.evaluate(() => { const G = window.__odq.game, B = window.__bot, t = G.interaction.targets.get('bico1-etanol'); B.aimAt(B.centerOf(t), () => { G.interaction.update(0, B.EMPTY()); return true; }, [1.6]); G.player.st.pitch -= 0.1; window.__odq.advance(3); });
+  await shot(page, `smoke4-bicos-${tag}`);
+  const words = /verde|vermelh|laranja|azul|preto|amarel/i;
+  const files = ['src/systems/narrative.js', 'data/customers.json', 'data/dialogue.pt-BR.json'].map((f) => [f, fs.readFileSync(path.join(here, '..', f), 'utf8')]);
+  const bad = files.filter(([, t]) => words.test(t.split('\n').filter((l) => /obj\(|"texto"|tutorial|ligacao|"falas"/i.test(l)).join('\n'))).map(([f]) => f);
+  ok(bad.length === 0, `${tag}: the tutorial's hints name no colour, only "essa cor" (${bad.join(', ') || 'none'})`);
+  // the chase toast: week 4, a hunt due, the player in a dark corner of the lot
+  const hints = await page.evaluate(() => {
+    const G = window.__odq.game, out = []; G.bus.on('hint', (t) => out.push(t));
+    for (const a of G.world.posto.breakers.areas) G.world.posto.breakers.setOn(a, false);
+    G.player.st.x = -24; G.player.st.z = -10; G.entity.S.hunts = [{ at: 0, done: false }]; G.entity.S.cool = 0;
+    for (let i = 0; i < 60 * 90 && !out.some((h) => /tranque/.test(h)) && G.state === 'play'; i++) G.step(1 / 60);
+    return out;
+  });
+  ok(hints.some((h) => /Esconda-se ou tranque-se no estoque ou no escritório/.test(h)), `${tag}: the chase toast mentions the lock ("${hints.find((h) => /tranque/.test(h)) || hints.join(' | ')}")`);
+  // the let-go hint follows the device that was used last
+  const dev = await page.evaluate(() => {
+    const G = window.__odq.game, B = window.__bot, out = {}; G.entity.reset(); G.player.st.frozen = false; G.player.st.x = 8; G.player.st.z = 7;
+    G.tasks.startRestock(1, 7); const sh = [...G.tasks.shelves.values()].find((q) => !q.done), bx = G.world.boxes[sh.boxN]; B.use(bx.id, 'box');
+    const read = () => { G.step(1 / 60); const h = document.getElementById('carryhint'); return h.hidden ? null : h.textContent; };
+    out.keyboard = read();
+    window.__odq.input.setLastDevice('gamepad'); out.gamepad = read();
+    window.__odq.input.setLastDevice('touch'); out.touch = read();
+    window.__odq.input.setLastDevice('keyboard'); out.back = read();
+    return out;
+  });
+  ok(/E em lugar vazio/.test(dev.keyboard) && /A em lugar vazio/.test(dev.gamepad) && /toque em lugar vazio/.test(dev.touch) && /E em lugar vazio/.test(dev.back), `${tag}: the let-go hint follows the last device (${JSON.stringify(dev)})`);
+  ok(errs.length === 0, `${tag}: console clean (small checks) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The preparation before the shift: a night with everything done and a night with the preparation left half done (points and pending tasks), and the new tutorial in its order. */
+async function prepCheck(browser, base, kind, tag) {
+  const touch = kind === 'mobile';
+  // ---- a night with the whole preparation done
+  let { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:5&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page, { prep: true, think: 0.5 });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  await ev(() => window.__bot.step(25));
+  const start = await ev(() => { const G = window.__odq.game; return { t: G.time.text(), min: G.time.minutes, hud: document.querySelector('#calhud b').textContent, prepLine: document.querySelector('#calhud i').textContent, prepTasks: G.tasks.prepList().map((t) => t.id), customers: G.customers.list.length, till: G.interaction.targets.get('caixa-registradora').enabled(), obj: document.getElementById('objective').textContent, goal: G.goals.key }; });
+  ok(start.t === '23:00' && start.hud === '23:00', `${tag}: the night opens at 23:00 (${start.t}, HUD ${start.hud})`);
+  ok(/^PREPARAÇÃO \d:\d\d$/.test(start.prepLine), `${tag}: the HUD shows the time left of the preparation without the clipboard ("${start.prepLine}")`);
+  ok(start.prepTasks.includes('ponto') && start.prepTasks.length >= 5, `${tag}: the preparation is made of the night's own tasks (${start.prepTasks.join(', ')})`);
+  ok(start.goal === 't:ponto' && start.customers === 0 && !start.till, `${tag}: the punch clock is the marked goal, nobody is in the shop and the till cannot be opened yet (${JSON.stringify({ goal: start.goal, customers: start.customers, till: start.till })})`);
+  // the shop has the same colour and light in the preparation as in the shift: no medicine effect is "on" (the clock is negative: a `-1` default counted every effect as active), no
+  // CSS filter on the picture, eyelids up (the coordinator's gray shop at 23:05)
+  const look = () => ev(() => { const G = window.__odq.game; return { filter: document.getElementById('c').style.filter, effects: ['valores', 'lentidao', 'concentracao', 'cor', 'sono'].filter((id) => G.medication.active(id)), lid: document.getElementById('lid').hidden, t: G.time.text() }; });
+  const l1 = await look();
+  ok(l1.filter === '' && l1.effects.length === 0 && l1.lid, `${tag}: at ${l1.t} the picture has no filter and no medicine effect is on, like in the shift (${JSON.stringify(l1)})`);
+  await ev(() => { const G = window.__odq.game; Object.assign(G.player.st, { x: 8, z: 7, yaw: 0, pitch: 0 }); for (let i = 0; i < 3 * 60 * 5; i++) G.step(1 / 60); Object.assign(G.player.st, { x: 8, z: 7, yaw: 0, pitch: 0 }); G.step(1 / 60); window.__odq.advance(2); });
+  await shot(page, `smoke6-loja-2305-${tag}`);
+  await ev(() => window.__odq.advance(2)); await shot(page, `smoke6-hud-preparacao-${tag}`);
+  // the punch clock, with the device in hand: the pad's A on the desktop, a finger on the phone (the bot then goes on with the rest)
+  const punch = await ev(() => { const G = window.__odq.game, B = window.__bot, t = G.interaction.targets.get('ponto'); const spot = B.aimAt(B.centerOf(t), () => B.settle('ponto'), [0.9, 1.3, 1.8]); window.__odq.advance(2); return { spot: Boolean(spot), label: G.interaction.current?.label?.text, punched: G.prep.punched }; });
+  ok(punch.spot && punch.label === 'Bater o ponto', `${tag}: standing at the clock the prompt says "Bater o ponto" (${JSON.stringify(punch)})`);
+  if (touch) {
+    const p = await ev(() => { const G = window.__odq.game, v = G.world.punch.pos.clone(), cam = G.world.r.camera; cam.updateMatrixWorld(true); v.project(cam); return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (0.5 - v.y * 0.5) * innerHeight }; });
+    await touchTap(page, p.x, p.y); await ev(() => window.__bot.step(4));
+  } else await ev(() => window.__bot.padPress(0, 3));
+  const sound = await ev(() => ({ punched: window.__odq.game.prep.punched, task: window.__odq.game.tasks.list.find((t) => t.id === 'ponto').done, shown: document.querySelector('#toast')?.textContent }));
+  ok(sound.punched && sound.task, `${tag}: ${touch ? 'a touch' : 'the pad'} punches the clock, the task is done ("${sound.shown}")`);
+  // the till does not open before midnight, and nothing scary happens
+  const early = await ev(() => { const G = window.__odq.game, B = window.__bot; const held = B.hold('caixa-registradora', () => G.cash.opened, 2); return { held, opened: G.cash.opened }; });
+  ok(!early.opened, `${tag}: the till does not open before 00:00 (${JSON.stringify(early)})`);
+  // the bot does the whole preparation, its own way and at a person's pace, until the clock reaches 00:00 (the clock is the game's: 3 real minutes)
+  const run = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot; const seen = { events: 0, sun: false, cars: 0 };
+    G.bus.on('event:seen', () => { seen.events++; });
+    let n = 0, punchedAt = null, doneAt = null;
+    while (G.time.minutes < 0 && n++ < 3000) {
+      const a = B.decide(); if (!a) B.step(20);
+      if (G.prep.punched && punchedAt === null) punchedAt = G.time.text();
+      if (G.entity.state !== 'ausente') seen.sun = true;
+      if (G.customers.list.length) seen.cars++;
+      if (G.tasks.prepList().every((t) => t.done) && doneAt === null) doneAt = G.time.text();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    return { t: G.time.text(), punchedAt, doneAt, seen, left: G.tasks.prepList().filter((t) => !t.done).map((t) => t.id), naoFeitas: G.progression.night.naoFeitas, pts: G.progression.night.pontos, tarefas: G.progression.night.tarefas };
+  });
+  ok(run.punchedAt && run.left.length === 0 && run.naoFeitas === 0, `${tag}: the whole preparation done before 00:00 (punched ${run.punchedAt}, all done ${run.doneAt}; left ${run.left.join(', ') || 'none'}): no task counts as not done (${run.tarefas} tasks, ${run.pts} points)`);
+  ok(run.seen.events === 0 && !run.seen.sun && run.seen.cars === 0, `${tag}: no customers, no cars and no scare events during the preparation (${JSON.stringify(run.seen)})`);
+  const mid = await ev(async () => { const G = window.__odq.game, B = window.__bot; for (let i = 0; i < 400 && G.time.minutes < 0.5; i++) { G.step(1 / 60); if (i % 40 === 0) await new Promise((r) => setTimeout(r, 0)); } return { t: G.time.text(), till: G.interaction.targets.get('caixa-registradora').enabled(), obj: document.getElementById('objective').textContent, abrir: G.tasks.list.some((x) => x.id === 'abrir-caixa'), prepLine: document.querySelector('#calhud i').hidden, customersOn: true }; });
+  ok(mid.till && mid.abrir && mid.prepLine && /Abra o caixa/.test(mid.obj), `${tag}: at 00:00 the till can be opened, the task appears and the preparation line leaves the HUD (${JSON.stringify(mid)})`);
+  await shot(page, `smoke6-meia-noite-${tag}`);
+  await ev(() => { const G = window.__odq.game; for (let i = 0; i < 60 * 45; i++) G.step(1 / 60); Object.assign(G.player.st, { x: 8, z: 7, yaw: 0, pitch: 0 }); G.step(1 / 60); window.__odq.advance(2); });
+  await shot(page, `smoke6-loja-0030-${tag}`);
+  const l2 = await look(); ok(l2.filter === '' && l2.effects.length === 0, `${tag}: and at ${l2.t} the same (${JSON.stringify(l2)})`);
+  ok(errs.length === 0, `${tag}: console clean (preparation done) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+
+  // ---- a night with the preparation left half done: nothing is punched, nothing cleaned
+  ({ page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:5&manual&silent&skiptutorial&nointro'));
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page, { prep: true });
+  const half = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, toasts = []; G.bus.on('hint', (t) => toasts.push(t));
+    // does the bathroom and the stain only (a person who ran out of time)
+    B.only = 'mancha-'; let n = 0; while (G.time.minutes < -20 && n++ < 3000) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); }
+    B.only = null;
+    const before = { pts: G.progression.night.pontos, naoFeitas: G.progression.night.naoFeitas, pending: G.tasks.prepList().filter((t) => !t.done).length };
+    for (let i = 0; i < 60 * 200 && G.time.minutes < 0.2; i++) { G.step(1 / 60); if (i % 60 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    const after = { pts: G.progression.night.pontos, naoFeitas: G.progression.night.naoFeitas, pending: G.tasks.prepList().filter((t) => !t.done).map((t) => t.id), penalized: G.tasks.list.filter((t) => t.penalized).length, undoneAtClose: G.tasks.undone(), toast: toasts.find((t) => /Preparação incompleta/.test(t)) };
+    return { before, after };
+  });
+  const k = half.after.pending.length;
+  ok(k >= 3 && half.after.naoFeitas === k && half.after.pts - half.before.pts === -6 * k, `${tag}: at 00:00 the ${k} tasks not done count as not done, -6 each (${half.before.pts} -> ${half.after.pts} points, ${half.after.naoFeitas} not done)`);
+  ok(half.after.penalized === k && half.after.pending.length === k, `${tag}: they stay on the list, pending (${half.after.pending.join(', ')})`);
+  ok(half.after.undoneAtClose <= 3 && /Preparação incompleta/.test(half.after.toast || ''), `${tag}: the closing will not count them a second time (${half.after.undoneAtClose} others pending) and the screen says it ("${half.after.toast}")`);
+  const late = await ev(async () => { const G = window.__odq.game, B = window.__bot; const p0 = G.progression.night.pontos; B.use('ponto', 'late punch'); B.step(3); return { done: G.tasks.list.find((t) => t.id === 'ponto').done, gained: G.progression.night.pontos - p0 }; });
+  ok(late.done && late.gained === 8, `${tag}: a late punch still works and gives the task's points (${JSON.stringify(late)})`);
+  ok(errs.length === 0, `${tag}: console clean (preparation left) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The tutorial of the first night in its new order: the punch clock, the preparation with one task of each kind (guided), then the manager's call and the till. */
+async function tutorialCheck(browser, base, kind, tag) {
+  const touch = kind === 'mobile';
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug&manual&silent&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
+  await clickText(page, 'COMEÇAR'); await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 20000 });
+  await botInstall(page, { prep: true });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const steps = [['ponto', /ponto/i], ['mancha-', /mancha/i], ['lampada-', /lâmpada/i], ['repor-', /prateleira/i], ['lixo-', /lixo/i]];
+  const t0 = await ev(() => { const G = window.__odq.game; return { obj: document.getElementById('objective').textContent, t: G.time.text(), till: G.interaction.targets.get('caixa-registradora').enabled(), pend: G.tasks.prepList().map((t) => t.id) }; });
+  ok(/ponto/i.test(t0.obj) && t0.t === '23:00' && !t0.till, `${tag}: the tutorial starts at 23:00 and asks for the punch clock first ("${t0.obj}")`);
+  ok(steps.slice(1).every(([p]) => t0.pend.some((id) => id.startsWith(p))), `${tag}: the preparation has one task of each kind (${t0.pend.join(', ')})`);
+  for (const [prefix, re] of steps) {
+    const g = await ev((prefix) => { const G = window.__odq.game, B = window.__bot; B.step(30); window.__odq.advance(2); const t = G.tasks.prepList().find((q) => q.id === prefix || q.id.startsWith(prefix)); return { obj: document.getElementById('objective').textContent, goal: G.goals.key, task: t && t.id, marker: G.goals.visible, hud: document.getElementById('goalhud').textContent, clock: G.time.text() }; }, prefix);
+    ok(re.test(g.obj) && g.goal === 't:' + g.task && g.marker, `${tag}: guided step "${prefix}": the objective says what to do, the goal is marked and the marker is on (${g.obj.slice(0, 50)}... | ${g.hud})`);
+    await shot(page, `smoke6-tutorial-${prefix.replace('-', '')}-${tag}`);
+    const done = await ev(async (prefix) => { const G = window.__odq.game, B = window.__bot; B.only = prefix; let n = 0; const id = G.tasks.prepList().find((q) => q.id === prefix || q.id.startsWith(prefix)).id; while (!G.tasks.list.find((t) => t.id === id).done && n++ < 1500) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); } B.only = null; return G.tasks.list.find((t) => t.id === id).done; }, prefix);
+    ok(done, `${tag}: guided step "${prefix}" done`);
+  }
+  // the preparation is done: the manager's call comes, and only then the till
+  await ev(async () => { const G = window.__odq.game; for (let i = 0; i < 60 * 3; i++) G.step(1 / 60); });
+  const after = await ev(() => { const G = window.__odq.game; return { obj: document.getElementById('objective').textContent, prep: G.prep.on, till: G.interaction.targets.get('caixa-registradora').enabled(), phone: G.narrative.ringing, t: G.time.text(), clock: document.querySelector('#calhud b').textContent }; });
+  ok(!after.prep && !after.till, `${tag}: the preparation is over and the till is still shut until the manager says so (${JSON.stringify(after)})`);
+  const call = await ev(async () => { const G = window.__odq.game, B = window.__bot; for (let i = 0; i < 60 * 12 && !G.narrative.ringing; i++) G.step(1 / 60); const rang = G.narrative.ringing; B.use('telefone', 'answer'); for (let i = 0; i < 80; i++) { if (!B.modalStep()) B.step(3); await new Promise((r) => setTimeout(r, 0)); } return { rang, till: G.interaction.targets.get('caixa-registradora').enabled(), obj: document.getElementById('objective').textContent }; });
+  ok(call.rang && call.till && /caixa/i.test(call.obj), `${tag}: the manager's call rings, and after it the till opens ("${call.obj}")`);
+  const till = await ev(() => { const G = window.__odq.game, B = window.__bot; B.hold('caixa-registradora', () => G.cash.opened, 4); B.step(5); return { opened: G.cash.opened, car: G.customers.list.some((c) => c.kind === 'car'), min: G.time.minutes >= 0 }; });
+  ok(till.opened && till.car && till.min, `${tag}: the till opens only after midnight and the lesson goes on with the first car (${JSON.stringify(till)})`);
+  ok(errs.length === 0, `${tag}: console clean (new tutorial) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The last night after the preparation was added: the doubled shift (the clock goes back to 00:00 once) and the secret ending (the sign's breaker) still work. */
+async function lastNightCheck(browser, base, kind, tag) {
+  for (const secret of [false, true]) {
+    const { page, errs, ctx } = await openPage(browser, base, kind, `debug=${secret ? 'secrets:all,' : ''}day:24&manual&silent&skiptutorial&nointro`);
+    await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+    await botInstall(page, { prep: true });
+    const r = await page.evaluate(async (secret) => {
+      const G = window.__odq.game, B = window.__bot, out = {};
+      out.start = G.time.text(); out.prep = G.prep.on;
+      B.untilOpen(); out.open = G.time.text();
+      G.customers.clear(); G.customers.enable(false); G.player.st.x = 8; G.player.st.z = 6; G.player.st.yaw = 0;
+      G.time.skip(359 - G.time.minutes + 0.2); for (let i = 0; i < 90; i++) G.step(1 / 60);
+      out.stopped = G.time.text(); out.event = G.events.active ? Boolean(G.events.active.length ?? G.events.active) : null;
+      if (secret) {
+        const held = B.hold('placa-disjuntor', () => G.state !== 'play', 4); await new Promise((r) => setTimeout(r, 200)); for (let i = 0; i < 120; i++) { G.step(1 / 60); }
+        out.held = held; out.state = G.state; out.ending = G.campaign.endingId;
+      } else {
+        let back = null; for (let i = 0; i < 60 * 70 && G.state === 'play'; i++) { G.step(1 / 60); if (G.time.minutes < 30 && back === null) back = G.time.text(); }
+        out.back = back; out.state = G.state; out.after = G.time.text();
+      }
+      return out;
+    }, secret);
+    if (secret) ok(r.state === 'ending' && r.ending === 5, `${tag}: last night, the sign's breaker at 05:59 still ends it as the secret ending (${JSON.stringify(r)})`);
+    else ok(r.start === '23:00' && r.stopped === '05:59' && r.back !== null && r.state === 'play', `${tag}: last night, the clock stops at 05:59 and goes back to 00:00 once, the shift is done twice (${JSON.stringify(r)})`);
+    ok(errs.length === 0, `${tag}: console clean (last night) (${errs.slice(0, 3).join(' | ')})`);
+    await ctx.close();
+  }
+}
+
+/** Items 8 and 9: every strange event checks the world first, a person near reacts, the street dweller shows up, a figure at the corner of the eye goes when it is looked at. */
+async function strangeCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:15&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  // ---- every script with a roteiro has `can`, and the world stops it
+  const mods = await ev(async () => {
+    const G = window.__odq.game, out = { missing: [], n: 0 }, can = {};
+    for (const e of G.data.events) {
+      if (!e.roteiro || e.gatilho === 'shift') continue;
+      const m = await import('/o-dia-que-sobra/src/systems/' + e.roteiro); out.n++;
+      if (typeof m.can !== 'function') out.missing.push(e.id); else can[e.id] = m.can;
+    }
+    const ctxOf = () => ({ ...G, world: G.world, customers: G.customers, narrative: G.narrative, entity: G.entity, inventory: G.inventory, player: G.player, ui: G.ui, cameras: G.cameras, lighting: G.lighting, event: { local: 'bomba-3' } });
+    const c = ctxOf(), br = G.world.posto.breakers, res = {};
+    G.customers.clear(); G.entity.reset(); for (const d of G.world.doorIds()) G.world.setDoor(d, 0); G.player.st.x = 8; G.player.st.z = 7;
+    res.sinoClosed = can['sino-sem-ninguem'](c);
+    G.world.setDoor('porta-loja', 1); res.sinoOpen = can['sino-sem-ninguem'](c); G.world.setDoor('porta-loja', 0);
+    res.depositoClosed = can['deposito-aberto'](c); G.world.setDoor('porta-deposito', 1); res.depositoOpen = can['deposito-aberto'](c); G.world.setDoor('porta-deposito', 0);
+    res.luzOn = can['luz-oscila'](c); br.setOn('loja', false); res.luzOff = can['luz-oscila'](c); res.sombraOff = can['sombra-errada'](c); res.cafeOff = can['cafe-pronto'](c); br.setOn('loja', true);
+    res.placaOn = can['a-placa'](c); br.setOn('placa', false); res.placaOff = can['a-placa'](c); br.setOn('placa', true);
+    res.pump4Free = can['bomba-4'](c); G.customers.spawnEmptyCar(4, 5); res.pump4Taken = can['bomba-4'](c); G.customers.clear();
+    const w = G.customers.spawnWalker({ seed: 23, tutorial: true, produtos: ['biscoito'], pagamento: 20 });
+    for (let i = 0; i < 60 * 40 && w.state !== 'scanning'; i++) { G.step(1 / 60); if (i % 30 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    res.cafeCustomer = can['cafe-pronto'](c); res.objetoCustomer = can['objeto-muda'](c); res.clienteSomeCustomer = can['cliente-some'](c);
+    res.colado = can['vulto-colado'](c); G.customers.clear();
+    return { ...out, res };
+  });
+  ok(mods.n >= 24 && mods.missing.length === 0, `${tag}: all ${mods.n} event scripts check the world first (a \`can\`); missing: ${mods.missing.join(', ') || 'none'}`);
+  const R = mods.res;
+  ok(R.sinoClosed && !R.sinoOpen, `${tag}: the bell does not ring with the door open (closed ${R.sinoClosed}, open ${R.sinoOpen})`);
+  ok(R.depositoClosed && !R.depositoOpen && R.luzOn && !R.luzOff && !R.sombraOff && !R.cafeOff && R.placaOn && !R.placaOff, `${tag}: the storeroom, the lamp, the shadow, the coffee and the sign need their own conditions (${JSON.stringify({ d: [R.depositoClosed, R.depositoOpen], luz: [R.luzOn, R.luzOff], sombra: R.sombraOff, cafe: R.cafeOff, placa: [R.placaOn, R.placaOff] })})`);
+  ok(R.pump4Free && !R.pump4Taken && !R.cafeCustomer && !R.objetoCustomer && !R.clienteSomeCustomer && !R.colado, `${tag}: pump 4 taken, a customer at the counter or near the player stops the events that need that place (${JSON.stringify({ p4: [R.pump4Free, R.pump4Taken], cafe: R.cafeCustomer, objeto: R.objetoCustomer, some: R.clienteSomeCustomer, colado: R.colado })})`);
+
+  // ---- somebody near reacts in a short box
+  const react = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot; G.customers.clear();
+    G.player.st.x = 10.5; G.player.st.z = 8.4; G.player.st.yaw = 0;
+    const w = G.customers.spawnWalker({ seed: 23, tutorial: true, produtos: ['biscoito', 'lata'], pagamento: 20 });
+    for (let i = 0; i < 60 * 40 && w.state !== 'scanning'; i++) { G.step(1 / 60); if (i % 30 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    const lines = G.data.dialogue.reacoesEvento.sino; let said = null;
+    G.world.setDoor('porta-loja', 0);
+    G.events.trigger('sino-sem-ninguem');
+    for (let i = 0; i < 60 * 6 && !said; i++) { G.step(1 / 60); const e = document.getElementById('say'); if (!e.hidden && lines.some((l) => e.querySelector('p').textContent && l.startsWith(e.querySelector('p').textContent.slice(0, 6)))) said = { who: e.querySelector('b').textContent, text: e.querySelector('p').textContent }; if (i % 20 === 0) await new Promise((r) => setTimeout(r, 0)); }
+    return { said, name: w.name };
+  });
+  ok(react.said && react.said.who === react.name, `${tag}: with a customer in the shop the bell is answered by him in a short box ("${react.said && react.said.who}": "${react.said && react.said.text}...")`);
+  await ev(() => window.__odq.advance(2)); await shot(page, `smoke7-reacao-cliente-${tag}`);
+
+  // ---- the street dweller
+  const mor = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot; G.customers.clear(); G.inventory.clearCarry();
+    G.player.st.x = 8; G.player.st.z = 9; G.player.st.yaw = Math.PI;       // looking into the shop: he is there when nobody looks his way
+    G.events.trigger('morador-de-rua');
+    let info = null; for (let i = 0; i < 60 * 8; i++) { G.step(1 / 60); info = G.events.run?.info; if (info && info.st === 'there') break; }
+    const here = G.interaction.targets.has('morador');
+    const at = info ? [...info.at] : null;
+    return { here, st: info && info.st, at };
+  });
+  ok(mor.here && mor.st === 'there', `${tag}: the street dweller appears near the kerb or a bin (${JSON.stringify(mor.at)}) and can be talked to`);
+  const talk = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot; const lines = [];
+    const grab = () => { const d = document.querySelector('#dlg'); if (!d.hidden) { const t = d.querySelector('p').textContent; if (t && !lines.includes(t)) lines.push(t); } };
+    const t = G.interaction.targets.get('morador'); const c = B.centerOf(t);
+    G.player.st.x = c.x + 1.6; G.player.st.z = c.z + 0.2;
+    B.use('morador', 'talk'); for (let i = 0; i < 80 && (G.ui.dialogueOpen || i < 4); i++) { grab(); B.confirm(); for (let k = 0; k < 40; k++) { G.step(1 / 60); grab(); } await new Promise((r) => setTimeout(r, 0)); }
+    const first = [...lines]; lines.length = 0;
+    // something strange is seen with him near: the next talk is the one that believes
+    G.bus.emit('event:seen', 'vulto');
+    for (let i = 0; i < 60 * 2.5; i++) G.step(1 / 60);
+    const said = !document.getElementById('say').hidden ? document.getElementById('say').querySelector('p').textContent : '';
+    B.use('morador', 'talk again'); for (let i = 0; i < 80 && (G.ui.dialogueOpen || i < 4); i++) { grab(); B.confirm(); for (let k = 0; k < 40; k++) { G.step(1 / 60); grab(); } await new Promise((r) => setTimeout(r, 0)); }
+    return { first, believes: [...lines], said, name: G.data.recurring.moradorDeRua.quem };
+  });
+  ok(talk.first.length >= 1 && /troco|noite|Boa/i.test(talk.first.join(' ')), `${tag}: he speaks little ("${talk.first.join(' / ')}")`);
+  ok(talk.believes.some((l) => /ouviu|sempre teve/i.test(l)) && !/Valdir|1998|dezembro/i.test(talk.believes.join(' ')), `${tag}: when something strange was seen, he believes it, with no answer to a secret ("${talk.believes.join(' / ')}")`);
+  await ev(() => window.__odq.advance(2)); await shot(page, `smoke7-morador-${tag}`);
+  ok(errs.length === 0, `${tag}: console clean (events) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The things at the corner of the eye go when looked at (or lit); the scares (the design allows them now: rare, weeks 3 and 4, low sanity) hit with a sound and a tremor, or with a dark cut when "reduce flashes" is on. */
+async function scareCheck(browser, base, kind, tag) {
+  let { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:20&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  // ---- an apparition is there while nobody looks, and goes when looked at straight (and when the flashlight lands on it)
+  const app = await ev(async () => {
+    const G = window.__odq.game, THREE = G.world.r.THREE;
+    const { createKit } = await import('/o-dia-que-sobra/src/systems/events/kit.js'), { apparition } = await import('/o-dia-que-sobra/src/systems/events/aparicao.js');
+    const kit = createKit({ world: G.world, player: G.player, render: G.world.r, data: G.data, inventory: G.inventory, opts: G.opts });
+    G.customers.clear(); const out = {};
+    const ctx = { kit, sanity: G.sanity, progression: G.progression, bus: G.bus, event: { id: 'teste-vulto', sanidade: -2 }, player: G.player };
+    const seen = []; G.bus.on('event:seen', (id) => seen.push(id));
+    for (const mode of ['look', 'flash']) {
+      G.player.st.x = 8; G.player.st.z = 8; G.player.st.yaw = 0; G.player.st.pitch = 0; G.inventory.flash.on = false;
+      const at = new THREE.Vector3(8, 0, 8 + 7);                      // behind the player (who looks to the north, -z)
+      const run = apparition(ctx, { seed: 31, seekFor: 4, ttl: 30, cone: 0.9, maxDist: 20, where: () => at.clone() });
+      let n = 0; while (run.info.st !== 'show' && n++ < 300) run.update(1 / 60);
+      for (let i = 0; i < 120; i++) run.update(1 / 60);                // it is there, not looked at
+      const before = { st: run.info.st, vis: run.info.vis, fade: +run.info.fade.toFixed(2), sanity: G.sanity.value };
+      G.player.st.yaw = Math.PI;                                      // turns round: now it is straight ahead
+      G.player.st.pitch = Math.atan2(1.2 - G.player.st.eye, 7);
+      if (mode === 'flash') { G.inventory.flash.on = true; G.inventory.flash.charge = 100; }
+      let m = 0; while (run.info.st === 'show' && m++ < 200) run.update(1 / 60);
+      for (let i = 0; i < 60; i++) run.update(1 / 60);
+      out[mode] = { before, after: { st: run.info.st, vis: run.info.vis, sanity: G.sanity.value }, seen: seen.length };
+      run.dispose?.();
+    }
+    G.inventory.flash.on = false;
+    return out;
+  });
+  for (const mode of ['look', 'flash']) {
+    const o = app[mode];
+    ok(o.before.st === 'show' && o.before.vis && o.before.fade > 0.5 && o.after.st !== 'show' && !o.after.vis && o.after.sanity < o.before.sanity, `${tag}: the figure at the corner of the eye is there while nobody looks and is gone when ${mode === 'look' ? 'looked at straight' : 'the flashlight lands on it'} (${JSON.stringify(o)})`);
+  }
+
+  // ---- the scares: the figure close for half a second, the hit, the tremor; with "reduce flashes", a dark cut and the same sound
+  const scare = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, out = {};
+    const sounds = []; G.bus.on('sfx', (n) => { if (n === 'susto_golpe') sounds.push(G.time.minutes); });
+    const place = (x, z, yaw) => { Object.assign(G.player.st, { x, z, yaw, pitch: 0, frozen: false }); };
+    for (const soft of [false, true]) {
+      G.opts.reduceFlash = soft;
+      for (const id of ['vulto-colado', 'figura-vidro']) {
+        G.customers.clear(); G.entity.reset(); G.events.reset(); G.events.state.shake = 0; G.events.state.cut = 0; G.sanity.reset(25, 3);
+        place(10, 6, id === 'figura-vidro' ? Math.PI : 0);                               // in the shop near the glass (the glass is to the north, z lower); the figure appears while the player looks into the shop
+        G.events.trigger(id);
+        const n0 = sounds.length; const rec = { max: { shake: 0, cut: 0, black: 0 } };
+        let phase = 0;
+        for (let i = 0; i < 60 * 60 && G.events.run; i++) {
+          G.step(1 / 60);
+          const info = G.events.run?.info;
+          if (id === 'vulto-colado' && phase === 0 && info && info.t > 2.5) { phase = 1; G.player.st.yaw += Math.PI; }              // turns round fast
+          if (id === 'figura-vidro' && info && info.st === 'far' && info.vis && phase === 0) { phase = 1; G.player.st.yaw = 0; G.player.st.pitch = Math.atan2(1.2 - G.player.st.eye, 9.2); }     // turns to the glass and looks at it
+          if (info && info.st === 'scare') {
+            rec.max.shake = Math.max(rec.max.shake, G.events.state.shake); rec.max.cut = Math.max(rec.max.cut, G.events.state.cut); rec.max.black = Math.max(rec.max.black, G.fx.black);
+            const v = G.world.r.scene.children.filter((c) => c.visible && c.userData?.cast !== undefined).length; rec.figureVisible = rec.figureVisible || info.vis;
+          }
+        }
+        rec.sounds = sounds.length - n0; rec.ended = !G.events.run; rec.sanity = G.sanity.value;
+        out[`${id}${soft ? '-soft' : ''}`] = rec;
+      }
+    }
+    G.opts.reduceFlash = false;
+    return out;
+  });
+  for (const id of ['vulto-colado', 'figura-vidro']) {
+    const n = scare[id], q = scare[id + '-soft'];
+    ok(n && n.sounds === 1 && n.max.shake > 0.03 && n.max.cut === 0 && n.sanity < 25, `${tag}: ${id}: one hit of sound, a tremor of the picture and no dark cut (${JSON.stringify(n)})`);
+    ok(q && q.sounds === 1 && q.max.cut >= 0.9 && q.max.black >= 0.8 && q.max.shake === 0 && !q.figureVisible, `${tag}: ${id} with "reduce flashes": the same sound on a dark cut, no figure, no tremor (${JSON.stringify(q)})`);
+  }
+  // the attack of the ending 4
+  const att = await ev(async () => {
+    const G = window.__odq.game, out = {}, sounds = [];
+    G.bus.on('sfx', (n) => { if (n === 'susto_golpe') sounds.push(n); });
+    for (const soft of [false, true]) {
+      G.opts.reduceFlash = soft; G.entity.reset(); G.customers.clear(); G.player.st.frozen = false; G.player.st.x = 8; G.player.st.z = 7; sounds.length = 0;
+      G.entity.catchNow(); let shake = 0, black = 0;
+      for (let i = 0; i < 90 && !G.entity.done && G.state === 'play'; i++) { G.step(1 / 60); shake = Math.max(shake, G.entity.shake); black = Math.max(black, G.entity.black); }
+      out[soft ? 'soft' : 'hard'] = { sounds: sounds.length, shake: +shake.toFixed(3), black: +black.toFixed(2), state: G.state };
+      G.opts.reduceFlash = false;
+      if (G.state !== 'play') break;
+    }
+    return out;
+  });
+  ok(att.hard.sounds === 1 && att.hard.shake >= 0.05, `${tag}: the attack of the ending 4 has the hit and the tremor (${JSON.stringify(att.hard)})`);
+  ok(errs.length === 0, `${tag}: console clean (scares) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+  // the soft attack on a page of its own (the first attack ended the night)
+  ({ page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:20&manual&silent&skiptutorial&nointro'));
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const soft = await page.evaluate(() => {
+    const G = window.__odq.game, sounds = []; G.bus.on('sfx', (n) => { if (n === 'susto_golpe') sounds.push(n); });
+    G.opts.reduceFlash = true; G.entity.reset(); G.customers.clear(); G.player.st.x = 8; G.player.st.z = 7; G.entity.catchNow();
+    G.step(1 / 60); return { sounds: sounds.length, black: +G.entity.black.toFixed(2), shake: G.entity.shake, visible: G.entity.ent.root.visible };
+  });
+  ok(soft.sounds === 1 && soft.black >= 0.9 && soft.shake === 0 && !soft.visible, `${tag}: with "reduce flashes" the attack is a dark cut with the same sound (${JSON.stringify(soft)})`);
+  await ctx.close();
+
+  // ---- never in weeks 1 and 2; and not a rule of every shape: the plain vulto has no hit
+  const plan = [];
+  for (const day of [3, 8, 15, 20]) {
+    ({ page, errs, ctx } = await openPage(browser, base, kind, `debug=day:${day}&manual&silent&skiptutorial&nointro`));
+    await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+    plan.push([day, await page.evaluate(() => ({ week: window.__odq.game.progression.st.week, ids: window.__odq.game.events.plan.map((p) => p.id) }))]);
+    await ctx.close();
+  }
+  const SCARES = ['vulto-colado', 'figura-vidro'];
+  ok(plan.filter(([, p]) => p.week <= 2).every(([, p]) => !p.ids.some((i) => SCARES.includes(i))) && plan.some(([, p]) => p.week >= 3 && SCARES.some((i) => p.ids.includes(i))), `${tag}: the scares are never planned in weeks 1 and 2 and are in the plan of weeks 3 and 4 (${plan.map(([d, p]) => `n${d}:${p.ids.filter((i) => SCARES.includes(i)).join('+') || '-'}`).join(' ')})`);
+  const src = ['vulto', 'passante-canto', 'silhueta-vitrine', 'sombra-errada', 'vulto-corredor'].map((f) => fs.readFileSync(path.join(here, '..', 'src', 'systems', 'events', f + '.js'), 'utf8')).join('\n');
+  ok(!/susto_golpe/.test(src), `${tag}: the other shapes at the corner of the eye have no hit (the scare is not a rule of every vulto)`);
+  const recs = JSON.parse(fs.readFileSync(path.join(here, '..', 'data', 'events.json'), 'utf8'));
+  ok(SCARES.every((i) => { const r = recs.find((e) => e.id === i); return r && r.semanaMin >= 3 && r.condicoes.sanidadeMax <= 39 && r.chance <= 0.15; }), `${tag}: each scare is week 3 or later, low sanity only, with a small chance (data/events.json)`);
+  const both = recs.filter((r) => /silhueta-vitrine|passante-canto|sombra-errada|vulto-corredor/.test(r.id));
+  ok(both.length >= 4 && both.every((r) => r.sanidadeOdds && r.crescePorSemana > 0 && r.semanaMin >= 1) && both.some((r) => r.alucinacao) && both.some((r) => !r.alucinacao), `${tag}: four new shapes, in the lottery of the head and of the world, rarer with a steady mind and growing with the weeks (${both.map((r) => r.id + (r.alucinacao ? ' (head)' : ' (world)')).join(', ')})`);
+  ok(errs.length === 0, `${tag}: console clean (plan) (${errs.slice(0, 3).join(' | ')})`);
+}
+
+/** The peak of the scare's sound, measured after the chain (offline render): under -3 dBFS. */
+async function soundPeak(browser, base) {
+  const ctx = await browser.newContext(); const page = await ctx.newPage(); const errs = [];
+  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.text()); }); page.on('pageerror', (e) => errs.push(String(e)));
+  await page.goto(`${base}/o-dia-que-sobra/tools/audio-preview.html`); await page.waitForFunction(() => window.ready, null, { timeout: 60000 });
+  const peaks = await page.evaluate(async () => {
+    const out = {};
+    for (const n of ['susto_golpe']) {
+      const r = await window.renderSound('play', n, {}, 1.5, 22050, {});
+      const f32 = (b64) => { const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); return new Float32Array(u.buffer); };
+      let pk = 0; for (const ch of r.ch) for (const v of f32(ch)) pk = Math.max(pk, Math.abs(v));
+      out[n] = { peak: +(20 * Math.log10(pk || 1e-9)).toFixed(1), dur: +Number(r.ret).toFixed(2) };
+    }
+    return out;
+  });
+  for (const [n, v] of Object.entries(peaks)) ok(v.peak < -3 && v.peak > -14, `sound: ${n} peaks at ${v.peak} dBFS (under -3, and strong), ${v.dur} s`);
+  ok(errs.filter((e) => !/404/.test(e)).length === 0, `sound: console clean (${errs.slice(0, 2).join(' | ')})`);
+  await ctx.close();
+}
+
+/** "MENU INICIAL" in the pause (night and day off): goes to '../' (the navigation is intercepted here), after leaving the game as "sair para o título" does, and never writes the real card. */
+async function menuCheck(browser, base, kind, tag) {
+  for (const where of ['noite', 'folga']) {
+    const { page, errs, ctx } = await openPage(browser, base, kind, where === 'noite' ? 'debug=day:3&manual&silent&skiptutorial&nointro' : 'debug=dayoff:1&manual&silent');
+    await page.waitForFunction((w) => window.__odq?.game?.state === (w === 'noite' ? 'play' : 'dayoff'), where, { timeout: 90000 });
+    await page.evaluate(() => window.__bot ? 0 : 0);
+    await page.waitForTimeout(where === 'folga' ? 800 : 0);
+    const realBefore = await page.evaluate(() => localStorage.getItem('o-dia-que-sobra.card.v1'));
+    let hit = null;
+    await page.route('**/*', (route) => { const u = route.request().url(); if (u === `${base}/`) { hit = u; return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>menu</title><link rel="icon" href="data:,">' }); } return route.continue(); });
+    if (where === 'noite') await page.evaluate(() => { window.__odq.game.openPause(); });
+    else await page.evaluate(() => { window.__odq.game.bus.emit('dayoff:pause'); });
+    await page.evaluate(() => window.__odq?.advance?.(2)).catch(() => {});
+    const items = await titles(page);
+    ok(items.includes('MENU INICIAL') && items.includes('SAIR PARA O TÍTULO'), `${tag}: the pause of the ${where} has "MENU INICIAL" (${items.join(' | ')})`);
+    await shot(page, `smoke8-menu-inicial-${where}-${tag}`);
+    await page.evaluate(() => { const c = [...document.querySelectorAll('#modal [data-cell]')].find((x) => x.textContent.trim().startsWith('MENU INICIAL')); const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: r.right - 8, clientY: r.top + 5 })); });
+    await page.waitForURL(`${base}/`, { timeout: 15000 }).catch(() => {});
+    ok(page.url() === `${base}/` && hit === `${base}/`, `${tag}: "MENU INICIAL" in the ${where} goes to '../' (${page.url()})`);
+    const realAfter = await page.evaluate(() => localStorage.getItem('o-dia-que-sobra.card.v1'));
+    ok(realBefore === realAfter, `${tag}: the real memory card is not written on the way out (${realBefore === null ? 'still empty' : 'unchanged'})`);
+    ok(errs.length === 0, `${tag}: console clean (menu inicial, ${where}) (${errs.slice(0, 2).join(' | ')})`);
+    await ctx.close();
+  }
+}
+
+/** The HUD on top of the picture, in one layout at any size: no element of the HUD overlaps another (bounding boxes), nothing sits on the touch buttons, the canvas covers the window (no black band), and
+ * the tutorial of the preparation reads in all of them. Sizes: the phone upright and sideways, and the desktop. */
+async function hudCheck(browser, base, sizes) {
+  for (const [w, h, label] of sizes) {
+    for (const touch of [true, false]) {
+      if (!touch && w !== 390) continue;                                       // (a narrow window without touch is the other way to meet the narrow layout)
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: touch, isMobile: touch && w < 900 });
+      const page = await ctx.newPage(); const errs = [];
+      page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.text()); }); page.on('pageerror', (e) => errs.push(String(e)));
+      const tag = `${label}${touch ? '' : ' sem toque'}`;
+      await page.goto(`${base}/o-dia-que-sobra/index.html?debug&manual&silent&nointro${touch ? '&touch' : ''}`);
+      await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
+      await clickText(page, 'COMEÇAR'); await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 20000 });
+      await botInstall(page, { prep: true });
+      const ev = (fn, arg) => page.evaluate(fn, arg);
+      // the pieces of the HUD that can be on screen together in the preparation: clock, goal, narrative line, coach, toast, hands, prompt, buttons
+      const boxes = async () => ev(() => {
+        const sel = { relogio: '#calhud', objetivo: '#goalhud', mensagem: '#objective', dica: '#coach', aviso: '#toast', bolso: '#invstrip', mira: '#prompt', lista: '#choice', pausa: '#pausebtn', botoes: '#btns', direcional: '#stickbase', soltar: '#carryhint' };
+        const out = {}; for (const [k, s] of Object.entries(sel)) { const e = document.querySelector(s); if (!e || e.hidden || e.closest('[hidden]')) continue; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') continue; const r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue; out[k] = [r.left, r.top, r.right, r.bottom]; }
+        return { out, w: innerWidth, h: innerHeight };
+      });
+      const overlaps = (o) => { const ks = Object.keys(o), bad = []; for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) { const a = o[ks[i]], b = o[ks[j]]; if (!(a[2] <= b[0] + 0.5 || b[2] <= a[0] + 0.5 || a[3] <= b[1] + 0.5 || b[3] <= a[1] + 0.5)) bad.push(`${ks[i]}x${ks[j]}`); } return bad; };
+      const check = async (name) => {
+        const b = await boxes(); const bad = overlaps(b.out);
+        const outside = Object.entries(b.out).filter(([, r]) => r[0] < -1 || r[1] < -1 || r[2] > b.w + 1 || r[3] > b.h + 1).map(([k]) => k);
+        ok(bad.length === 0 && outside.length === 0, `${tag}: ${name}: no HUD element overlaps another or leaves the screen (${Object.keys(b.out).join(', ')}${bad.length ? '; OVERLAP ' + bad.join(' ') : ''}${outside.length ? '; OUT ' + outside.join(' ') : ''})`);
+        return b;
+      };
+      // the first moment of the night: the narrative line is up, the goal is marked, the clock has its preparation line
+      await ev(() => { window.__bot.step(30); window.__odq.advance(2); });
+      const b0 = await check('the first seconds of the preparation');
+      ok(b0.out.relogio && b0.out.objetivo && b0.out.mensagem, `${tag}: clock, marked goal and the narrative line are all on screen`);
+      const goalText = await ev(() => document.getElementById('goalhud').textContent);
+      const goalLines = await ev(() => { const e = document.getElementById('goalhud'); return Math.round(e.getBoundingClientRect().height / (parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.2)); });
+      ok(goalLines <= 2 && !/…$/.test(goalText), `${tag}: the goal line wraps instead of being cut ("${goalText}", ${goalLines} line(s))`);
+      await shot(page, `smoke9-hud-${w}x${h}${touch ? '' : '-sem-toque'}`);
+      // the canvas covers the window: no black band (the bands of the picture would be black pixels at the top and the bottom rows of the canvas)
+      const cover = await ev(() => { const c = document.getElementById('c'), r = c.getBoundingClientRect(); const t = document.createElement('canvas'); t.width = 40; t.height = 40; const g = t.getContext('2d', { willReadFrequently: true }); window.__odq.advance(1); g.drawImage(c, 0, 0, 40, 40); const row = (y) => { const d = g.getImageData(0, y, 40, 1).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (40 * 3); }; return { rect: [r.left, r.top, r.width, r.height], win: [innerWidth, innerHeight], top: Math.round(row(0)), bottom: Math.round(row(39)), size: window.__odq.render.size }; });
+      ok(Math.abs(cover.rect[2] - cover.win[0]) < 1 && Math.abs(cover.rect[3] - cover.win[1]) < 1 && cover.rect[0] === 0 && cover.rect[1] === 0, `${tag}: the canvas covers the window (${cover.rect.map(Math.round).join('x')} in ${cover.win.join('x')}; ${cover.size.w}x${cover.size.h} px)`);
+      ok(cover.top > 6 && cover.bottom > 6, `${tag}: no black band at the top or the bottom of the picture (mean level ${cover.top} / ${cover.bottom})`);
+      // the tutorial of the preparation, step by step, at this size: nothing overlaps while a guided task is on
+      const steps = ['ponto', 'mancha-', 'lampada-', 'repor-', 'lixo-'];
+      let all = true;
+      for (const prefix of steps) {
+        await ev(async (prefix) => { const G = window.__odq.game, B = window.__bot; B.step(30); B.only = prefix; let n = 0; const t = G.tasks.prepList().find((q) => q.id === prefix || q.id.startsWith(prefix)); const half = () => { n++; return n < 25; }; while (half() && !t.done) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); } B.only = null; window.__odq.advance(2); }, prefix);
+        const bb = await boxes(); const bad = overlaps(bb.out); if (bad.length) { all = false; console.log(`   (${prefix}: ${bad.join(' ')})`); }
+        const outside = Object.entries(bb.out).filter(([, r]) => r[0] < -1 || r[1] < -1 || r[2] > bb.w + 1 || r[3] > bb.h + 1); if (outside.length) all = false;
+        await ev(async (prefix) => { const G = window.__odq.game, B = window.__bot; B.only = prefix; let n = 0; const t = G.tasks.prepList().find((q) => q.id === prefix || q.id.startsWith(prefix)); while (!t.done && n++ < 1500) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); } B.only = null; }, prefix);
+      }
+      ok(all, `${tag}: through the tutorial of the preparation (the clock, the goal and the guide of each task) nothing overlaps`);
+      // the aim label follows the device: the touch screen never says "E"
+      const lab = await ev(() => { const G = window.__odq.game, B = window.__bot; window.__odq.input.setLastDevice(window.__odq.input.hasTouch() ? 'touch' : 'keyboard'); const t = G.interaction.targets.get('bico1-comum'); B.aimAt(B.centerOf(t), () => B.settle('bico1-comum'), [1.4]); window.__odq.input.setLastDevice(window.__odq.input.hasTouch() ? 'touch' : 'keyboard'); G.step(1 / 60); window.__odq.advance(2); return { key: document.querySelector('#prompt b')?.textContent, hidden: document.getElementById('prompt').hidden, touch: window.__odq.input.hasTouch(), dev: window.__odq.input.device() }; });
+      if (touch) ok(lab.key !== 'E' && !lab.hidden, `${tag}: on a touch device the aim label shows the touch key, not "E" (${JSON.stringify(lab)})`);
+      ok(errs.length === 0, `${tag}: console clean (HUD) (${errs.slice(0, 2).join(' | ')})`);
+      await ctx.close();
+    }
+  }
+}
+
+/** Item 10: the hose between the body of the pump and the nozzle follows the nozzle in the hand, into the tank and back to its hook, and does not go through the floor or the car; in the cutscenes too. */
+async function hoseCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const r = await ev(async () => {
+    const G = window.__odq.game, B = window.__bot, THREE = G.world.r.THREE, out = {};
+    const hose = () => G.world.posto.pumps[2].hoses.comum.hose;
+    const ends = (h) => { const pos = h.mesh.geometry.attributes.position, n = pos.count, ring = 6, a = new THREE.Vector3(), b = new THREE.Vector3(); for (let i = 0; i < ring; i++) { a.add(new THREE.Vector3().fromBufferAttribute(pos, i)); b.add(new THREE.Vector3().fromBufferAttribute(pos, n - 1 - i)); } return { start: a.divideScalar(ring), end: b.divideScalar(ring) }; };
+    const verts = (h) => { const pos = h.mesh.geometry.attributes.position, v = []; for (let i = 0; i < pos.count; i++) v.push(new THREE.Vector3().fromBufferAttribute(pos, i)); return v; };
+    const hook = G.world.anchor('bico2-comum').pos;
+    const adv = () => window.__odq.advance(2);
+    adv(); out.rest = { end: ends(hose()).end.distanceTo(hook), mode: G.hoses.mode['2-comum'] ?? 'rest', tris: hose().mesh.geometry.index ? hose().mesh.geometry.index.count / 3 : 0 };
+    // the nozzle in the hand
+    out.took = B.use('bico2-comum', 'nozzle'); adv();
+    const hand = new THREE.Vector3(); G.inventory.hand.children[0].getWorldPosition(hand);
+    out.hand = { mode: G.hoses.mode['2-comum'], end: ends(hose()).end.distanceTo(hand), lowest: Math.min(...verts(hose()).map((q) => q.y)) };
+    // the player walks off 2.5 m: the hose goes with the hand
+    G.player.st.x += 2.5; G.player.st.z += 0.5; adv(); G.inventory.hand.children[0].getWorldPosition(hand);
+    out.walk = { end: ends(hose()).end.distanceTo(hand), mode: G.hoses.mode['2-comum'], start: ends(hose()).start.distanceTo(hook) };
+    // the car at pump 2, the nozzle in its tank
+    G.player.st.x -= 2.5; G.player.st.z -= 0.5;
+    const c = G.customers.spawnCar({ pump: 2, seed: 5, valor: 3000, combustivel: 'comum' });
+    for (let i = 0; i < 60 * 40 && c.state === 'arriving'; i++) { G.step(1 / 60); if (i % 30 === 0) await new Promise((q) => setTimeout(q, 0)); }
+    B.use(`cliente${c.id}`, 'talk'); for (let i = 0; i < 40; i++) { if (!B.modalStep()) B.step(3); await new Promise((q) => setTimeout(q, 0)); }
+    if (!G.inventory.carry) B.use('bico2-comum', 'nozzle again');
+    const ins = B.use(`tampa${c.id}`, 'nozzle in'); B.step(5); adv();
+    const nz = new THREE.Vector3(); c.nozzleObj?.getWorldPosition(nz);
+    const vs = verts(hose()), e = ends(hose()).end;
+    const boxes = G.world.colliders.filter((q) => q.vehicle);
+    const inside = vs.filter((q) => q.distanceTo(e) > 0.45 && boxes.some((b) => q.x > b.min[0] && q.x < b.max[0] && q.z > b.min[2] && q.z < b.max[2] && q.y > b.min[1] && q.y < b.max[1] - 0.05)).length;
+    out.tank = { inserted: ins && c.nozzleIn, end: c.nozzleObj ? e.distanceTo(nz) : null, inside, lowest: Math.min(...vs.map((q) => q.y)), mode: G.hoses.mode['2-comum'] };
+    // pulled out and given back: it hangs from the hook again
+    B.use(`tampa${c.id}`, 'pull'); B.use('bico2-comum', 'return'); B.step(3); adv();
+    out.back = { mode: G.hoses.mode['2-comum'], end: ends(hose()).end.distanceTo(hook), carry: G.inventory.carry && G.inventory.carry.kind };
+    return out;
+  });
+  ok(r.rest.end < 0.12 && r.rest.tris > 20 && r.rest.tris < 400, `${tag}: on its hook the nozzle has its hose hanging in a loop (${r.rest.tris} triangles, end ${r.rest.end.toFixed(2)} m from the hook)`);
+  ok(r.took && r.hand.mode === 'active' && r.hand.end < 0.1 && r.hand.lowest >= 0.04, `${tag}: with the nozzle in the hand the hose follows it, above the floor (end ${r.hand.end.toFixed(3)} m from the hand, lowest point ${r.hand.lowest.toFixed(2)} m)`);
+  ok(r.walk.end < 0.1 && r.walk.start < 0.7, `${tag}: it goes with the hand when the player walks off, and still comes out of the pump (end ${r.walk.end.toFixed(3)}, start ${r.walk.start.toFixed(2)} m from the hook)`);
+  ok(r.tank.inserted && r.tank.end < 0.1 && r.tank.inside === 0 && r.tank.lowest >= 0.04, `${tag}: into the tank of the car the hose follows the nozzle and does not go through the car (end ${r.tank.end && r.tank.end.toFixed(3)}, ${r.tank.inside} points inside the car)`);
+  ok(r.back.mode === 'rest' && r.back.end < 0.12 && !r.back.carry, `${tag}: given back, the hose is on its hook again (${JSON.stringify({ mode: r.back.mode, end: +r.back.end.toFixed(3) })})`);
+  await ev(() => { const G = window.__odq.game, B = window.__bot, t = G.interaction.targets.get('bico2-comum'); B.aimAt(B.centerOf(t), () => B.settle('bico2-comum'), [1.5]); B.use('bico2-comum', 'again'); G.player.st.x += 1.2; window.__odq.advance(3); });
+  await shot(page, `smoke10-mangueira-na-mao-${tag}`);
+  ok(errs.filter((e) => !/willReadFrequently/.test(e)).length === 0, `${tag}: console clean (hose) (${errs.slice(0, 2).join(' | ')})`);
+  await ctx.close();
+}
+
+/** The hose in the cutscenes that show a nozzle (rotina, bomba4): the hose of the pump goes to the nozzle the cutscene holds. */
+async function hoseFilmCheck(browser, base, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, 'desktop', 'film');
+  await page.waitForFunction(() => typeof window.setup === 'function', null, { timeout: 60000 });
+  const r = await page.evaluate(async () => {
+    const info = await window.setup({ width: 960, height: 540, seed: 1 }), film = window.__film.current, THREE = film.render.THREE, out = [];
+    const pick = (cs, t) => Object.entries(film.views).find(([, v]) => v.cutscene === cs && v.t0 <= t && v.t1 > t + 0.5)?.[0];
+    const vis = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+    for (const [cs, t, ex] of [['rotina', 30, [8.5, 0.86, -5.95]], ['bomba4', 10, [19.5, 0.86, -5.95]]]) {
+      const name = pick(cs, t); if (!name) { out.push({ cs, error: 'no view' }); continue; }
+      const v = film.views[name]; window.shot({ from: name, duration: 10 }); window.frame(((t - v.t0) / (v.t1 - v.t0)) * 10);
+      const nozzles = [], hoses = [];
+      film.render.scene.traverse((o) => { if (!o.isMesh) return; if (o.name === 'bico-comum' && vis(o)) { const p = new THREE.Vector3(); o.getWorldPosition(p); nozzles.push(p); } if (o.name === 'mangueira' && vis(o)) { o.updateWorldMatrix(true, false); const pos = o.geometry.attributes.position, n = pos.count, e = new THREE.Vector3(); for (let i = 0; i < 6; i++) e.add(new THREE.Vector3().fromBufferAttribute(pos, n - 1 - i)); e.divideScalar(6).applyMatrix4(o.matrixWorld); hoses.push(e); } });
+      const E = new THREE.Vector3(...ex), near = Math.min(...hoses.map((h) => h.distanceTo(E)));
+      out.push({ cs, view: name, nozzles: nozzles.length, hoses: hoses.length, toTheHeldNozzle: +near.toFixed(3) });
+    }
+    return out;
+  });
+  for (const o of r) ok(!o.error && o.nozzles >= 1 && o.hoses >= 4 && o.toTheHeldNozzle < 0.15, `${tag}: cutscene ${o.cs} (${o.view}): the hose goes to the nozzle the cutscene holds (${JSON.stringify(o)})`);
+  ok(errs.length === 0, `${tag}: console clean (film hose) (${errs.slice(0, 2).join(' | ')})`);
   await ctx.close();
 }
 
@@ -842,7 +1613,7 @@ async function fullCheck(browser, base, kind, full) {
   const coach = await page.evaluate(() => { const c = document.getElementById('coach'); return !c.hidden && c.textContent.length > 20; });
   ok(coach, `${tag}: the first night teaches the controls on the screen`);
   await shot(page, `smoke-tutorial-${tag}`);
-  await botInstall(page);
+  await botInstall(page, { prep: true });
   await page.evaluate(() => { window.__bot.stopAt = 150; });
   let r = await playToSummary(page);
   await advance(page, 3); await page.evaluate(() => window.__odq.game.ui.toggleSheet(true)); await advance(page, 3);
@@ -892,7 +1663,7 @@ async function fullCheck(browser, base, kind, full) {
   await shot(page, `smoke-noite7-${tag}`);
   ok(errs.length === 0, `${tag}: console clean through the week turn (${errs.slice(0, 3).join(' | ')})`);
   await ctx.close();
-  if (!full) { await roundTwo(browser, base, kind, tag); await dropCheck(browser, base, kind, tag); await calcCheck(browser, base, kind, tag); return; }
+  if (!full) { await roundTwo(browser, base, kind, tag); await dropCheck(browser, base, kind, tag); await calcCheck(browser, base, kind, tag); await doorDropCheck(browser, base, kind, tag); await overlapCheck(browser, base, kind, tag); await prepCheck(browser, base, kind, tag); await tutorialCheck(browser, base, kind, tag); await hoseCheck(browser, base, kind, tag); await menuCheck(browser, base, kind, tag); return; }
 
   // ---- endings: 2 (the second goal lost, played) and 4 (the Sun reaches a player who stops in the dark)
   ({ page, errs, ctx } = await openPage(browser, base, kind, 'debug=miss:1,day:12&manual&silent&skiptutorial&nointro'));
@@ -919,6 +1690,19 @@ async function fullCheck(browser, base, kind, full) {
   await roundTwo(browser, base, kind, tag);
   await dropCheck(browser, base, kind, tag);
   await calcCheck(browser, base, kind, tag);
+  await doorDropCheck(browser, base, kind, tag);
+  await overlapCheck(browser, base, kind, tag);
+  await smallChecks(browser, base, kind, tag);
+  await prepCheck(browser, base, kind, tag);
+  await tutorialCheck(browser, base, kind, tag);
+  await lastNightCheck(browser, base, kind, tag);
+  await soundPeak(browser, base);
+  await strangeCheck(browser, base, kind, tag);
+  await scareCheck(browser, base, kind, tag);
+  await hoseCheck(browser, base, kind, tag);
+  await hoseFilmCheck(browser, base, tag);
+  await menuCheck(browser, base, kind, tag);
+  await hudCheck(browser, base, [[390, 844, '390x844'], [844, 390, '844x390'], [1920, 1080, '1920x1080']]);
 
   // ---- the film mode
   ({ page, errs, ctx } = await openPage(browser, base, kind, 'film'));
@@ -935,6 +1719,16 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || '/
 try {
   if (ARGS[0] === '--balance') await balance(browser, base, ARGS.slice(1).map(Number));
   else if (ARGS[0] === '--mobile') await fullCheck(browser, base, 'mobile', false);
+  else if (ARGS[0] === '--doors') { await doorDropCheck(browser, base, 'desktop', 'desktop'); await doorDropCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--overlap') { await overlapCheck(browser, base, 'desktop', 'desktop'); await overlapCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--small') { await smallChecks(browser, base, 'desktop', 'desktop'); }
+  else if (ARGS[0] === '--prep') { await prepCheck(browser, base, 'desktop', 'desktop'); await prepCheck(browser, base, 'mobile', 'celular'); await tutorialCheck(browser, base, 'desktop', 'desktop'); await tutorialCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--last') { await lastNightCheck(browser, base, 'desktop', 'desktop'); }
+  else if (ARGS[0] === '--strange') { await strangeCheck(browser, base, 'desktop', 'desktop'); }
+  else if (ARGS[0] === '--scare') { await soundPeak(browser, base); await scareCheck(browser, base, 'desktop', 'desktop'); }
+  else if (ARGS[0] === '--menu') { await menuCheck(browser, base, 'desktop', 'desktop'); await menuCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--hud') { await hudCheck(browser, base, [[390, 844, '390x844'], [844, 390, '844x390'], [1920, 1080, '1920x1080']]); }
+  else if (ARGS[0] === '--hose') { await hoseCheck(browser, base, 'desktop', 'desktop'); await hoseCheck(browser, base, 'mobile', 'celular'); await hoseFilmCheck(browser, base, 'desktop'); }
   else if (ARGS[0] === '--calc') { await calcCheck(browser, base, 'desktop', 'desktop'); await calcCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--drops') { await dropCheck(browser, base, 'desktop', 'desktop'); if (!process.env.ONLYDESK) await dropCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--round2') { await roundTwo(browser, base, 'desktop', 'desktop'); await roundTwo(browser, base, 'mobile', 'celular'); }

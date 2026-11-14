@@ -17,7 +17,7 @@ export function createMedication(bus, { data, progression, sanity, time, invento
   };
   const dosesThisWeek = () => progression.st.doses?.[progression.st.week] || 0;
   const pills = () => progression.st.frasco?.pilulas || 0;
-  const active = (id) => (st.until[id] ?? -1) > time.minutes;
+  const active = (id) => (st.until[id] ?? -Infinity) > time.minutes;      // (never `-1`: the clock is negative in the preparation, from 23:00)
   const sync = () => {
     const i = inventory.slots.indexOf('frasco');
     if (pills() > 0 && i < 0) {

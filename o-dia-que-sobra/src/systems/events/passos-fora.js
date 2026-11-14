@@ -11,3 +11,5 @@ export function run({ world, bus, sanity, event, rng, progression }) {
     },
   };
 }
+/** no car is arriving or leaving (the engine would hide the steps, and the steps would be a car). Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers }) => !customers.list.some((c) => c.car && ['arriving', 'leaving', 'driving'].includes(c.state));

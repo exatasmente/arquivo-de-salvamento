@@ -20,3 +20,5 @@ export function run({ mirror, kit, player, world, bus, sanity, progression, even
     dispose() { mirror.setDelay(0); },
   };
 }
+/** nobody is using the bathroom. Checked by the event system before the event begins; if it fails the event waits for another moment. */
+export const can = ({ customers }) => !customers.list.some((c) => c.kind === 'walk' && ['inside', 'route'].includes(c.state));
