@@ -431,6 +431,12 @@ export function createUI(root, api) {
   /** The clipboard's tab on the phone ('noite' | 'semana' | 'bicos'). */
   function setSheetTab(t) { if (!['noite', 'semana', 'bicos'].includes(t)) return; sheetTab = t; api.sfx?.('papel_folha'); if (sheetOpen) renderSheet(); }
   /** Is the screen point (x, y) on the clipboard, and which goal row is under it ('' when on the sheet but not on a row; null when outside it)? */
+  /** Is the screen point (x, y) on the marked goal's strip of the HUD (the phone: a tap there walks to the goal)? */
+  function goalAt(x, y) {
+    if (el.goal.hidden) return false;
+    const b = el.goal.getBoundingClientRect();
+    return b.width > 0 && x >= b.left && x <= b.right && y >= b.top - 4 && y <= b.bottom + 4;
+  }
   function sheetKeyAt(x, y) {
     if (!sheetOpen) return null;
     const b = el.sheet.getBoundingClientRect(); if (x < b.left || x > b.right || y < b.top || y > b.bottom) return null;
@@ -641,7 +647,7 @@ export function createUI(root, api) {
     return false;
   }
   return {
-    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
+    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, goalAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
     toggleSheet, setSheetTab, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },

@@ -26,6 +26,7 @@ import { createMedication } from './systems/medication.js';
 import { createCampaign } from './systems/campaign.js';
 import { createSecrets } from './systems/secrets.js';
 import { createGoals } from './systems/goals.js';
+import { getNav } from './systems/nav.js';
 import { createPrep } from './systems/prep.js';
 import { createHoses } from './systems/hoses.js';
 import { mulberry32 } from './rng.js';
@@ -612,6 +613,13 @@ export async function createGame({ root, render, input, params }) {
     for (const a of intent.acts) if (a.type === 'down' && a.screen) { const row = ui.choiceRowAt(a.screen.x, a.screen.y); if (row !== null) { a.choice = row; delete a.screen; } }
     if (padRB()) { if (interaction.cycle(1)) bus.emit('sfx', 'ui_mover', {}); }
     if (extraActs.length) intent.acts.push(...extraActs.splice(0));
+    // a finger on the marked goal's strip (the phone): walk there, and nothing else
+    if (input.touch?.mobile && !ui.sheetOpen && intent.acts.length) {
+      intent.acts = intent.acts.filter((a) => {
+        if (a.type !== 'down' || !a.screen || !ui.goalAt(a.screen.x, a.screen.y)) return true;
+        walkToGoal(); return false;
+      });
+    }
     // a finger on the open clipboard marks a goal and does nothing else
     if (ui.sheetOpen && intent.acts.length) {
       intent.acts = intent.acts.filter((a) => {
@@ -685,20 +693,66 @@ export async function createGame({ root, render, input, params }) {
     if (d.y > -0.02) return false;                      // the sky, or the horizon: nowhere to walk to
     const k = -o.y / d.y, px = o.x + d.x * k, pz = o.z + d.z * k;
     if (k > 14 || k < 0.6) return false;
-    walkTo = { x: px, z: pz, t: 0, best: Infinity, still: 0 };
+    if (!planWalk(px, pz)) return false;
     input.touch.mobile.walkMark(x, y);
+    return true;
+  }
+  /**
+   * The way to a floor point, round the walls and through the doors (the same A* the customers walk, nav.js). A point
+   * inside something (a wall, a shelf, the counter) walks to the nearest free spot next to it; a point that cannot be
+   * reached at all (a locked door, behind glass with no way round) answers false and nothing moves.
+   */
+  function planWalk(px, pz) {
+    const nav = getNav(world, player), st = player.st, R = 0.34;
+    let tx = px, tz = pz;
+    if (nav.solidAt(tx, tz, R)) {
+      let best = null;
+      for (let r = 0.4; r <= 2.6 && !best; r += 0.3) {
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
+          if (nav.solidAt(x, z, R)) continue;
+          const d = Math.hypot(x - st.x, z - st.z);
+          if (!best || d < best.d) best = { x, z, d };
+        }
+      }
+      if (!best) return false;
+      tx = best.x; tz = best.z;
+    }
+    const route = nav.path({ x: st.x, z: st.z }, { x: tx, z: tz });
+    if (!route || !route.length) { ui.toast('Não dá para chegar lá por aqui.'); return false; }
+    walkTo = { route, i: 0, t: 0, best: Infinity, still: 0 };
+    return true;
+  }
+  /** Walking to the marked goal: to the floor under the place the marker shows. */
+  function walkToGoal() {
+    const g = goals.current;
+    const w = g?.where?.();
+    if (!w || state !== 'play' || entity.hidden) return false;
+    if (!planWalk(w.x, w.z)) return false;
+    bus.emit('sfx', 'ui_ok', {});
     return true;
   }
   /** Walking toward the tapped point: the stick's intent, until there, stuck, or the stick takes over. */
   function walkStep(dt, intent) {
     if (!walkTo) return;
     if (state !== 'play' || entity.hidden || ui.modalOpen || Math.abs(intent.moveX) + Math.abs(intent.moveY) > 0.05) { walkTo = null; return; }
-    const st = player.st, dx = walkTo.x - st.x, dz = walkTo.z - st.z, dist = Math.hypot(dx, dz);
+    const st = player.st, route = walkTo.route;
+    let wp = route[walkTo.i];
+    // a waypoint reached: on to the next one (the last one is where the player stops)
+    while (walkTo.i < route.length - 1 && Math.hypot(wp.x - st.x, wp.z - st.z) < 0.45) { walkTo.i++; walkTo.best = Infinity; walkTo.still = 0; wp = route[walkTo.i]; }
+    // a closed door on the way: it opens as the player comes near (the player would open it by hand anyway)
+    for (const id of wp.doors || []) {
+      const c = world.doors?.[id]?.collider; if (!c || world.doorOpen(id)) continue;
+      const cx = (c.min[0] + c.max[0]) / 2, cz = (c.min[2] + c.max[2]) / 2;
+      if (Math.hypot(cx - st.x, cz - st.z) < 1.8) { world.setDoor(id, 1); bus.emit('sfx', 'porta_abre', { pos: [cx, 1.2, cz] }); }
+    }
+    const dx = wp.x - st.x, dz = wp.z - st.z, dist = Math.hypot(dx, dz);
+    const last = walkTo.i === route.length - 1;
     walkTo.t += dt;
     if (dist < walkTo.best - 0.05) { walkTo.best = dist; walkTo.still = 0; } else walkTo.still += dt;
-    if (dist < 0.35 || walkTo.still > 1.2 || walkTo.t > 15) { walkTo = null; return; }
+    if ((last && dist < 0.35) || walkTo.still > 1.5 || walkTo.t > 40) { walkTo = null; return; }
     const fx_ = -Math.sin(st.yaw), fz = -Math.cos(st.yaw), rx = Math.cos(st.yaw), rz = -Math.sin(st.yaw);
-    const k = Math.min(1, dist / 0.8) / dist;
+    const k = (last ? Math.min(1, dist / 0.8) : 1) / dist;
     intent.moveY = (dx * fx_ + dz * fz) * k; intent.moveX = (dx * rx + dz * rz) * k;
   }
   function project(target) {
@@ -767,7 +821,7 @@ export async function createGame({ root, render, input, params }) {
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
     bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, cameras, shift, save, ui, audioSys, data,
-    opts, goals, prep, hoses, step, draw, showTitle, startNight, continueRun, openPause, resume,
+    opts, goals, prep, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; },
   };
   return api;
