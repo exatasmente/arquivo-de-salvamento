@@ -1,0 +1,105 @@
+/* The home screen. Press Start 2P has no accented capitals (Ã, Ó, Á): text with accents is set in VT323. */
+:root {
+  --bg: #0b0b14;
+  --ink: #e8e6f0;
+  --muted: #9a98b8;
+  --sun: #f5b700;
+  --line: rgba(232, 230, 240, .22);
+  --focus: #7fd4ff;
+  --pixel: 'Press Start 2P', ui-monospace, monospace;
+  --term: 'VT323', ui-monospace, monospace;
+  --top: max(12px, env(safe-area-inset-top));
+  --bottom: max(10px, env(safe-area-inset-bottom));
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; overscroll-behavior: none; }
+body { font: 22px/1.3 var(--term); -webkit-font-smoothing: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#c { position: fixed; left: 0; top: 0; image-rendering: pixelated; touch-action: none; }
+/* a faint CRT over everything, never over the meaning */
+body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 20; background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.16) 2px 3px); }
+
+/* power-on: shown by the page itself before anything loads, then over the card the 3D draws */
+#boot { position: fixed; inset: 0; z-index: 12; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px;
+  padding-bottom: calc(14vh + var(--bottom)); background: #000; transition: opacity .5s, background .6s; pointer-events: none; text-align: center; }
+#boot.lit { background: transparent; }
+#boot.out { opacity: 0; }
+#boot .name { font: 14px/1.4 var(--pixel); color: var(--sun); letter-spacing: .1em; text-shadow: 3px 3px 0 #3a1c00; padding: 0 16px; }
+#boot .status { font-size: 21px; color: var(--muted); letter-spacing: .12em; min-height: 1.3em; }
+body:not(.ready) #gui { visibility: hidden; }
+#gui { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; pointer-events: none; opacity: 0; transition: opacity .4s; }
+body.ready #gui { opacity: 1; }
+#gui button, #gui a, #panel { pointer-events: auto; }
+
+.top { align-self: stretch; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: var(--top) max(18px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left));
+  background: linear-gradient(rgba(0,0,0,.55), transparent); }
+.top b { font: 11px/1.4 var(--pixel); color: var(--sun); letter-spacing: .08em; text-shadow: 2px 2px 0 #3a1c00; }
+.top span { font-size: 19px; color: var(--muted); letter-spacing: .08em; white-space: nowrap; }
+
+#stage { flex: none; width: 100%; height: 36vh; }
+#info { flex: none; text-align: center; padding: 0 22px; max-width: 640px; text-shadow: 0 2px 0 #000; }
+#title { font: 18px/1.3 var(--pixel); margin: 6px 0 10px; letter-spacing: .06em; }
+#hook { margin: 0 0 4px; color: var(--ink); font-size: 22px; }
+#desc { margin: 0; color: var(--muted); font-size: 20px; }
+#saved { margin-top: 10px; color: var(--sun); font-size: 20px; letter-spacing: .1em; }
+#saved.new { color: var(--muted); }
+
+#dock { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; padding: 0 12px; }
+#dock button { font: 21px/1 var(--term); letter-spacing: .12em; color: var(--muted); background: rgba(0,0,0,.45);
+  border: 2px solid var(--line); border-radius: 22px; padding: 9px 16px 8px; cursor: pointer; }
+#dock button[data-act=play] { color: var(--ink); border-color: rgba(232,230,240,.6); }
+#dock button.on, #dock button:focus-visible { outline: none; color: #111; background: var(--sun); border-color: var(--sun); }
+@media (hover: hover) { #dock button:hover { color: var(--ink); border-color: var(--ink); } }
+
+.spacer { flex: 1; }
+#hints { flex: none; align-self: stretch; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px;
+  padding: 14px 14px var(--bottom); color: var(--muted); font-size: 19px; letter-spacing: .08em; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+#hints span { white-space: nowrap; display: inline-flex; align-items: center; }
+.g { display: inline-flex; min-width: 22px; height: 22px; padding: 0 3px; margin-right: 7px; border-radius: 50%; align-items: center; justify-content: center;
+  border: 2px solid rgba(232,230,240,.6); color: var(--ink); font: normal 17px/1 var(--term); }
+.g.sq { border-radius: 4px; padding: 0 5px; }
+
+/* panels: videos, the channel, options */
+#panel { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5,5,10,.72); }
+#panel[hidden] { display: none; }
+#panel .box { width: min(560px, 100%); max-height: 80vh; overflow: auto; background: #12122a; border: 3px solid var(--sun); box-shadow: 6px 6px 0 #000; padding: 16px 18px 18px; }
+#panel h2 { margin: 0 0 12px; font: 21px/1.2 var(--term); color: var(--sun); letter-spacing: .14em; display: flex; justify-content: space-between; align-items: center; }
+#panel .close { font: 20px/1 var(--term); color: var(--muted); background: none; border: 2px solid var(--line); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+#panel ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+#panel li a, #panel li button { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; font: 21px/1.25 var(--term); color: var(--ink);
+  background: none; border: 2px solid transparent; padding: 8px 10px; text-decoration: none; cursor: pointer; }
+#panel li button:disabled { cursor: default; color: var(--muted); }
+#panel li .on, #panel li a:focus-visible, #panel li button:focus-visible { outline: none; border-color: var(--sun); background: rgba(245,183,0,.1); }
+#panel .ic { color: var(--sun); flex: none; width: 18px; }
+
+/* leaving for a game */
+#fade { position: fixed; inset: 0; z-index: 15; background: #000; opacity: 0; pointer-events: none; transition: opacity .45s ease-in; }
+body.leaving #fade { opacity: 1; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* landscape on a phone: the row and the essentials */
+@media (max-height: 520px) {
+  #stage { height: 44vh; }
+  #hook, #desc { display: none; }
+  #title { margin: 2px 0 4px; font-size: 15px; }
+  #saved { margin-top: 2px; font-size: 18px; }
+  #dock { margin-top: 8px; }
+  #dock button { padding: 6px 12px 5px; font-size: 19px; }
+  .top { padding-bottom: 4px; }
+  #hints { padding-top: 6px; font-size: 17px; }
+}
+@media (max-width: 420px) {
+  .top b { font-size: 9px; }
+  .top span { font-size: 17px; }
+  #title { font-size: 16px; }
+  #dock { gap: 8px; }
+  #dock button { padding: 8px 12px 7px; font-size: 19px; }
+}
+@media (min-height: 700px) and (min-width: 700px) { #stage { height: 40vh; } #title { font-size: 22px; } }
+@media (prefers-reduced-motion: reduce) { #gui, #fade { transition: none; } }
+
+/* without JavaScript: a plain list */
+.plain { padding: 32px 18px; max-width: 640px; margin: 0 auto; }
+.plain h1 { font: 16px/1.4 var(--pixel); color: var(--sun); }
+.plain a { color: var(--ink); }

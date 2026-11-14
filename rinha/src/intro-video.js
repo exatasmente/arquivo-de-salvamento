@@ -1,7 +1,7 @@
 // The opening of the game: one video, the story from the house to the second waking in the cell,
 // told with the game's own dialogue boxes. The game starts where it ends, in the cell.
 //
-//   playIntroVideo({ root, audio, onEnd(info) })   // info: { skipped, failed }
+//   playIntroVideo({ root, audio, onEnd(info), autostart })   // info: { skipped, failed }; autostart: no "press a key" first
 //
 // Browsers only play a video with sound after a gesture, so a title asks for a key first. The video
 // can be skipped (Enter, Space, Esc, a pad button or the button) after a short grace. If the file
@@ -10,7 +10,7 @@
 export const INTRO_SRC = 'media/abertura.mp4';
 const GRACE = 1.5; // seconds before a skip counts, so the key that started the video does not skip it
 
-export function playIntroVideo({ root, audio, onEnd, src = INTRO_SRC }) {
+export function playIntroVideo({ root, audio, onEnd, src = INTRO_SRC, autostart = false }) {
   const wrap = document.createElement('div');
   wrap.id = 'intro-video';
   wrap.innerHTML = `
@@ -63,5 +63,7 @@ export function playIntroVideo({ root, audio, onEnd, src = INTRO_SRC }) {
   video.addEventListener('ended', () => finish({ skipped: false }));
   video.addEventListener('error', () => finish({ skipped: false, failed: true }));
   raf = requestAnimationFrame(pad);
+  // after the title screen the person has already pressed: the video starts at once, with sound
+  if (autostart) start();
   return { skip: () => finish({ skipped: true }) };
 }

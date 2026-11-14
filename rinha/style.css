@@ -108,3 +108,18 @@ body.cut #stickzone, body.cut #btns, body.cut #lookzone, body.cut #stonebtn { di
 #intro-video .title p.blink { font-size: 14px; color: #e8dfc4; animation: intro-blink 1s steps(1) infinite; }
 @keyframes intro-blink { 50% { opacity: 0; } }
 #intro-video .skip { position: absolute; right: 16px; bottom: 16px; font-size: 13px; padding: 6px 10px; border: 2px solid #c9a24a; background: rgba(0,0,0,.6); cursor: pointer; }
+/* title screen (src/title.js): the logo over the ring, one prompt */
+body.title #hud, body.title #touch, body.title #credits, body.title #fightno, body.title #item, body.title #target, body.title #dot, body.title #apple { display: none !important; }
+#title-screen { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); text-align: center; cursor: pointer;
+  background: radial-gradient(ellipse at center, rgba(5,6,10,.15) 20%, rgba(5,6,10,.7) 85%); transition: opacity .4s; touch-action: none; }
+#title-screen.out { opacity: 0; pointer-events: none; }
+#title-screen .logo { margin-bottom: 26px; display: flex; gap: .06em; font-size: clamp(48px, 15vw, 112px); line-height: 1; color: #c9a24a; letter-spacing: .04em;
+  text-shadow: 4px 4px 0 #3a2400, 0 0 24px rgba(201,162,74,.25); }
+#title-screen .logo span { display: inline-block; animation: title-drop .55s cubic-bezier(.2,1.4,.4,1) both; animation-delay: calc(var(--i) * 90ms); }
+@keyframes title-drop { from { transform: translateY(-60px) scaleY(1.4); opacity: 0; } to { transform: none; opacity: 1; } }
+#title-screen .press { margin: 0; font-size: 18px; letter-spacing: 4px; color: #fff; text-shadow: 2px 2px 0 #000; animation: title-blink 1.1s steps(1) infinite; animation-delay: .9s; min-height: 1.2em; }
+@keyframes title-blink { 50% { opacity: 0; } }
+#title-screen .saved { margin: 4px 0 0; font-size: 13px; color: #c9a24a; letter-spacing: 2px; text-shadow: 1px 1px 0 #000; }
+#title-screen .foot { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; font-size: 11px; color: #8a8478; letter-spacing: 3px; }
+@media (prefers-reduced-motion: reduce) { #title-screen .logo span, #title-screen .press { animation: none; } }

@@ -9,6 +9,7 @@ if (q.has('film')) {
   await import('./film.js');
 } else boot().catch((e) => {
   console.error(e);
+  document.getElementById('splash')?.remove(); // the error below must be seen
   const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;color:#e8dfc4;font:bold 16px monospace;text-align:center;padding:20px';
   d.textContent = 'O posto não abriu: ' + e.message; document.body.appendChild(d);
 });
@@ -32,11 +33,12 @@ async function boot() {
   const game = await createGame({ root, render, input, params });
 
   // The loop is the only place with a real clock: it feeds fixed steps to the simulation.
-  let last = performance.now(), acc = 0;
+  let last = performance.now(), acc = 0, shown = false;
   function frame(now) {
     acc += Math.min(0.1, (now - last) / 1000); last = now;
     while (acc >= DT) { if (!params.manual) game.step(DT); acc -= DT; } // ?manual: the steps come from window.__odq.advance (tests)
     game.draw();
+    if (!shown) { shown = true; window.splashDone?.(); } // the first frame is up: the loading screen goes
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

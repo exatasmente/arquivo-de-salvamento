@@ -170,3 +170,12 @@ body.touch #carryhint { bottom: 238px; }
   .cwrap .keypad { padding: 8px 10px; } .cwrap .keypad h1 { font-size: calc(17px * var(--ts, 1)); margin-bottom: 2px; }
   .cwrap .keypad .kl { font-size: 11px; margin: 1px 0; } .keypad button { padding: 6px 8px; min-width: 52px; }
 }
+/* title screen (src/title.js): the Sun sign at night behind, one prompt low on the screen */
+#attract { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: max(20px, env(safe-area-inset-top)) 20px calc(14vh + env(safe-area-inset-bottom)); text-align: center; cursor: pointer; touch-action: none;
+  background: linear-gradient(transparent 55%, rgba(5,6,10,.65)); transition: opacity .4s; }
+#attract.out { opacity: 0; pointer-events: none; }
+#attract .press { margin: 0; font-size: 18px; letter-spacing: 4px; color: #fff; text-shadow: 2px 2px 0 #000; animation: attract-blink 1.1s steps(1) infinite; animation-delay: .6s; min-height: 1.2em; }
+@keyframes attract-blink { 50% { opacity: 0; } }
+#attract .saved { margin: 4px 0 0; font-size: 13px; color: #c9a24a; letter-spacing: 2px; text-shadow: 1px 1px 0 #000; }
+@media (prefers-reduced-motion: reduce) { #attract .press { animation: none; } }

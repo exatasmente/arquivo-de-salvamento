@@ -44,6 +44,8 @@ export function createHud(root, { debug, opts, onOpts, onResume, onCard }) {
     { id: 'flash', label: () => `REDUZIR CLAR&Otilde;ES: ${opts.reduceFlash ? 'SIM' : 'N&Atilde;O'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); onOpts?.(opts); } },
     { id: 'card', label: () => 'CART&Atilde;O DE MEM&Oacute;RIA', act: () => onCard && onCard() },
     { id: 'sound', label: () => `SOM: ${opts.mute ? 'N&Atilde;O' : 'SIM'}`, act: () => { opts.mute = !opts.mute; saveOpts(opts); onOpts?.(opts); } },
+    // back to the site's home screen (the progress is the card's: what was saved stays)
+    { id: 'home', label: () => 'SAIR PARA O MENU', act: () => { location.href = '../'; } },
   ];
   let sel = 0;
   function renderMenu() {

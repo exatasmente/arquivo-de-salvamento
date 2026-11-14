@@ -4,11 +4,61 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Rinha</title>
-<link rel="icon" href="data:,">
+<meta name="theme-color" content="#05060a">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+<style>
+  /* The loading screen: here, not in style.css, so it shows before anything else arrives. */
+  #splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: #05060a; color: #e8dfc4; font: bold 14px "Courier New", monospace; letter-spacing: .14em; text-align: center; transition: opacity .35s; }
+  #splash.out { opacity: 0; pointer-events: none; }
+  #splash .from { color: #8a8478; font-size: 12px; animation: sp-in .5s ease-out both; }
+  #splash .from small { display: block; margin-top: 6px; font-size: 10px; letter-spacing: .3em; color: #5a564e; }
+  #splash h1 { margin: 6px 0 10px; font-size: clamp(40px, 12vw, 72px); letter-spacing: .08em; color: #c9a24a; text-shadow: 4px 4px 0 #3a2400; animation: sp-logo .7s ease-out .55s both; }
+  #splash .bar { animation: sp-in .4s ease-out 1s both; }
+  @keyframes sp-in { from { opacity: 0; } }
+  @keyframes sp-logo { 0% { opacity: 0; transform: scaleY(.05); filter: brightness(3); } 60% { opacity: 1; transform: scaleY(1.15); } 100% { transform: none; filter: none; } }
+  #splash .bar { display: flex; gap: 5px; }
+  #splash .bar i { width: 12px; height: 16px; background: #1b1e29; box-shadow: inset -2px -2px 0 #0b0c12; animation: sp-block 1.6s steps(1) infinite; }
+  #splash .bar i:nth-child(2) { animation-delay: .2s; } #splash .bar i:nth-child(3) { animation-delay: .4s; } #splash .bar i:nth-child(4) { animation-delay: .6s; }
+  #splash .bar i:nth-child(5) { animation-delay: .8s; } #splash .bar i:nth-child(6) { animation-delay: 1s; } #splash .bar i:nth-child(7) { animation-delay: 1.2s; } #splash .bar i:nth-child(8) { animation-delay: 1.4s; }
+  @keyframes sp-block { 0% { background: #e0a526; box-shadow: inset -2px -2px 0 #8a5d10, inset 2px 2px 0 #f7d874; } 25% { background: #1b1e29; box-shadow: inset -2px -2px 0 #0b0c12; } }
+  #splash .msg { font-size: 12px; color: #8a8478; min-height: 1.3em; }
+  #splash .msg.err { color: #ff8a5c; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { #splash .bar i, #splash .from, #splash h1, #splash .bar { animation: none; } #splash { transition: none; } }
+</style>
 </head>
 <body>
+<div id="splash" role="status" aria-live="polite">
+  <div class="from">ARQUIVO DE SALVAMENTO<small>APRESENTA</small></div>
+  <h1>RINHA</h1>
+  <div class="bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="msg">CARREGANDO</div>
+</div>
+<script>
+  // The game calls splashDone() after its first frame. The film mode and the editor never show it.
+  (function () {
+    var el = document.getElementById('splash'), msg = el.querySelector('.msg'), q = location.search;
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function done() {
+      if (!el.parentNode) return;
+      // the logo is seen whole before it goes, however fast the game loaded
+      var wait = Math.max(0, (reduced ? 300 : 1700) - performance.now());
+      setTimeout(function () { el.classList.add('out'); setTimeout(function () { el.remove(); }, 400); }, wait);
+    }
+    window.splashDone = done;
+    if (/[?&](film|editor)(=|&|$)/.test(q)) { el.remove(); return; }
+    function fail() { if (!el.parentNode || el.classList.contains('out')) return; msg.textContent = 'NÃO CARREGOU · TOQUE PARA TENTAR DE NOVO'; msg.className = 'msg err'; el.onclick = function () { location.reload(); }; }
+    addEventListener('error', function (e) { if (e.target === window || (e.target && e.target.tagName === 'SCRIPT')) fail(); }, true);
+    addEventListener('unhandledrejection', fail);
+    // the site's service worker keeps the games for offline play, also when this page is the first one opened
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') addEventListener('load', function () { navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(function () {}); });
+    setTimeout(function () { if (el.parentNode && !el.classList.contains('out') && msg.className === 'msg') msg.textContent = 'AINDA CARREGANDO…'; }, 12000);
+  })();
+</script>
 <div id="app"><canvas id="c"></canvas></div>
 <script type="module" src="./src/main.js"></script>
 </body>

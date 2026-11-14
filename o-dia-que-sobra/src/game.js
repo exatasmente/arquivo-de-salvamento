@@ -34,6 +34,8 @@ import { createKit } from './systems/events/kit.js';
 import { createSaveSystem } from './systems/save.js';
 import { createAudioSystem } from './systems/audio.js';
 import { createUI } from './ui.js';
+import { showAttract } from './title.js';
+import { firstPad } from '../vendor/engine/input.js';
 import { money } from './util.js';
 
 export const DT = 1 / 60;
@@ -208,11 +210,53 @@ export async function createGame({ root, render, input, params }) {
     items.push({ label: () => 'OPÇÕES', act: () => optionsScreen(showTitle) });
     items.push({ label: () => 'CONTROLES', act: () => ui.controlsScreen(showTitle) });
     items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, showTitle) });
-    ui.menu({
+    const openMenu = () => ui.menu({
       title: 'O DIA QUE SOBRA', subtitle: 'Posto Bom Dia · Um novo dia sempre começa com um sorriso!',
       lines: titleLines, items, foot: () => `Semente do jogo: ${baseSeed}  (?seed=N)`,
     });
+    // The first time after loading: the title screen (the name, the moving camera, one prompt); the menu after the press.
+    // Tests (?manual, ?debug, ?nointro) and ?notitle go straight to the menu.
+    if (!attractDone && !skipAttract) {
+      attractDone = true;
+      const saved = !hasRun ? null : run.fase === 'folga' ? 'CONTINUAR · FOLGA' : run.fase === 'fim' ? 'CONTINUAR · O FIM' : `CONTINUAR · SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}`;
+      attractAt = simT; attractNext = openMenu;
+      attract = showAttract({ root, saved, onStart: leaveAttract });
+      attract.setDevice(attractDevice());
+    } else openMenu();
   }
+  // ---- the title screen before the title menu ----
+  let attract = null, attractNext = null, attractAt = 0, attractDone = false;
+  const skipAttract = params.manual || params.debug || /[?&](nointro|notitle)(=|&|$)/.test(location.search);
+  const attractDevice = () => (firstPad() ? 'gamepad' : input.device() === 'gamepad' ? 'keyboard' : input.device());
+  function leaveAttract() {
+    if (!attract || simT - attractAt < 0.35) return;
+    attract.close(); attract = null;
+    bus.emit('sfx', 'ui_mover', {});
+    const next = attractNext; attractNext = null;
+    if (state === 'title' && next) next();
+  }
+  /** On the title the picture is the Sun sign at night, face on, from below, the camera only breathing. */
+  let signFace = null;
+  function titleDrift(t) {
+    const a = world.anchor('placaSol');
+    if (!a) return;
+    if (!signFace) {   // the way the sign's face looks, in the world (the anchor's direction is the model's, not turned)
+      const m = world.posto.props['placa-sol']?.mesh?.[0];
+      signFace = m ? m.getWorldDirection(new render.THREE.Vector3()).setY(0).normalize() : a.dir.clone().setY(0).normalize();
+    }
+    const D = 7.5 + Math.sin(t * 0.11) * 0.4;
+    const yaw = Math.atan2(signFace.x, signFace.z) + Math.sin(t * 0.07) * 0.05;
+    const p = a.pos.clone(); p.x += Math.sin(yaw) * D; p.z += Math.cos(yaw) * D; p.y = 0;
+    player.place(p, yaw);
+    player.st.pitch = Math.atan2(a.pos.y - 1.3 - player.st.eye, D);
+  }
+  /** The sign's light during the title: mostly on, with the short failures of an old tube. */
+  function titleSign(t) {
+    const k = t % 7.3;
+    const off = (k > 2.1 && k < 2.18) || (k > 2.3 && k < 2.36) || (k > 4.9 && k < 5.55) || (k > 5.7 && k < 5.76);
+    world.posto.props['placa-sol']?.setPower(!off);
+  }
+  // ---- end of the title screen ----
   const HOW = { gamepad: 'Analógicos andam e olham · A usa · Start pausa', touch: 'Direcional anda · arraste olha · toque usa', keyboard: 'WASD anda · mouse olha · E usa · Esc pausa' };
   function titleLines() {
     return ['Você é o frentista da madrugada. Abasteça, atenda, reponha.', HOW[input.device()] || HOW.keyboard];
@@ -431,6 +475,11 @@ export async function createGame({ root, render, input, params }) {
       intent.acts = intent.acts.filter((a) => { if (a.type !== 'down' || !a.screen) return true; const k = ui.sheetKeyAt(a.screen.x, a.screen.y); if (k === null) return true; if (k) goals.toggle(k); return false; });
     }
     if (opts.look !== 1) { intent.look.yaw *= opts.look; intent.look.pitch *= opts.look; }
+    if (attract) {   // the title screen: any press leaves it (and nothing else reads it)
+      attract.setDevice(attractDevice());
+      if (intent.press.some((p) => p.k !== 'nav' && p.k !== 'tab' && p.k !== 'digit')) leaveAttract();
+      intent.press.length = 0;
+    }
     presses(intent.press);
     ui.update(dt);
     if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); }
@@ -438,7 +487,7 @@ export async function createGame({ root, render, input, params }) {
     if (state === 'play' && tick % 20 === 0) ui.setClock(time.text());
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
     if (state === 'ending' || state === 'cutscene') return;
-    if (state === 'title') { world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
+    if (state === 'title') { titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
     if ((ui.modalOpen && !cameras.watching) || state !== 'play') { world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     fx = sanity.fx(simT);
     if (medication.active('cor')) fx.filter = `saturate(0.3) contrast(0.9)${fx.filter ? ' ' + fx.filter : ''}`;

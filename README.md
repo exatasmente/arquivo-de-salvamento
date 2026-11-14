@@ -11,6 +11,17 @@ vídeo.
 | `rinha/` | **Rinha**: as criaturas que a gente capturava para lutar agora capturam a gente | [exatasmente.github.io/arquivo-de-salvamento/rinha/](https://exatasmente.github.io/arquivo-de-salvamento/rinha/) |
 | `o-dia-que-sobra/` | **O Dia que Sobra**: quatro semanas de turno da madrugada num posto de gasolina, e algo no posto que não quer que a folga chegue | [exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/](https://exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/) |
 
+## O menu e o app
+
+A página de entrada é o menu do arquivo, como a tela inicial de um console: os jogos lado a lado, o
+que cada um tem salvo neste navegador, os vídeos de cada jogo e as redes do canal. Escolha com as
+setas e `Enter`, com o controle (`A` joga, `B` volta, `Y` abre os vídeos) ou deslizando e tocando.
+Dentro de um jogo, a pausa tem a volta para ele.
+
+O site se instala como app (no celular, "Adicionar à tela inicial"; no computador, "Instalar app"
+no navegador). Depois da primeira visita, o menu e os jogos abrem sem internet. Só o vídeo de
+abertura do Rinha precisa de rede; sem ela, o jogo conta a mesma história com as cenas do jogo.
+
 ## O Dia que Sobra
 
 Você é o frentista da madrugada do Posto Bom Dia, na saída de uma cidade pequena. Faltam quatro
@@ -88,6 +99,10 @@ python3 -m http.server 8000
 ```
 
 e abra `http://localhost:8000/rinha/`.
+
+O que o app guarda para jogar sem internet é a lista em `sw.js`, feita a partir do que está no git.
+Depois de mudar um jogo, rode `node tools/precache.mjs` (depois do `git add`) e commite o `sw.js`
+junto. `node tools/precache.mjs --check` só diz se a lista está velha.
 
 ## Licença
 

@@ -19,7 +19,7 @@ if (q.has('film')) {
 } else boot();
 
 function boot() {
-  const params = { skipintro: q.has('skipintro'), debug: q.has('debug'), seed: Number(q.get('seed')) || 1, touch: q.has('touch'), film: q.has('film'), free: q.has('free'), dummy: q.has('dummy'), nointro: q.has('nointro'), fight: Number(q.get('fight')) || 0, fresh: q.has('fresh'), cutscenes: q.has('cutscenes') };
+  const params = { skipintro: q.has('skipintro'), debug: q.has('debug'), seed: Number(q.get('seed')) || 1, touch: q.has('touch'), film: q.has('film'), free: q.has('free'), dummy: q.has('dummy'), nointro: q.has('nointro'), fight: Number(q.get('fight')) || 0, fresh: q.has('fresh'), cutscenes: q.has('cutscenes'), notitle: q.has('notitle') };
 
   const root = document.getElementById('app');
   const canvas = document.getElementById('c');
@@ -51,12 +51,13 @@ function boot() {
   fit();
 
   // The loop is the only place with a real clock: it feeds fixed steps to the simulation.
-  let last = performance.now(), acc = 0;
+  let last = performance.now(), acc = 0, shown = false;
   function frame(now) {
     acc += Math.min(0.1, (now - last) / 1000); last = now;
     while (acc >= DT) { game.step(DT); acc -= DT; } // the game keeps reading the input (the hold-to-skip), but does not draw over a cutscene
     if (!cs.isCutsceneActive()) game.draw();
     requestAnimationFrame(frame);
+    if (!shown) { shown = true; window.splashDone?.(); } // the first frame is up: the loading screen goes
   }
   requestAnimationFrame(frame);
   window.__rinha = { game, render, input, audio, advance: (n) => { for (let i = 0; i < n; i++) game.step(DT); game.draw(); } };

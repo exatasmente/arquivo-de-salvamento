@@ -11,6 +11,8 @@ import { buildScene as buildCell } from './scenes/cela.js';
 import { createCard } from './save.js';
 import { ITEMS, cycle } from './items.js';
 import { playIntroVideo } from './intro-video.js';
+import { showTitle } from './title.js';
+import { firstPad } from '../vendor/engine/input.js';
 import { createUI } from './ui.js';
 import { buildScene as buildTrain } from './scenes/treino.js';
 import { buildAnimal } from './models/animals.js'; // only for the crow, an ordinary bird
@@ -147,7 +149,7 @@ export function createGame({ render, ring, input, audio, hud, params }) {
    * cell, see intro-video.js), then the player walks in the cell where it ends. Without the video file
    * (or with ?cutscenes), the real-time cutscenes tell the start instead.
    */
-  function story() {
+  function story(autostart = false) {
     const cutscenes = () => playCut('casa', () => playCut('pomar', () => playCut('flashes', () => playCut('cela-acordar', () => enterCell()))));
     if (params.cutscenes || params.film) { cutscenes(); return; }
     state.phase = 'cutscene'; state.ui = null; state.paused = false;
@@ -155,7 +157,7 @@ export function createGame({ render, ring, input, audio, hud, params }) {
     if (opp) opp.root.visible = false;
     hud.setCell(true); hud.setTut(null); hud.setApple(false); hud.result.hide(); hud.setTitle('');
     input.setMode('cut', canvas);
-    playIntroVideo({ root: document.getElementById('app'), audio, onEnd: (info) => (info.failed ? cutscenes() : enterCell()) });
+    playIntroVideo({ root: document.getElementById('app'), audio, autostart, onEnd: (info) => (info.failed ? cutscenes() : enterCell()) });
   }
 
   function enterCell() {
@@ -251,9 +253,44 @@ export function createGame({ render, ring, input, audio, hud, params }) {
   // ---- camera: the player's eyes. In a fight it aims at the opponent by itself; out of a fight
   // ('free') the view is turned by hand. Dodges move the head (the body pose already does), a
   // blow shakes the view toward the side it came from. ----
+  // ---- the title screen: the ring, empty but for the next opponent, the camera going round it ----
+  let title = null, titleNext = null;
+  function titleScreen(next, loaded) {
+    state.phase = 'title'; state.phaseT = 0; state.ui = null; state.paused = false;
+    player.fpArms.root.visible = false;
+    hud.setTitle(''); hud.setFight('');
+    document.body.classList.add('title');
+    input.setMode('ui', canvas);
+    audio.crowd(0);
+    const saved = loaded ? `CONTINUAR · LUTA ${Math.min(7, state.fightNo)} DE 7` : card.introSeen ? 'CONTINUAR' : null;
+    titleNext = next;
+    title = showTitle({ root: document.getElementById('app'), saved, onStart: leaveTitle });
+    title.setDevice(titleDevice());
+  }
+  const titleDevice = () => (firstPad() ? 'gamepad' : input.device() === 'gamepad' ? 'keyboard' : input.device());
+  function leaveTitle() {
+    if (state.phase !== 'title' || state.phaseT < 0.35) return;
+    title.close(); title = null;
+    document.body.classList.remove('title');
+    player.fpArms.root.visible = true;
+    const next = titleNext; titleNext = null;
+    next();
+  }
+  function titleStep(dt, intent) {
+    state.t += dt; state.phaseT += dt;
+    if (intent.press.some((p) => p.k !== 'nav' && p.k !== 'tab')) { leaveTitle(); return; }
+    title?.setDevice(titleDevice());
+    ring.update(state.t, 0);
+    cameraStep(dt);
+  }
   const cam = { pos: new THREE.Vector3(), look: new THREE.Vector3(), init: false, yaw: 0, pitch: 0, roll: 0 };
   const _t = new THREE.Vector3();
   function cameraStep(dt) {
+    if (state.phase === 'title') {
+      const k = state.t * 0.11;
+      cam.pos.set(Math.sin(k) * 4.4, 2.0 + Math.sin(state.t * 0.27) * 0.25, Math.cos(k) * 4.4);
+      cam.look.set(0, 1.15, 0); cam.roll = 0; cam.yawOff = 0; cam.pitchOff = 0; return;
+    }
     if (state.phase === 'cell') { cam.pos.set(cellPos.x, EYE + Math.sin(cellPos.step) * 0.015, cellPos.z); cam.roll = 0; return; }
     player.eye(cam.pos);
     if (state.camMode === 'side') { // debug view to inspect poses from the side
@@ -468,6 +505,7 @@ export function createGame({ render, ring, input, audio, hud, params }) {
 
   function step(dt = DT) {
     const intent = input.sample();
+    if (state.phase === 'title') { titleStep(dt, intent); return; }
     if (state.ui) { uiStep(intent); return; }
     for (const p of intent.press) {
       if (p.k === 'pause' && state.phase !== 'result' && state.phase !== 'cutscene') { setPause(!state.paused); audio.menu(); } // a cutscene runs on its own clock: no pause there
@@ -618,9 +656,13 @@ export function createGame({ render, ring, input, audio, hud, params }) {
     const loaded = !params.fresh && loadCard();
     state.trained = card.introSeen || Boolean(params.skipintro) || loaded;
     startFight(state.fightNo); // builds the ring and its first opponent; the story or the cell takes over
-    if (loaded || card.introSeen) enterCell();
-    else if (params.skipintro) { state.credits = 70; enterCell(); }
-    else story();
+    const go = () => {
+      if (loaded || card.introSeen) enterCell();
+      else if (params.skipintro) { state.credits = 70; enterCell(); }
+      else story(true);
+    };
+    // the title screen first, unless a test or the film asks to go straight in
+    if (params.skipintro || params.notitle || params.cutscenes) go(); else titleScreen(go, loaded);
   }
   if (params.free) input.setMode('free', canvas);
   return { playCut, cuts, crow, crowPerch, ringStone: ring.stone, targets: TARGETS, cellPos, cell, card, ui, openCardFromPause, enterCell, useItem, state, player, get opp() { return opp; }, get brain() { return brain; }, step, draw, reset, startFight, confirm, setPause, camera: cam };
