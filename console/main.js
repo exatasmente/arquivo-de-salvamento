@@ -168,8 +168,12 @@ function bootStep(dt, t) {
 // ---- layout: the row sits where the page leaves room for it (#stage), at the size of that room ----
 const stage = $('#stage');
 const lay = { tileW: 1, spacing: 1.2, y: 0 };
+// The size of the screen as the page shows it now (an iPhone that turns can still report the old size for a moment, and
+// leave the page scrolled: the picture would then be bigger than the screen and the taps would land off the tiles).
+const screenSize = () => { const v = window.visualViewport; return v && v.scale > 0.98 && v.scale < 1.02 ? [Math.round(v.width), Math.round(v.height)] : [innerWidth, innerHeight]; };
 function fit() {
-  const W = innerWidth, H = innerHeight;
+  const [W, H] = screenSize();
+  if (scrollX || scrollY) scrollTo(0, 0);
   r.resize(W, H);
   const d = camera.position.z;
   const vh = 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), vw = vh * camera.aspect;
@@ -183,7 +187,9 @@ function fit() {
   back.scale.setScalar(Math.max(vw, vh * 16 / 9) * 2.4);
   back.position.set(0, 0, -9);
 }
-addEventListener('resize', fit);
+let refitT = [];
+const refit = () => { fit(); for (const t of refitT) clearTimeout(t); refitT = [setTimeout(fit, 150), setTimeout(fit, 600)]; };
+addEventListener('resize', refit); addEventListener('orientationchange', refit); window.visualViewport?.addEventListener('resize', refit);
 
 // ---- state ----
 let sel = Math.min(GAMES.length - 1, Math.max(0, prefs.sel | 0));
@@ -362,7 +368,8 @@ canvas.addEventListener('pointerup', (e) => {
   const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y), quick = performance.now() - drag.t < 450;
   const was = drag; drag = null;
   if (was.stepped || moved > 12 || !quick) return;
-  ray.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
+  const rc = canvas.getBoundingClientRect();   // the picture where it really is, not where the window says it should be
+  ray.setFromCamera(new THREE.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), camera);
   const hit = ray.intersectObjects(tiles, true)[0];
   if (!hit) return;
   let o = hit.object; while (o.parent && !tiles.includes(o)) o = o.parent;

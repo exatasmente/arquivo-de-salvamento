@@ -420,11 +420,19 @@ async function balance(browser, base, days) {
   }
 }
 
-/** A finger tap at (x, y): pointer events on the touch layer with real coordinates (this Chrome's emulated tap reports 0,0 for pointer events; a phone does not). */
+/** A finger tap at (x, y): pointer events on the phone's layer (src/touch/mobile.js) with real coordinates (this Chrome's emulated tap reports 0,0 for pointer events; a phone does not). */
 const touchTap = (page, x, y) => page.evaluate(([x, y]) => {
-  const z = document.getElementById('lookzone'), o = { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 41, pointerType: 'touch', isPrimary: true };
+  const z = document.querySelector('#mobile .m-layer'), o = { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 41, pointerType: 'touch', isPrimary: true };
   z.dispatchEvent(new PointerEvent('pointerdown', o)); z.dispatchEvent(new PointerEvent('pointerup', o));
 }, [x, y]);
+/** A finger on the i-th action button by the thumb (the phone's layer), down and up: a tap on that action. */
+const tapAction = (page, i) => page.evaluate((i) => {
+  const b = document.querySelector(`#mobile .m-act[data-i="${i}"]`); if (!b) return false;
+  const r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 42, pointerType: 'touch', isPrimary: true };
+  b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o)); return true;
+}, i);
+/** The actions the phone's layer shows by the thumb: their texts, in the order of the list (data-i), and which one is the big one. */
+const mobileActs = (page) => page.evaluate(() => { const bs = [...document.querySelectorAll('#mobile .m-act[data-i]')].filter((b) => Number(b.dataset.i) >= 0).sort((a, b) => a.dataset.i - b.dataset.i); return bs.length ? { n: bs.length, texts: bs.map((b) => b.textContent.trim()), big: bs.findIndex((b) => b.classList.contains('big')) } : null; });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const titles = (page) => page.evaluate(() => [...document.querySelectorAll('#modal li[data-cell]')].map((x) => x.textContent.trim()));
 const clickText = async (page, txt) => {
@@ -584,7 +592,7 @@ async function roundTwo(browser, base, kind, tag) {
   await draw();
   const gh = await rectOf('#goalhud');
   ok(gh && /^\u25B6 /.test(gh.text), `${tag}: the marked goal stays on the HUD with the clipboard closed ("${gh && gh.text}")`);
-  if (touch) { for (const sel of ['#btns', '#stickbase', '#pausebtn']) { const o = await rectOf(sel); ok(!hit(gh, o) && !hit(clk, o), `${tag}: the clock and the goal do not cover ${sel}`); } }
+  if (touch) { for (const sel of ['#mobile .m-btns', '#mobile .m-pause', '#mobile .m-hand']) { const o = await rectOf(sel); ok(!hit(gh, o) && !hit(clk, o), `${tag}: the clock and the goal do not cover ${sel}`); } }
   const view = await ev(() => { const G = window.__odq.game, g = G.goals; const m = g.marker.position; const dx = m.x - G.player.st.x, dz = m.z - G.player.st.z; return { vis: g.visible, yawTo: Math.atan2(-dx, -dz), dist: Math.hypot(dx, dz), at: [m.x, m.y, m.z].map((v) => +v.toFixed(1)) }; });
   ok(view.vis, `${tag}: the marker is in the world over the place (${view.at.join(', ')}, ${view.dist.toFixed(1)} m away)`);
   // looking away: the arrow on the edge; looking at it: no arrow
@@ -798,11 +806,12 @@ async function overlapCheck(browser, base, kind, tag) {
   await ev(() => window.__odq.advance(2));
   const r1 = await rows();
   ok(r1 && r1.n >= 2 && /Pegar/.test(r1.texts[0]) && /Esconder/.test(r1.texts[r1.n - 1]), `${tag}: the screen lists every action, one line each (${r1 && r1.texts.join(' | ')})`);
+  if (touch) { const ma = await mobileActs(page); ok(ma && ma.n === r1.n && /Pegar/.test(ma.texts[0]) && /Esconder/.test(ma.texts[ma.n - 1]) && ma.big === 0, `${tag}: on the phone every action is a button by the thumb, the selected one big (${ma && ma.texts.join(' | ')})`); }
   if (!touch) ok(r1 && r1.keys[0] === 'E' && r1.keys[1] === '2' && /R troca/.test(r1.foot), `${tag}: the keyboard keys are shown: E for the selected, the number of the others, R changes (${r1 && r1.keys.join(',')} / ${r1 && r1.foot})`);
   await shot(page, `smoke3-lista-balcao-${tag}`);
   // choosing: touch taps the line; keyboard presses 2; E does the selected (the product by default)
   const choose = async (i) => {
-    if (touch) { const p = await ev((i) => { const r = document.querySelectorAll('#choice .crow')[i].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, i); await touchTap(page, p.x, p.y); await ev(() => window.__bot.step(4)); }
+    if (touch) { await ev(() => window.__odq.advance(1)); ok(await tapAction(page, i), `${tag}: the phone shows the action ${i} as a button by the thumb`); await ev(() => window.__bot.step(4)); }
     else { await ev((i) => { const B = window.__bot; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit' + (i + 1), bubbles: true })); B.step(2); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit' + (i + 1), bubbles: true })); B.step(3); }, i); }
   };
   if (!touch) { await ev(() => window.__bot.tapE()); } else { await ev(() => window.__bot.step(1)); }
@@ -906,6 +915,7 @@ async function overlapCheck(browser, base, kind, tag) {
   // one action only: nothing changes (a single prompt, no list)
   const one = await ev(() => { const G = window.__odq.game, B = window.__bot; const t = G.interaction.targets.get('caixa-registradora'); const ctr = B.centerOf(t); B.aimAt(ctr, () => { G.interaction.update(0, B.EMPTY()); return (G.interaction.current?.all || []).length === 1 && G.interaction.current.target.id === 'caixa-registradora'; }, [1, 1.4, 1.8]); G.interaction.update(0, B.EMPTY()); window.__odq.advance(2); return { n: (G.interaction.current?.all || []).length, choice: !document.getElementById('choice').hidden, prompt: !document.getElementById('prompt').hidden }; });
   ok(one.n === 1 && !one.choice && one.prompt, `${tag}: with one action only, the usual single prompt (${JSON.stringify(one)})`);
+  if (touch) { const ma = await mobileActs(page); ok(ma && ma.n === 1 && ma.big === 0, `${tag}: on the phone, one big action button (${ma && ma.texts.join(' | ')})`); }
   ok(errs.length === 0, `${tag}: console clean (overlapping actions) (${errs.slice(0, 3).join(' | ')})`);
   await ctx.close();
 }
@@ -1366,7 +1376,9 @@ async function hudCheck(browser, base, sizes) {
       const ev = (fn, arg) => page.evaluate(fn, arg);
       // the pieces of the HUD that can be on screen together in the preparation: clock, goal, narrative line, coach, toast, hands, prompt, buttons
       const boxes = async () => ev(() => {
-        const sel = { relogio: '#calhud', objetivo: '#goalhud', mensagem: '#objective', dica: '#coach', aviso: '#toast', bolso: '#invstrip', mira: '#prompt', lista: '#choice', pausa: '#pausebtn', botoes: '#btns', direcional: '#stickbase', soltar: '#carryhint' };
+        const sel = { relogio: '#calhud', objetivo: '#goalhud', mensagem: '#objective', dica: '#coach', aviso: '#toast', bolso: '#invstrip', mira: '#prompt', lista: '#choice', soltar: '#carryhint',
+          // the phone's layer (src/touch/mobile.js): the pause, lanterna and agachar, the hand, the actions by the thumb
+          pausa: '#mobile .m-pause', botoes: '#mobile .m-btns', mao: '#mobile .m-hand', acoes: '#mobile .m-acts' };
         const out = {}; for (const [k, s] of Object.entries(sel)) { const e = document.querySelector(s); if (!e || e.hidden || e.closest('[hidden]')) continue; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') continue; const r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue; out[k] = [r.left, r.top, r.right, r.bottom]; }
         return { out, w: innerWidth, h: innerHeight };
       });
@@ -1401,7 +1413,7 @@ async function hudCheck(browser, base, sizes) {
       ok(all, `${tag}: through the tutorial of the preparation (the clock, the goal and the guide of each task) nothing overlaps`);
       // the aim label follows the device: the touch screen never says "E"
       const lab = await ev(() => { const G = window.__odq.game, B = window.__bot; window.__odq.input.setLastDevice(window.__odq.input.hasTouch() ? 'touch' : 'keyboard'); const t = G.interaction.targets.get('bico1-comum'); B.aimAt(B.centerOf(t), () => B.settle('bico1-comum'), [1.4]); window.__odq.input.setLastDevice(window.__odq.input.hasTouch() ? 'touch' : 'keyboard'); G.step(1 / 60); window.__odq.advance(2); return { key: document.querySelector('#prompt b')?.textContent, hidden: document.getElementById('prompt').hidden, touch: window.__odq.input.hasTouch(), dev: window.__odq.input.device() }; });
-      if (touch) ok(lab.key !== 'E' && !lab.hidden, `${tag}: on a touch device the aim label shows the touch key, not "E" (${JSON.stringify(lab)})`);
+      if (touch) { const ma = await mobileActs(page); ok(ma && ma.n >= 1 && !ma.texts.some((t) => /^E\b/.test(t)), `${tag}: on a touch device the aim is a button by the thumb with the action's name, not "E" (${ma && ma.texts.join(' | ')})`); }
       ok(errs.length === 0, `${tag}: console clean (HUD) (${errs.slice(0, 2).join(' | ')})`);
       await ctx.close();
     }
@@ -1572,7 +1584,9 @@ async function fullCheck(browser, base, kind, full) {
   await clickText(page, 'OPÇÕES');
   await shot(page, `smoke-opcoes-${tag}`);
   const rows = await page.evaluate(() => [...document.querySelectorAll('#modal li[data-cell]')].map((x) => ({ t: x.textContent.trim(), h: Math.round(x.getBoundingClientRect().height) })));
-  ok(rows.every((x) => x.h >= 44 && x.h <= 47), `${tag}: every line of the options menu is a 44 px target on one line (${rows.map((x) => x.h).join(',')})`);
+  // the phone's menus are sheets from the bottom with 52 px lines (mobile.css); elsewhere 44 px
+  const rowH = kind === 'mobile' ? 52 : 44;
+  ok(rows.every((x) => x.h >= rowH && x.h <= rowH + 3), `${tag}: every line of the options menu is a ${rowH} px target on one line (${rows.map((x) => x.h).join(',')})`);
   ok(!rows.some((x) => /^[\u203A]/.test(x.t)), `${tag}: no arrow is left alone on a line`);
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('o-dia-que-sobra.opts') || '{}'));
   for (const t of ['VOLUME', 'SENSIBILIDADE', 'REDUZIR', 'TAMANHO']) ok(await clickText(page, t), `${tag}: option "${t}" is there and takes a click`);

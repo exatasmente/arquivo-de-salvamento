@@ -1,0 +1,140 @@
+/* The phone's layer (src/touch/mobile.js): the redesign approved on 2026-11-13. Only on a touch screen. */
+#mobile { position: absolute; inset: 0; z-index: 6; pointer-events: none; --m-scale: 1; --m-ink: #e8dfc4; --m-dim: #a39b84; --m-amber: #e0b24a;
+  --m-panel: rgba(8,10,16,.84); --m-panel2: rgba(14,15,22,.94); --m-line: rgba(232,223,196,.3); font-family: "Courier New", monospace; font-weight: bold; color: var(--m-ink); }
+#mobile[hidden] { display: none; }
+#mobile .m-layer { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+#mobile button { font: inherit; color: inherit; touch-action: none; -webkit-tap-highlight-color: transparent; }
+
+/* the stick: born where the thumb lands */
+#mobile .m-stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 2px dashed rgba(232,223,196,.5);
+  background: rgba(8,10,16,.25); pointer-events: none; transform: scale(var(--m-scale)); }
+#mobile .m-stick i { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(232,223,196,.38); border: 2px solid var(--m-ink); }
+#mobile .m-stick.run { border-color: var(--m-amber); border-style: solid; }
+#mobile .m-stick.run i { background: rgba(224,178,74,.55); border-color: var(--m-amber); }
+
+/* the marker over the thing in front */
+#mobile .m-mark { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: auto; }
+#mobile .m-mark b { font-size: 11px; padding: 4px 7px; background: rgba(8,10,16,.86); border: 2px solid var(--m-amber); white-space: nowrap; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+#mobile .m-mark i { width: 11px; height: 11px; background: var(--m-amber); transform: rotate(45deg); box-shadow: 0 0 0 3px rgba(224,178,74,.25); }
+
+/* the actions, by the right thumb: the main one lowest and big */
+#mobile .m-acts { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + 136px * var(--m-scale));
+  display: flex; flex-direction: column; align-items: flex-end; gap: 9px; pointer-events: none; transform-origin: right bottom; transform: scale(var(--m-scale)); max-width: 70vw; }
+#mobile .m-act { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 0 18px; min-height: 48px; border-radius: 24px; background: var(--m-panel2);
+  border: 2px solid var(--m-line); font-size: 13px; box-shadow: 2px 2px 0 #000; text-align: left; }
+#mobile .m-act small { color: var(--m-dim); font-size: 10px; }
+#mobile .m-act.big { min-height: 70px; border-radius: 35px; padding: 0 24px; font-size: 15px; background: var(--m-amber); color: #141008; border-color: #1a1408; text-transform: uppercase; }
+#mobile .m-act.down { filter: brightness(1.25); transform: translateY(2px); box-shadow: 0 0 0 #000; }
+#mobile .m-act .ring { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid currentColor;
+  background: conic-gradient(currentColor 0 var(--p, 0%), transparent var(--p, 0%) 100%); opacity: .9; }
+
+/* lanterna and agachar: small, above the actions */
+#mobile .m-btns { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); display: flex; flex-direction: column-reverse; gap: 10px;
+  transform-origin: right bottom; transform: scale(var(--m-scale)); }
+#mobile .m-btns button { pointer-events: auto; width: 54px; height: 54px; border-radius: 50%; background: var(--m-panel); border: 2px solid var(--m-line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; box-shadow: 2px 2px 0 #000; padding: 0; }
+#mobile .m-btns button small { font-size: 7px; color: var(--m-dim); margin-top: 1px; }
+#mobile .m-btns button.down { border-color: var(--m-amber); color: var(--m-amber); }
+
+/* the hand: what is held, the pocket behind it */
+#mobile .m-hand { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%) scale(var(--m-scale)); transform-origin: center bottom;
+  pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; background: var(--m-panel); border: 2px solid var(--m-line);
+  border-radius: 26px; box-shadow: 2px 2px 0 #000; text-align: left; max-width: 40vw; }
+#mobile .m-hand i { flex: none; width: 32px; height: 32px; border-radius: 50%; background: #2a2516; border: 2px solid var(--m-amber); display: flex; align-items: center; justify-content: center; font-style: normal; color: var(--m-amber); font-size: 13px; }
+#mobile .m-hand b { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mobile .m-hand small { display: block; font-size: 9px; color: var(--m-dim); }
+
+/* hidden: no stick, no hand, the edges dark */
+#mobile.hiding .m-btns button[data-k="crouch"] { display: none; }
+#mobile.hiding::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.65) 85%); }
+
+/* left-handed: the stick on the right, the buttons on the left */
+#mobile.left-handed .m-acts { right: auto; left: max(14px, env(safe-area-inset-left)); align-items: flex-start; transform-origin: left bottom; }
+#mobile.left-handed .m-btns { right: auto; left: max(14px, env(safe-area-inset-left)); transform-origin: left bottom; }
+
+/* on its side: the same, in the corners */
+@media (max-height: 460px) {
+  #mobile .m-acts { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px * var(--m-scale)); }
+  #mobile .m-btns { bottom: max(12px, env(safe-area-inset-bottom)); flex-direction: row; }
+  #mobile .m-hand { bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) { #mobile .m-act.down { transform: none; } }
+#mobile .m-pause { position: absolute; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); width: 46px; height: 46px; pointer-events: auto;
+  background: var(--m-panel); border: 2px solid var(--m-line); font-size: 15px; box-shadow: 2px 2px 0 #000; padding: 0; }
+#mobile .m-walk { position: absolute; width: 46px; height: 18px; margin: -9px 0 0 -23px; border-radius: 50%; border: 3px solid var(--m-amber); pointer-events: none; }
+#mobile .m-walk.go { animation: m-walk .7s ease-out both; }
+@keyframes m-walk { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+
+/* ---- the HUD on the phone (body.mobile): the top in one line, the story above the thumbs ---- */
+body.mobile #touch { display: none !important; }
+body.mobile #prompt, body.mobile #choice { display: none !important; }
+body.mobile #top { width: calc(100% - 20px - 56px - env(safe-area-inset-right)); gap: 6px; }
+body.mobile #calhud { display: grid !important; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 5px 10px; background: rgba(8,10,16,.84);
+  border: 2px solid #c9a24a; box-shadow: 2px 2px 0 #000; width: 100%; box-sizing: border-box; }
+body.mobile #calhud b { grid-column: 1; grid-row: 1; font-size: calc(22px * var(--ts, 1)); }
+body.mobile #calhud span { grid-column: 1; grid-row: 2; font-size: calc(10px * var(--ts, 1)); color: #a39b84; }
+body.mobile #calhud i { grid-column: 2; grid-row: 1 / 3; justify-self: end; align-self: stretch; display: flex; align-items: center; padding-left: 10px;
+  border-left: 2px solid rgba(232,223,196,.25); font-size: calc(12px * var(--ts, 1)); color: #e0b24a; text-align: right; }
+body.mobile #calhud i[hidden] { display: none !important; }
+body.mobile #goalhud { width: 100% !important; padding: 7px 10px; background: rgba(8,10,16,.84); border: 0; border-left: 4px solid #e0b24a; box-shadow: 2px 2px 0 #000;
+  font-size: calc(12px * var(--ts, 1)); color: #ffe39a; }
+body.mobile #total { box-shadow: 2px 2px 0 #000; }
+
+/* the story, the teaching, the hints and the speech: one column above the thumbs, never under them */
+#mbottom { position: absolute; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: max(360px, 44%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 3; }
+#mbottom > * { position: static !important; transform: none !important; left: auto !important; right: auto !important; top: auto !important; bottom: auto !important;
+  margin: 0 !important; max-width: min(520px, 100%) !important; width: auto; box-sizing: border-box; }
+#mbottom > [hidden] { display: none !important; }
+body.mobile #top #objective { width: 100% !important; text-align: left; padding: 6px 10px; background: rgba(14,15,22,.92); border: 1px solid rgba(201,162,74,.6); font-size: calc(11px * var(--ts, 1)); line-height: 1.3; font-weight: normal; }
+#mbottom #coach, #mbottom #toast, #mbottom #say { background: rgba(14,15,22,.94); box-shadow: 3px 3px 0 #000; }
+#mbottom #coach { width: min(520px, 100%) !important; text-align: left; }
+#mbottom #say { width: min(520px, 100%) !important; }
+#mbottom #toast { text-align: center; }
+
+/* the pocket opened from the hand: a row above it */
+body.mobile #invstrip { left: max(12px, env(safe-area-inset-left)) !important; transform: none !important; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 62px) !important;
+  flex-direction: row !important; flex-wrap: wrap !important; align-items: stretch !important; gap: 4px; max-width: calc(100% - 100px); justify-content: flex-start !important; }
+body.mobile #invstrip .slot { width: 64px; min-height: 40px; }
+
+/* the clipboard: a sheet from the bottom, three tabs, big rows; above the fingers' layer while it is up */
+body.mobile #sheet { position: fixed; left: 0 !important; right: 0 !important; bottom: 0; top: auto !important; width: auto !important; max-height: 76%; z-index: 7; background: rgb(16,14,12);
+  border-width: 3px 0 0; border-radius: 12px 12px 0 0; padding: 10px 14px calc(14px + env(safe-area-inset-bottom)); box-sizing: border-box; font-size: calc(13px * var(--ts, 1)); }
+body.mobile #sheet::before { content: ''; display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(232,223,196,.3); margin: 0 auto 8px; }
+body.mobile #sheet section { display: none; }
+body.mobile #sheet[data-tab="noite"] section.s-noite, body.mobile #sheet[data-tab="semana"] section.s-semana, body.mobile #sheet[data-tab="bicos"] section.s-bicos { display: block; }
+#sheet .stabs { display: none; }
+body.mobile #sheet .stabs { display: flex; gap: 6px; margin: 4px 0 10px; }
+body.mobile #sheet .stabs span { flex: 1; text-align: center; padding: 10px 0; border: 2px solid rgba(232,223,196,.28); color: #a39b84; font-size: calc(11px * var(--ts, 1)); letter-spacing: 1px; }
+body.mobile #sheet .stabs span.on { background: #e0b24a; border-color: #e0b24a; color: #141008; }
+body.mobile #sheet li[data-g] { min-height: 44px; display: flex; align-items: center; padding: 6px 8px; border-bottom: 1px solid rgba(232,223,196,.1); }
+body.mobile #sheet li.goal { outline: 0; border-left: 4px solid #e0b24a; }
+#mobile .m-back { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,.35); }
+#mobile .m-back[hidden] { display: none; }
+#mobile.sheet-open .m-layer { pointer-events: none; }
+#mobile.sheet-open .m-acts, #mobile.sheet-open .m-mark, #mobile.sheet-open .m-hand, #mobile.sheet-open .m-btns { display: none; }
+
+/* menus, the drawer, the change, the summaries: sheets from the bottom, in reach of the thumb */
+body.mobile .screen { align-items: flex-end; padding: 0; }
+body.mobile .screen > .box, body.mobile .screen > .cwrap { margin: auto 0 0 !important; width: 100%; max-width: none !important; min-width: 0 !important; box-sizing: border-box;
+  border-width: 3px 0 0 !important; border-radius: 12px 12px 0 0; max-height: 92vh; overflow: auto; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+body.mobile .screen > .cwrap { flex-direction: column; gap: 0; }
+body.mobile .menu li { min-height: 52px; }
+body.mobile .cwrap > .box { width: 100%; max-width: none; min-width: 0; margin: 0; box-sizing: border-box; border-radius: 12px 12px 0 0; }
+body.mobile .cwrap.calcopen > .keypad { display: none; }
+body.mobile .keypad .row { gap: 8px; }
+body.mobile .keypad .row button { flex: 1; min-height: 54px; font-size: calc(20px * var(--ts, 1)); }
+body.mobile .keypad .row.bottom button { font-size: calc(13px * var(--ts, 1)); }
+body.mobile .keypad .kdisp { font-size: calc(30px * var(--ts, 1)); }
+body.mobile .box.calc { width: 100%; }
+body.mobile .calc .row button { min-height: 50px; }
+body.mobile #dlg { bottom: max(16px, env(safe-area-inset-bottom)); }
+
+/* on its side: the story at the top right, beside the clock */
+@media (max-height: 460px) {
+  body.mobile #top { width: min(440px, calc(50% - 10px)); }
+  #mbottom { left: auto; right: max(66px, env(safe-area-inset-right)); bottom: auto; top: max(8px, env(safe-area-inset-top)); width: min(380px, calc(50% - 76px)); align-items: stretch; }
+  body.mobile #sheet { left: auto !important; width: min(440px, 60%) !important; top: 0 !important; max-height: none; border-width: 0 0 0 3px; border-radius: 12px 0 0 12px; }
+  body.mobile .screen { align-items: stretch; justify-content: flex-end; }
+  body.mobile .screen > .box, body.mobile .screen > .cwrap { width: min(480px, 70%); max-height: 100vh; border-width: 0 0 0 3px !important; border-radius: 12px 0 0 12px; margin: 0 !important; }
+}

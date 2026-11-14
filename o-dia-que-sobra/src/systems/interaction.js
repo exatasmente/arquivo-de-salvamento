@@ -112,7 +112,7 @@ export function createInteraction(bus, { world, render, player, aimOffset, ui, h
     }
     if (act.screen) rayFromScreen(act.screen.x, act.screen.y); else rayFromCenter();
     const all = candidates();
-    if (!all.length) { choice = null; bus.emit('interact:none'); return; }
+    if (!all.length) { choice = null; bus.emit('interact:none', act); return; }
     // a key for one action of the list (2, 3), or the one that is selected (E, A, the click)
     const hit = act.pick !== undefined ? all[act.pick] : null;
     if (act.pick !== undefined) { if (hit) startOn(hit, act); return; }

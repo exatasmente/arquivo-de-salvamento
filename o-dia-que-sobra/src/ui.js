@@ -52,6 +52,7 @@ export function createUI(root, api) {
    * on the touch screen every line is a button.
    */
   function setPrompt(p) {
+    api.onPrompt?.(p);   // the phone's layer shows the same, as buttons by the thumb
     if (!p || !p.text) { if (lastPrompt !== '') { lastPrompt = ''; el.prompt.hidden = true; el.choice.hidden = true; } return; }
     const g = G(), dev = api.device();
     const key = `${p.text}|${p.hold}|${p.active}|${dev}|${p.list ? p.list.map((x) => x.text + x.hold).join('/') + '#' + p.sel : ''}`;
@@ -314,7 +315,7 @@ export function createUI(root, api) {
         </div>`;
       const draw = () => {
         const label = (k) => (k === 'back' ? esc(backLabel) : k === 'ok' ? esc(okLabel) : calcOpen ? 'FECHAR CALCULADORA' : 'CALCULADORA');
-        el.modal.innerHTML = `<div class="screen"><div class="cwrap"><div class="box keypad ${focus === 'pad' || !calcOpen ? '' : 'dim'}"${shaky()}>
+        el.modal.innerHTML = `<div class="screen"><div class="cwrap${calcOpen ? ' calcopen' : ''}"><div class="box keypad ${focus === 'pad' || !calcOpen ? '' : 'dim'}"${shaky()}>
           <h1>${esc(title)}</h1>
           ${lines.map((l) => `<p class="kl">${esc(l)}</p>`).join('')}
           ${pile.length ? `<div class="kpile">${pile.map(([a, b]) => `<span>${esc(a)} <b>${esc(b)}</b></span>`).join('')}</div>` : ''}
@@ -414,15 +415,21 @@ export function createUI(root, api) {
     const orders = d.orders.map((o) => `<li data-g="${esc(o.key)}" class="${d.goalKey === o.key ? 'goal' : ''}">${d.goalKey === o.key ? '\u25B6 ' : ''}${esc(o.text)}</li>`).join('');
     const fuels = d.fuels.map((f) => `<span><i style="background:${f.cor}"></i>${esc(f.nome)}</span>`).join('');
     const p = d.perf;
-    el.sheet.innerHTML = `<h3>PRANCHETA</h3>
-      <div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
-      <div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div>
-      ${prepRows.length && !d.blank ? `<h4>Preparação <small class="pick">${esc(d.prep ? d.prep.replace('PREPARAÇÃO ', 'faltam ') : 'atrasada')}</small></h4><ul>${prepRows.map(line).join('')}</ul>` : ''}
+    // on the phone the clipboard is a sheet from the bottom with three tabs (the night, the week, the nozzles); elsewhere all of it at once
+    const tab = (k, t) => `<span data-g="tab:${k}" class="${sheetTab === k ? 'on' : ''}">${t}</span>`;
+    el.sheet.dataset.tab = sheetTab;
+    el.sheet.innerHTML = `<h3>PRANCHETA</h3><nav class="stabs">${tab('noite', 'NOITE')}${tab('semana', 'SEMANA')}${tab('bicos', 'BICOS')}</nav>
+      <section class="s-semana s-noite"><div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
+      </section><section class="s-semana"><div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div></section>
+      <section class="s-noite">${prepRows.length && !d.blank ? `<h4>Preparação <small class="pick">${esc(d.prep ? d.prep.replace('PREPARAÇÃO ', 'faltam ') : 'atrasada')}</small></h4><ul>${prepRows.map(line).join('')}</ul>` : ''}
       <h4>Tarefas <small class="pick">${esc(d.pickHint || '')}</small></h4><ul>${tasks}${doneRows}</ul>${fin.length > 3 ? `<div class="dim">+ ${fin.length - 3} feitas antes</div>` : ''}
-      ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}
-      <h4>Bicos</h4><div class="fuels">${fuels}</div>
-      <h4>Desempenho da noite</h4><div class="perf"><span>Atendimentos ${p.atendimentos}</span><span>Vendas ${p.vendas}</span><span>Abastec. ${p.abastecimentos}</span><span>Tarefas ${p.tarefas}</span><span>Pendentes ${d.undone ?? 0}</span><span>Erros ${p.erros}</span><span>Reclam. ${p.reclamacoes}</span><span>Divergência ${money(p.divergencia)}</span><span>Ocorrências ${p.ocorrencias}</span><b>Pontos ${p.pontos}</b></div>`;
+      ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}</section>
+      <section class="s-bicos"><h4>Bicos</h4><div class="fuels">${fuels}</div></section>
+      <section class="s-semana"><h4>Desempenho da noite</h4><div class="perf"><span>Atendimentos ${p.atendimentos}</span><span>Vendas ${p.vendas}</span><span>Abastec. ${p.abastecimentos}</span><span>Tarefas ${p.tarefas}</span><span>Pendentes ${d.undone ?? 0}</span><span>Erros ${p.erros}</span><span>Reclam. ${p.reclamacoes}</span><span>Divergência ${money(p.divergencia)}</span><span>Ocorrências ${p.ocorrencias}</span><b>Pontos ${p.pontos}</b></div></section>`;
   }
+  let sheetTab = 'noite';
+  /** The clipboard's tab on the phone ('noite' | 'semana' | 'bicos'). */
+  function setSheetTab(t) { if (!['noite', 'semana', 'bicos'].includes(t)) return; sheetTab = t; api.sfx?.('papel_folha'); if (sheetOpen) renderSheet(); }
   /** Is the screen point (x, y) on the clipboard, and which goal row is under it ('' when on the sheet but not on a row; null when outside it)? */
   function sheetKeyAt(x, y) {
     if (!sheetOpen) return null;
@@ -430,6 +437,8 @@ export function createUI(root, api) {
     for (const row of el.sheet.querySelectorAll('[data-g]')) { const r = row.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top - 3 && y <= r.bottom + 3) return row.dataset.g; }   // (the touch layer is above the sheet: no elementFromPoint)
     return '';
   }
+  // a finger on the open clipboard (the phone): its tabs and its goal rows answer directly
+  el.sheet.addEventListener('pointerdown', (e) => { const r = e.target.closest('[data-g]'); if (!r) return; e.preventDefault(); api.sheetPick?.(r.dataset.g); });
   function toggleSheet(on) {
     sheetOpen = on ?? !sheetOpen;
     el.sheet.hidden = !sheetOpen;
@@ -633,7 +642,7 @@ export function createUI(root, api) {
   }
   return {
     el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
-    toggleSheet, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
+    toggleSheet, setSheetTab, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },
   };

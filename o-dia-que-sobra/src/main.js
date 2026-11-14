@@ -24,11 +24,19 @@ async function boot() {
   const render = createRender(canvas);
   const input = createInput();
   if (params.touch || input.hasTouch()) {
-    input.mountTouch(root, { sheet: 'PRANCH.', inv: 'BOLSO', flash: 'LANT.', crouch: 'AGACHAR', run: 'CORRER' });
-    document.body.classList.add('touch');
+    // the phone's layer (src/touch/mobile.js), with the person's choices (canhoto, button size, hold or tap)
+    const o = loadOpts();
+    input.mountMobile(root, { left: o.left, scale: o.btn, toggle: o.toggle, lookSens: o.look });
+    document.body.classList.add('touch', 'mobile');
   }
-  const fit = () => render.resize(innerWidth, innerHeight);
-  addEventListener('resize', fit); addEventListener('orientationchange', fit);
+  // The size of the screen as the page shows it now. On an iPhone, when the phone turns, innerWidth/innerHeight can still be
+  // the old ones and the page can be left scrolled: the picture is then bigger than the screen and the fingers land off
+  // what they see. So the size comes from the visible viewport, is read again a moment later, and the page goes back to 0,0.
+  const screenSize = () => { const v = window.visualViewport; return v && v.scale > 0.98 && v.scale < 1.02 ? [Math.round(v.width), Math.round(v.height)] : [innerWidth, innerHeight]; };
+  const fit = () => { const [w, h] = screenSize(); render.resize(w, h); if (scrollX || scrollY) scrollTo(0, 0); };
+  let refitT = [];
+  const refit = () => { fit(); for (const t of refitT) clearTimeout(t); refitT = [setTimeout(fit, 150), setTimeout(fit, 600)]; };
+  addEventListener('resize', refit); addEventListener('orientationchange', refit); window.visualViewport?.addEventListener('resize', refit);
   fit();
   const game = await createGame({ root, render, input, params });
 

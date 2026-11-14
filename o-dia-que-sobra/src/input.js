@@ -10,6 +10,12 @@
 // press k: flash, sheet, inv, invPrev, invNext, crouch, pause, esc, back, confirm, nav {dx,dy}, tab {d}, tap {x,y}
 //
 // Modes: 'play' (first person), 'ui' (menus: discrete navigation, the pointer is free), 'off' (nothing).
+//
+// On a phone the touch layer is src/touch/mobile.js (mountMobile below): the stick, the look (and the gyroscope), the
+// taps on the picture, the actions by the thumb; it feeds the same intent as the keys and the pad.
+import { mountMobile as mountMobileLayer } from './touch/mobile.js';
+import { createTilt } from './touch/tilt.js';
+
 const HOLD_STEPS = 60;
 
 export function createInput() {
@@ -84,6 +90,7 @@ export function createInput() {
     if (padAct || padTrig) { padAct = padTrig = false; acts.push({ type: 'up' }); }
     if (touchHold && touchHold.started) acts.push({ type: 'up' });
     touchHold = null;
+    if (mobileHeld) { mobileHeld = 0; acts.push({ type: 'up' }); }
   };
   addEventListener('blur', releaseAll);
 
@@ -165,7 +172,7 @@ export function createInput() {
     lookAcc.yaw = lookAcc.pitch = 0;
     if (mode !== 'play') { mx = 0; my = 0; run = false; acts.length = 0; }
     if (mode === 'off') press.length = 0;
-    return { moveX: mx, moveY: my, run, breath: breath && mode === 'play', look, acts: acts.splice(0), press, actDown: keyAct || mouseAct || padAct || padTrig || Boolean(touchHold && touchHold.started) };
+    return { moveX: mx, moveY: my, run, breath: breath && mode === 'play', look, acts: acts.splice(0), press, actDown: keyAct || mouseAct || padAct || padTrig || mobileHeld > 0 || Boolean(touchHold && touchHold.started) };
   }
 
   // ---- touch ----
@@ -249,6 +256,36 @@ export function createInput() {
     touch.ui = el; lastDevice = 'touch';
     return el;
   }
+  // ---- the phone's layer (the redesign): the same intent, from src/touch/mobile.js ----
+  let mobileHeld = 0;          // action buttons held down (they count as the interact button)
+  let mobileList = false;      // whether the actions shown are a list (a choice) or the one in the aim
+  let tilt = null;
+  function mountMobile(root, options = {}) {
+    const m = mountMobileLayer(root, {
+      move: (mx, my, run) => { touch.mx = mx; touch.my = my; touch.run = run; touch.active = true; },
+      look: (dyaw, dpitch) => { if (mode !== 'play') return; lookAcc.yaw += dyaw; lookAcc.pitch += dpitch; },
+      press: (k) => { lastDevice = 'touch'; queue.push({ k }); },
+      tap: (x, y) => { acts.push({ type: 'down', immediate: false, screen: { x, y } }, { type: 'up' }); },
+      hold: (x, y, phase) => {
+        if (phase === 'down') { touchHold = { id: -1, x, y, moved: false, started: true, s0: steps }; acts.push({ type: 'down', immediate: false, screen: { x, y } }); }
+        else { if (touchHold && touchHold.started) acts.push({ type: 'up' }); touchHold = null; }
+      },
+      act: (i, phase) => {
+        if (phase === 'down') { mobileHeld++; acts.push(mobileList ? { type: 'down', immediate: false, choice: i } : { type: 'down', immediate: false, pick: i }); }
+        else { mobileHeld = Math.max(0, mobileHeld - 1); acts.push({ type: 'up' }); }
+      },
+      breath: (on) => { touch.breath = on; },
+      used: () => { lastDevice = 'touch'; touch.active = true; },
+    }, options);
+    touch.ui = m.el; touch.mobile = m;
+    tilt = createTilt({ onLook: (dyaw, dpitch) => { if (mode === 'play') { lookAcc.yaw += dyaw; lookAcc.pitch += dpitch; } } });
+    m.setPlaying(mode === 'play');
+    lastDevice = 'touch';
+    return m;
+  }
+  /** The actions on the phone's layer: the game passes what the prompt shows (a list to choose from, or the one in the aim). */
+  function setMobileActions(s, isList) { mobileList = Boolean(isList); touch.mobile?.setActions(s); }
+
   const hasTouch = () => navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches || 'ontouchstart' in window;
 
   function lock() { if (canvasEl && !locked()) { try { const p = canvasEl.requestPointerLock?.(); if (p && p.catch) p.catch(() => {}); } catch { /* not allowed now */ } } }
@@ -260,9 +297,9 @@ export function createInput() {
     document.body.classList.toggle('play', m === 'play');
     document.body.classList.toggle('ui', m === 'ui');
     if (m !== 'play') unlock();
-    if (touch.ui) touch.ui.hidden = m !== 'play';
+    if (touch.mobile) touch.mobile.setPlaying(m === 'play'); else if (touch.ui) touch.ui.hidden = m !== 'play';
     queue.length = 0; acts.length = 0; lookAcc.yaw = lookAcc.pitch = 0;
   }
   const setLastDevice = (d) => { lastDevice = d; };
-  return { sample, setMode, get mode() { return mode; }, mountTouch, hasTouch, touch, device: () => lastDevice, setLastDevice, queue, lock, unlock, locked, HOLD_STEPS };
+  return { sample, setMode, get mode() { return mode; }, mountTouch, mountMobile, setMobileActions, get tilt() { return tilt; }, hasTouch, touch, device: () => lastDevice, setLastDevice, queue, lock, unlock, locked, HOLD_STEPS };
 }

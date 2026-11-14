@@ -42,8 +42,8 @@ import { money } from './util.js';
 
 export const DT = 1 / 60;
 const OPT_KEY = 'o-dia-que-sobra.opts';
-const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1 };
-const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5] };
+const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, left: false, btn: 1, toggle: false };
+const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5], gyroSens: [0.5, 0.75, 1, 1.5, 2], btn: [0.85, 1, 1.2, 1.4] };
 /** The player's options: one key of their own in this browser (never in the memory card). A value out of range falls back to the default. */
 export function loadOpts() {
   let o = {};
@@ -114,6 +114,8 @@ export async function createGame({ root, render, input, params }) {
 
   const ui = createUI(root, {
     device: () => input.device(), glyph,
+    onPrompt: (p) => { mobilePrompt = p; },
+    sheetPick: (k) => { if (k.startsWith('tab:')) ui.setSheetTab(k.slice(4)); else goals.toggle(k); },
     babble: (seed, text, o) => audioSys.babble(seed, text, o),
     canvas: render.canvas,
     fx: () => fx,
@@ -179,6 +181,13 @@ export async function createGame({ root, render, input, params }) {
   const prep = createPrep(bus, { world, render, interaction, time, tasks, chores, progression, ui, narrative, customers, goals });
   const shift = createShift(bus, { prep, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
 
+  // on the phone the passing lines (the teaching, the hints, the speech, how to let go) sit in one place above the thumbs (mobile.css);
+  // the objective of the night stays at the top, under the clock
+  if (input.touch?.mobile) {
+    const low = document.createElement('div'); low.id = 'mbottom';
+    for (const id of ['coach', 'toast', 'say', 'carryhint']) { const e = ui.el[id]; if (e) low.appendChild(e); }
+    ui.el.hud.appendChild(low);
+  }
   bus.on('hint', (t) => ui.toast(t));
   bus.on('shift:closed', (summary, week, choice) => campaign.onClosed(summary, week, choice));
   bus.on('time:hour', () => ui.setCalendar(calText()));
@@ -188,7 +197,13 @@ export async function createGame({ root, render, input, params }) {
   const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco']);
   const dropText = () => ({ keyboard: 'Soltar: E em lugar vazio', gamepad: 'Soltar: A em lugar vazio', touch: 'Soltar: toque em lugar vazio' }[input.device()] || 'Soltar: E em lugar vazio');
   bus.on('carry', (c) => ui.setCarryHint(c && DROPPABLE.has(c.kind) ? dropText() : null));
-  bus.on('interact:none', () => { if (inventory.drop()) return; if (inventory.selectedItem()) inventory.useSelected(); });
+  bus.on('interact:none', (act) => {
+    if (inventory.drop()) return;
+    const it = inventory.selectedItem();
+    // on the phone, a tap on the floor (nothing there to use) walks there; the battery and the flask keep their "tap on nothing"
+    if (act?.screen && input.touch?.mobile && it !== 'pilha' && it !== 'frasco' && walkToScreen(act.screen.x, act.screen.y)) return;
+    if (it) inventory.useSelected();
+  });
   bus.on('inventory:change', () => ui.showInventory());
   bus.on('sanity:stage', (s) => { if (s >= 2 && !opts.reduceFlash) bus.emit('sfx', 'coracao', { gain: 0.5 }); });
 
@@ -273,7 +288,11 @@ export async function createGame({ root, render, input, params }) {
     return ['WASD anda · mouse olha · Shift corre', 'Mire no ponto central: E usa, segure E manipula', 'Q prancheta · F lanterna · Esc pausa'];
   }
   /** Applies the options that something outside the menus depends on (the text size, the volume). */
-  function applyOpts() { root.style.setProperty('--ts', String(opts.text)); audioSys.setVolume(opts.volume); }
+  function applyOpts() {
+    root.style.setProperty('--ts', String(opts.text)); audioSys.setVolume(opts.volume);
+    input.touch?.mobile?.setOptions({ left: opts.left, scale: opts.btn, toggle: opts.toggle, lookSens: opts.look });
+    if (input.tilt) input.tilt.sensitivity = opts.gyroSens;
+  }
   /** One setting that goes through a list of values: left/right (or a click) move along it. */
   function stepper(key, label, fmt) {
     const list = OPT_STEPS[key];
@@ -291,6 +310,19 @@ export async function createGame({ root, render, input, params }) {
       stepper('look', 'SENSIBILIDADE DO OLHAR', (v) => `${v}×`),
       { label: () => `REDUZIR CLARÕES: ${opts.reduceFlash ? 'SIM' : 'NÃO'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); } },
       stepper('text', 'TAMANHO DO TEXTO', (v) => (v === 1 ? 'NORMAL' : v === 1.25 ? 'GRANDE' : 'MAIOR')),
+      // the phone: aiming by moving it, the side of the stick, the size of the buttons, holding or tapping
+      ...(input.touch?.mobile ? [
+        { label: () => `GIROSCÓPIO: ${opts.gyro ? 'LIGADO' : 'DESLIGADO'}`, act: async () => {
+          if (opts.gyro) { opts.gyro = false; input.tilt?.disable(); }
+          else if (await input.tilt?.enable()) opts.gyro = true;
+          else ui.toast('Este aparelho não deu o giroscópio.');
+          saveOpts(opts); ui.redrawModal();
+        } },
+        stepper('gyroSens', 'SENSIBILIDADE DO GIROSCÓPIO', (v) => `${v}×`),
+        { label: () => `CANHOTO: ${opts.left ? 'SIM' : 'NÃO'}`, act: () => { opts.left = !opts.left; saveOpts(opts); applyOpts(); } },
+        stepper('btn', 'TAMANHO DOS BOTÕES', (v) => (v < 1 ? 'MENOR' : v === 1 ? 'NORMAL' : v < 1.3 ? 'GRANDE' : 'MAIOR')),
+        { label: () => `SEGURAR AÇÕES: ${opts.toggle ? 'TOCAR LIGA E DESLIGA' : 'SEGURAR O DEDO'}`, act: () => { opts.toggle = !opts.toggle; saveOpts(opts); applyOpts(); } },
+      ] : []),
       { label: () => 'VOLTAR', act: back },
     ];
     items.forEach((it) => { if (it.adj) it.cls = 'adj'; });
@@ -496,7 +528,14 @@ export async function createGame({ root, render, input, params }) {
     if (extraActs.length) intent.acts.push(...extraActs.splice(0));
     // a finger on the open clipboard marks a goal and does nothing else
     if (ui.sheetOpen && intent.acts.length) {
-      intent.acts = intent.acts.filter((a) => { if (a.type !== 'down' || !a.screen) return true; const k = ui.sheetKeyAt(a.screen.x, a.screen.y); if (k === null) return true; if (k) goals.toggle(k); return false; });
+      intent.acts = intent.acts.filter((a) => {
+        if (a.type !== 'down' || !a.screen) return true;
+        const k = ui.sheetKeyAt(a.screen.x, a.screen.y);
+        // on the phone, a tap outside the open sheet closes it (and does nothing else)
+        if (k === null) { if (input.touch?.mobile) { ui.toggleSheet(false); return false; } return true; }
+        if (k.startsWith('tab:')) ui.setSheetTab(k.slice(4)); else if (k) goals.toggle(k);
+        return false;
+      });
     }
     if (opts.look !== 1) { intent.look.yaw *= opts.look; intent.look.pitch *= opts.look; }
     if (attract) {   // the title screen: any press leaves it (and nothing else reads it)
@@ -520,8 +559,10 @@ export async function createGame({ root, render, input, params }) {
     // hidden: the view is through the crack of the door, darker
     if (entity.hidden) { fx.lid = Math.max(fx.lid || 0, 0.34); fx.filter = `brightness(0.5)${fx.filter ? ' ' + fx.filter : ''}`; fx.vignette = Math.max(fx.vignette, 0.7); }
     time.step(dt);
+    walkStep(dt, intent);
     player.step(dt, intent);
     interaction.update(dt, intent);
+    feedMobile(dt);
     inventory.update(dt);
     medication.update(dt); coffee.update(dt); mirror.update(dt, simT);
     if (intent.acts.some((a) => a.type === 'down')) medication.blink();
@@ -545,6 +586,66 @@ export async function createGame({ root, render, input, params }) {
     lighting.update(dt, simT);
     audioSys.update();
     ui.setFx({ vignette: fx.vignette, aimX: fx.aimX, aimY: fx.aimY, filter: fx.filter, lid: fx.lid, black: fx.black });
+  }
+  // ---- the phone: a tap on the floor walks there; the actions, the hand and the hiding place on its layer ----
+  let mobilePrompt = null, walkTo = null, handT = 0, beatT = 0;
+  const _v = new render.THREE.Vector3(), _ray = new render.THREE.Raycaster(), _ndc = new render.THREE.Vector2();
+  function walkToScreen(x, y) {
+    if (state !== 'play' || entity.hidden) return false;
+    const r = render.canvas.getBoundingClientRect();
+    _ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+    _ray.setFromCamera(_ndc, render.camera);
+    const d = _ray.ray.direction, o = _ray.ray.origin;
+    if (d.y > -0.02) return false;                      // the sky, or the horizon: nowhere to walk to
+    const k = -o.y / d.y, px = o.x + d.x * k, pz = o.z + d.z * k;
+    if (k > 14 || k < 0.6) return false;
+    walkTo = { x: px, z: pz, t: 0, best: Infinity, still: 0 };
+    input.touch.mobile.walkMark(x, y);
+    return true;
+  }
+  /** Walking toward the tapped point: the stick's intent, until there, stuck, or the stick takes over. */
+  function walkStep(dt, intent) {
+    if (!walkTo) return;
+    if (state !== 'play' || entity.hidden || ui.modalOpen || Math.abs(intent.moveX) + Math.abs(intent.moveY) > 0.05) { walkTo = null; return; }
+    const st = player.st, dx = walkTo.x - st.x, dz = walkTo.z - st.z, dist = Math.hypot(dx, dz);
+    walkTo.t += dt;
+    if (dist < walkTo.best - 0.05) { walkTo.best = dist; walkTo.still = 0; } else walkTo.still += dt;
+    if (dist < 0.35 || walkTo.still > 1.2 || walkTo.t > 15) { walkTo = null; return; }
+    const fx_ = -Math.sin(st.yaw), fz = -Math.cos(st.yaw), rx = Math.cos(st.yaw), rz = -Math.sin(st.yaw);
+    const k = Math.min(1, dist / 0.8) / dist;
+    intent.moveY = (dx * fx_ + dz * fz) * k; intent.moveX = (dx * rx + dz * rz) * k;
+  }
+  function project(target) {
+    const a = target?.aim?.();
+    if (!a) return null;
+    if (a.c) _v.copy(a.c); else if (a.box) a.box.getCenter(_v); else return null;
+    _v.project(render.camera);
+    if (_v.z > 1 || _v.z < -1) return null;
+    const W = render.size.cssW, H = render.size.cssH;
+    return { x: Math.max(40, Math.min(W - 40, (_v.x + 1) / 2 * W)), y: Math.max(130, Math.min(H - 60, (1 - _v.y) / 2 * H - 14)) };
+  }
+  function feedMobile(dt) {
+    const m = input.touch?.mobile;
+    if (!m) return;
+    const hid = state === 'play' && entity.hidden !== null;
+    m.setHiding(hid);
+    m.setSheet(state === 'play' && ui.sheetOpen);
+    const p = state === 'play' && !ui.modalOpen ? mobilePrompt : null;
+    if (p && p.text) {
+      const list = p.list ? p.list.map((r) => ({ text: r.text, hold: r.hold })) : [{ text: p.text, hold: p.hold }];
+      const primary = p.list ? Math.max(0, p.sel) : 0;
+      if (p.progress !== null && p.progress !== undefined) list[primary].progress = Math.min(1, p.progress);
+      input.setMobileActions({ list, primary, at: hid ? null : project(interaction.current?.target), label: list[primary].text, breath: entity.S.breath / 6 }, Boolean(p.list));
+    } else input.setMobileActions(hid ? { list: [], breath: entity.S.breath / 6 } : null, false);
+    // the hand: what the selected slot holds, and how many things are in the pocket
+    if ((handT -= dt) <= 0) {
+      handT = 0.25;
+      const it = inventory.selectedItem(), n = inventory.slots.filter(Boolean).length;
+      const name = { lanterna: `Lanterna ${inventory.flash.on ? 'ligada' : 'apagada'}`, pilha: 'Pilha', frasco: 'Frasco branco', cracha: 'Crachá' }[it] || 'Mãos vazias';
+      m.setHand(state === 'play' && !ui.modalOpen ? { name, count: n, icon: it === 'lanterna' ? '◐' : it === 'pilha' ? '▮' : it ? '◆' : '·' } : null);
+    }
+    // in a hiding place, the phone beats like a heart while something is near
+    if (hid && entity.S.near > 0 && !opts.reduceFlash) { if ((beatT -= dt) <= 0) { beatT = 0.8; m.buzz([18, 90, 28]); } } else beatT = 0;
   }
   function draw() {
     if (state === 'dayoff') { goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false); if (dayoff && dayoff.draw) dayoff.draw(); else render.draw(); return; }

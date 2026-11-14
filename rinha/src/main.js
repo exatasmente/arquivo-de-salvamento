@@ -46,8 +46,14 @@ function boot() {
   });
   game = createGame({ render, ring, input, audio, hud, params });
 
-  function fit() { render.resize(innerWidth, innerHeight); }
-  addEventListener('resize', fit); addEventListener('orientationchange', fit);
+  // The size of the screen as the page shows it now. On an iPhone, when the phone turns, innerWidth/innerHeight can still be
+  // the old ones and the page can be left scrolled: the picture is then bigger than the screen and the fingers land off
+  // what they see. So the size comes from the visible viewport, is read again a moment later, and the page goes back to 0,0.
+  const screenSize = () => { const v = window.visualViewport; return v && v.scale > 0.98 && v.scale < 1.02 ? [Math.round(v.width), Math.round(v.height)] : [innerWidth, innerHeight]; };
+  function fit() { const [w, h] = screenSize(); render.resize(w, h); if (scrollX || scrollY) scrollTo(0, 0); }
+  let refitT = [];
+  const refit = () => { fit(); for (const t of refitT) clearTimeout(t); refitT = [setTimeout(fit, 150), setTimeout(fit, 600)]; };
+  addEventListener('resize', refit); addEventListener('orientationchange', refit); window.visualViewport?.addEventListener('resize', refit);
   fit();
 
   // The loop is the only place with a real clock: it feeds fixed steps to the simulation.
