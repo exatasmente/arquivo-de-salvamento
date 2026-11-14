@@ -1,6 +1,7 @@
 // Aiming by tilting the phone, like a stick: held on its side (or upright), tilting it to the left turns the view to the
 // left, to the right turns it right, up and down look up and down; back at the resting pose, the view stops. The pose
-// at rest is taken when the gyroscope is switched on and every time the game comes back to play (t.recenter()), so the
+// at rest is taken when the gyroscope is switched on, every time the game comes back to play (t.recenter()) and when
+// the screen turns (half a second after, once the phone settles), so the
 // player holds the phone the way they like. Small tilts do nothing (the hand's natural sway); past that the turn starts
 // slow and grows with the tilt, and keeps growing for a moment while the phone stays tilted.
 //
@@ -28,7 +29,16 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
   api.calib = { dead: 5, fullX: 28, fullY: 28 };
   // the last tilt read from the resting pose, in degrees (left +, up +), for the calibration screen; null before a rest
   api.live = null;
-  let g = null, rest = null, held = 0, wantRest = true;
+  let g = null, rest = null, held = 0, wantRest = true, turning = null;
+  // the screen turned (portrait ↔ landscape, or to the other side): the old resting pose means nothing now. The view
+  // holds still while the phone settles in its new hand position, then the pose of that moment is the new rest.
+  function onTurn() {
+    clearTimeout(turning);
+    turning = setTimeout(() => { turning = null; api.recenter(); }, 500);
+    held = 0;
+  }
+  // (both kept in their places: older iPhones have no screen.orientation, only the window's orientationchange)
+  const turnTargets = () => [(typeof screen !== 'undefined' && screen.orientation) || null, typeof window !== 'undefined' ? window : null];
 
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   function pose(v) {
@@ -46,7 +56,7 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
 
   function handle(e) {
     const a = e.accelerationIncludingGravity;
-    if (!on || !a || a.x == null) return;
+    if (!on || !a || a.x == null || turning) return;
     const now = e.timeStamp || performance.now();
     const dt = last ? Math.min(0.1, (now - last) / 1000) : (e.interval > 1 ? e.interval / 1000 : e.interval) || 1 / 60;
     last = now;
@@ -70,7 +80,13 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
     const k = api.sensitivity * ramp * dt;
     onLook?.(yawRate * k, pitchRate * k * (api.invertY ? -1 : 1));
   }
-  const attach = () => { wantRest = true; g = null; if (!on) { on = true; last = 0; addEventListener('devicemotion', handle); } };
+  const attach = () => {
+    wantRest = true; g = null;
+    if (!on) {
+      on = true; last = 0; addEventListener('devicemotion', handle);
+      const [so, w] = turnTargets(); so?.addEventListener?.('change', onTurn); w?.addEventListener?.('orientationchange', onTurn);
+    }
+  };
   const askFn = () => (typeof window !== 'undefined' && window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function'
     ? window.DeviceMotionEvent.requestPermission : null);
   function disarm() { if (armed) { removeEventListener('touchend', armed, true); removeEventListener('click', armed, true); armed = null; } }
@@ -113,7 +129,13 @@ export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
     },
     /** The resting pose is the next one read (the game calls it when play resumes). */
     recenter() { wantRest = true; g = null; held = 0; },
-    disable() { disarm(); if (on) { on = false; removeEventListener('devicemotion', handle); } },
+    disable() {
+      disarm(); clearTimeout(turning); turning = null;
+      if (on) {
+        on = false; removeEventListener('devicemotion', handle);
+        const [so, w] = turnTargets(); so?.removeEventListener?.('change', onTurn); w?.removeEventListener?.('orientationchange', onTurn);
+      }
+    },
     /** For a test: a motion event as the browser would send it. */
     feed: handle,
   });

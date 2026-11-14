@@ -5,7 +5,7 @@
 // The opening video of the Rinha is not kept: offline the game falls back to its real-time cutscenes.
 
 // precache:start
-const VERSION = '8e6daa353372';
+const VERSION = '88be9879d269';
 const PRECACHE = [
   ["assets/o-dia-que-sobra.jpg", '17931a2396ad'],
   ["assets/og.jpg", '77776032a238'],
@@ -172,7 +172,7 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/systems/world.js", 'd7205e6af0b2'],
   ["o-dia-que-sobra/src/title.js", 'ea8c7254bc19'],
   ["o-dia-que-sobra/src/touch/mobile.js", 'cdc281f6439a'],
-  ["o-dia-que-sobra/src/touch/tilt.js", '005060cb8c47'],
+  ["o-dia-que-sobra/src/touch/tilt.js", '88e27a918039'],
   ["o-dia-que-sobra/src/ui.js", '04368fb6113f'],
   ["o-dia-que-sobra/src/util.js", '3c3f2732d7c5'],
   ["o-dia-que-sobra/style.css", '3fcd2035bb8e'],
