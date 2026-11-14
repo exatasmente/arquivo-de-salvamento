@@ -2,8 +2,11 @@
 // look deltas, the same as a finger dragging. Relative, so there is nothing to recentre: the view follows how much
 // the phone turned, not where it points. Optional (an option of the game), off until switched on.
 //
-//   const t = createTilt({ onLook(dyaw, dpitch), sensitivity })   radians, the signs of the game's look (yaw left +, pitch up +)
-//   await t.enable()   → true when the browser gives the sensor (iOS asks, and only inside a tap)
+//   const t = createTilt({ onLook(dyaw, dpitch), sensitivity, onChange(state) })   radians, the signs of the game's look (yaw left +, pitch up +)
+//   await t.enable()   → true when the sensor is on, 'pending' when the phone asks first and the asking waits for a tap
+//                        (iOS: requestPermission only works inside a touchend or a click, never a pointerdown nor a frame;
+//                        so a one-shot listener for the next touchend/click asks there), false when there is no sensor
+//                        or it was refused. onChange('on' | 'denied') says how a pending ask ended.
 //   t.disable() · t.on · t.supported · t.sensitivity = 1.5 · t.invertY = true
 //
 // rotationRate is given in the phone's own axes (x across the screen, y up the screen, z out of it); the screen's
@@ -11,8 +14,8 @@
 
 const DEG = Math.PI / 180;
 
-export function createTilt({ onLook, sensitivity = 1 } = {}) {
-  let on = false, last = 0;
+export function createTilt({ onLook, sensitivity = 1, onChange } = {}) {
+  let on = false, last = 0, granted = false, armed = null, asking = false;
   const api = { sensitivity, invertY: false };
   const angle = () => (typeof screen !== 'undefined' && screen.orientation ? screen.orientation.angle : (typeof window !== 'undefined' && window.orientation) || 0) || 0;
 
@@ -35,20 +38,48 @@ export function createTilt({ onLook, sensitivity = 1 } = {}) {
     const dead = (v) => (Math.abs(v) < 1.2 ? 0 : v);
     onLook?.(dead(yawRate) * k, dead(pitchRate) * k * (api.invertY ? -1 : 1));
   }
+  const attach = () => { if (!on) { on = true; last = 0; addEventListener('devicemotion', handle); } };
+  const askFn = () => (typeof window !== 'undefined' && window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function'
+    ? window.DeviceMotionEvent.requestPermission : null);
+  function disarm() { if (armed) { removeEventListener('touchend', armed, true); removeEventListener('click', armed, true); armed = null; } }
+  // the next real tap asks (inside the touchend/click itself, as iOS wants)
+  function arm() {
+    if (armed) return;
+    armed = () => {
+      disarm();
+      if (granted) { attach(); onChange?.('on'); return; }
+      let p;
+      try { p = askFn().call(window.DeviceMotionEvent); } catch { onChange?.('denied'); return; }
+      Promise.resolve(p).then((res) => {
+        if (res === 'granted') { granted = true; attach(); onChange?.('on'); } else onChange?.('denied');
+      }, () => arm());   // still outside a gesture (a synthetic tap): wait for the next one
+    };
+    addEventListener('touchend', armed, true); addEventListener('click', armed, true);
+  }
 
+  // (getters through defineProperties: Object.assign would copy their value once, and `on` would stay false)
+  Object.defineProperties(api, {
+    on: { get: () => on },
+    pending: { get: () => Boolean(armed) },
+    supported: { get: () => typeof window !== 'undefined' && 'DeviceMotionEvent' in window },
+  });
   Object.assign(api, {
-    get on() { return on; },
-    get supported() { return typeof window !== 'undefined' && 'DeviceMotionEvent' in window; },
     async enable() {
       if (!api.supported) return false;
+      const ask = askFn();
+      if (!ask || granted) { attach(); return true; }
+      // the listener goes first: the finger that chose the option lifts right after (its touchend is a gesture)
+      arm();
+      if (asking) return 'pending';
+      asking = true;
       try {
-        const ask = window.DeviceMotionEvent.requestPermission;
-        if (typeof ask === 'function' && (await ask.call(window.DeviceMotionEvent)) !== 'granted') return false;
-      } catch { return false; }
-      if (!on) { on = true; last = 0; addEventListener('devicemotion', handle); }
-      return true;
+        const res = await ask.call(window.DeviceMotionEvent);
+        asking = false;
+        if (res === 'granted') { granted = true; disarm(); attach(); return true; }
+        disarm(); return false;
+      } catch { asking = false; return 'pending'; }   // not inside a gesture: the armed tap asks
     },
-    disable() { if (on) { on = false; removeEventListener('devicemotion', handle); } },
+    disable() { disarm(); if (on) { on = false; removeEventListener('devicemotion', handle); } },
     /** For a test: a motion event as the browser would send it. */
     feed: handle,
   });

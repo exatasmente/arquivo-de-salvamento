@@ -108,6 +108,12 @@ export async function createGame({ root, render, input, params }) {
   const cash = createCash(bus, { items: data.items });
 
   applyOpts();
+  // the gyroscope stays as the player left it: on a reload it is switched on again (on an iPhone, by the first tap,
+  // which is where the phone lets the game ask); if the phone refuses, the option goes back to off
+  input.onTilt = (st) => {
+    if (st === 'denied') { opts.gyro = false; saveOpts(opts); ui.toast('O giroscópio não foi liberado.'); }
+  };
+  if (opts.gyro && input.tilt) input.tilt.enable().then((got) => { if (!got) { opts.gyro = false; saveOpts(opts); } });
   let lastDevice = 'keyboard', tick = 0, simT = 0, state = 'title', modalCount = 0, lastPauseAt = -1e9, nightSeedNow = 1;
   const glyph = (k) => ({ tap: { keyboard: 'E', gamepad: 'A', touch: 'TOQUE' }, hold: { keyboard: 'SEGURE E', gamepad: 'SEGURE A', touch: 'SEGURE' } }[k][input.device()] || 'E');
   let fx = sanity.fx(0);
@@ -314,8 +320,11 @@ export async function createGame({ root, render, input, params }) {
       ...(input.touch?.mobile ? [
         { label: () => `GIROSCÓPIO: ${opts.gyro ? 'LIGADO' : 'DESLIGADO'}`, act: async () => {
           if (opts.gyro) { opts.gyro = false; input.tilt?.disable(); }
-          else if (await input.tilt?.enable()) opts.gyro = true;
-          else ui.toast('Este aparelho não deu o giroscópio.');
+          else {
+            const got = await input.tilt?.enable();
+            if (got) { opts.gyro = true; if (got === 'pending') ui.toast('Toque na tela para liberar o giroscópio.'); }
+            else ui.toast('Este aparelho não deu o giroscópio.');
+          }
           saveOpts(opts); ui.redrawModal();
         } },
         stepper('gyroSens', 'SENSIBILIDADE DO GIROSCÓPIO', (v) => `${v}×`),

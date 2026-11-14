@@ -16,7 +16,7 @@
 //   m.setActions({ list: [{ text, hold, progress }], at: { x, y } | null, primary }) | null
 //   m.setHand({ name, count, icon }) | null · m.setHiding(on) · m.setPlaying(on) · m.setOptions({ left, scale, toggle, lookSens })
 //   m.walkMark(x, y) (where a tap sent the player) · m.buzz(ms) · m.setSheet(open) (the clipboard is up: the fingers go to it,
-//   a tap above it closes it through press('sheet'))
+//   a tap on it goes to the game as hooks.tap: on the sheet it picks, outside it closes)
 //   m.el · m.dispose()
 
 const R = 52;            // the stick's radius in CSS pixels
@@ -141,7 +141,9 @@ export function mountMobile(root, hooks, options = {}) {
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
   }
   const back = $('.m-back');
-  back.addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); hooks.press?.('sheet'); });
+  // the backdrop of the open clipboard covers the screen: a tap on it goes to the game as a tap at that point, and the
+  // game decides (on a tab or a row of the sheet: that tab or goal; outside the sheet: it closes)
+  back.addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); hooks.tap?.(e.clientX, e.clientY); });
   // the clipboard button, in the lower corner opposite the flashlight and crouch (the swipe up still opens it too)
   const sheetBtn = $('.m-sheetbtn');
   sheetBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); sheetBtn.classList.add('down'); hooks.press?.('sheet'); vibrate(8); });

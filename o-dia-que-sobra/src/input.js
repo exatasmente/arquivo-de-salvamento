@@ -260,6 +260,7 @@ export function createInput() {
   let mobileHeld = 0;          // action buttons held down (they count as the interact button)
   let mobileList = false;      // whether the actions shown are a list (a choice) or the one in the aim
   let tilt = null;
+  let onTilt = null;   // the game hears how a pending gyroscope ask ended ('on' | 'denied')
   function mountMobile(root, options = {}) {
     const m = mountMobileLayer(root, {
       move: (mx, my, run) => { touch.mx = mx; touch.my = my; touch.run = run; touch.active = true; },
@@ -278,7 +279,7 @@ export function createInput() {
       used: () => { lastDevice = 'touch'; touch.active = true; },
     }, options);
     touch.ui = m.el; touch.mobile = m;
-    tilt = createTilt({ onLook: (dyaw, dpitch) => { if (mode === 'play') { lookAcc.yaw += dyaw; lookAcc.pitch += dpitch; } } });
+    tilt = createTilt({ onLook: (dyaw, dpitch) => { if (mode === 'play') { lookAcc.yaw += dyaw; lookAcc.pitch += dpitch; } }, onChange: (st) => onTilt?.(st) });
     m.setPlaying(mode === 'play');
     lastDevice = 'touch';
     return m;
@@ -301,5 +302,5 @@ export function createInput() {
     queue.length = 0; acts.length = 0; lookAcc.yaw = lookAcc.pitch = 0;
   }
   const setLastDevice = (d) => { lastDevice = d; };
-  return { sample, setMode, get mode() { return mode; }, mountTouch, mountMobile, setMobileActions, get tilt() { return tilt; }, hasTouch, touch, device: () => lastDevice, setLastDevice, queue, lock, unlock, locked, HOLD_STEPS };
+  return { sample, setMode, get mode() { return mode; }, mountTouch, mountMobile, setMobileActions, get tilt() { return tilt; }, set onTilt(f) { onTilt = f; }, hasTouch, touch, device: () => lastDevice, setLastDevice, queue, lock, unlock, locked, HOLD_STEPS };
 }
