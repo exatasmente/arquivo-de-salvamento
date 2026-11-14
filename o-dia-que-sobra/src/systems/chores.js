@@ -5,6 +5,7 @@
 // the work happens; letting go leaves it half done, and it stays half done.
 import { mulberry32 } from '../rng.js';
 import { fill } from '../util.js';
+import { dropSpot } from './dropspot.js';
 
 // The breakers of the board by area (the scene's own list), with the words the clipboard uses.
 const BREAKER_NAME = { loja: 'loja', cobertura: 'cobertura das bombas', estoque: 'estoque', banheiros: 'banheiros', escritorio: 'escritório', servico: 'área de serviço', estacionamento: 'poste do estacionamento', placa: 'placa do Sol' };
@@ -22,6 +23,7 @@ export function createChores(bus, { world, render, interaction, inventory, progr
   const active = new Map();              // task id -> { kind, ids: [target ids], undo() }
   let bathroom = null;                   // { side, steps: {pia, espelho, chao}, ... }
   let busyBathroom = false;
+  const floorBags = new Map();           // bags the player let go of: task id -> { mesh, tid }
   let boardT = 0;
   const onde = (a) => cfg.onde[a] || a;
 
@@ -69,10 +71,16 @@ export function createChores(bus, { world, render, interaction, inventory, progr
       tap: () => {
         if (!handsFree()) return bus.emit('hint', 'Suas mãos estão ocupadas.');
         showKit(false); inventory.setCarry({ kind: 'limpeza' }, 'rodo'); bus.emit('sfx', 'carrinho', {});
-        bus.emit('hint', 'Rodo e balde na mão. Toque no vazio para devolver.');
+        bus.emit('hint', 'Rodo e balde na mão. Toque no vazio para soltar.');
       },
     });
-    inventory.dropHandlers.limpeza = () => { showKit(true); inventory.clearCarry(); bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Rodo e balde de volta no armário de limpeza.'); };
+    // letting go leaves the squeegee and the bucket on the floor where the player stands; the stains keep what has been cleaned, and the kit can be picked up again
+    const setAt = (obj, sp) => { const v = new THREE.Vector3(sp.x, 0, sp.z); obj.parent?.worldToLocal(v); obj.position.set(v.x, obj.position.y, v.z); obj.rotation.y = sp.yaw - (obj.parent?.rotation.y ?? 0); };
+    inventory.dropHandlers.limpeza = () => {
+      const a = dropSpot({ player, world }, -0.2), b = dropSpot({ player, world }, 0.25);
+      if (props.rodo?.dyn) setAt(props.rodo.dyn, a); if (props.balde?.dyn) setAt(props.balde.dyn, b);
+      showKit(true); inventory.clearCarry(); bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Rodo e balde no chão. Mire neles para pegar de novo.')
+    };
   }
 
   // ------------------------------------------------------------------ stains on the floor
@@ -146,7 +154,19 @@ export function createChores(bus, { world, render, interaction, inventory, progr
         bus.emit('sfx', 'lixo', {}); tasks.done(key); done('tarefa');
       },
     });
-    inventory.dropHandlers.saco = (c) => { const a = active.get('lixo-' + c.id); if (a) a.S.putBack(); inventory.clearCarry(); player.st.carryHeavy = false; bus.emit('hint', 'Saco de volta onde estava.'); };
+    // a bag that is let go stays on the floor where the player stands (the task stays open); it can be picked up again
+    inventory.dropHandlers.saco = (c) => {
+      const a = active.get('lixo-' + c.id); inventory.clearCarry(); player.st.carryHeavy = false;
+      if (!a) return;
+      const sp = dropSpot({ player, world }), mesh = world.prop('saco'), at = new THREE.Vector3(sp.x, 0.35, sp.z);
+      mesh.position.set(sp.x, 0, sp.z); mesh.rotation.y = sp.yaw; render.scene.add(mesh);
+      const tid = interaction.register({
+        id: 'saco-solto-' + c.id, reach: 2.5, priority: 2,
+        aim: () => ({ c: at, r: 0.55 }), enabled: () => handsFree(), label: () => ({ text: 'Pegar o saco de lixo' }),
+        tap: () => { render.scene.remove(mesh); interaction.unregister(tid); floorBags.delete(c.id); inventory.setCarry({ kind: 'saco', id: c.id }, 'saco'); player.st.carryHeavy = true; bus.emit('sfx', 'lixo', {}); },
+      });
+      floorBags.set(c.id, { mesh, tid }); bus.emit('sfx', 'lixo', {}); bus.emit('hint', 'Saco no chão. Mire nele para pegar de novo.');
+    };
   }
 
   // ------------------------------------------------------------------ the ladder and the dead tube
@@ -160,12 +180,18 @@ export function createChores(bus, { world, render, interaction, inventory, progr
       label: () => (handsFree() ? { text: 'Pegar a escada' } : { text: 'Suas mãos estão ocupadas' }),
       tap: () => {
         if (!handsFree()) return bus.emit('hint', 'Suas mãos estão ocupadas.');
-        ladder.root.visible = false; ladder.collider.enabled = false;
+        posto.displace('escada', [0, 0, 0], 0); ladder.root.visible = false; ladder.collider.enabled = false;      // (a ladder that was on the floor leaves its spot)
         inventory.setCarry({ kind: 'escada' }, 'escada'); player.st.carryHeavy = true; bus.emit('sfx', 'carrinho', {});
-        bus.emit('hint', 'Escada na mão. Leve até a lâmpada queimada. Toque no vazio para devolver.');
+        bus.emit('hint', 'Escada na mão. Leve até a lâmpada queimada. Toque no vazio para soltar.');
       },
     });
-    inventory.dropHandlers.escada = () => { ladder.stow(); ladder.root.visible = true; ladder.collider.enabled = true; inventory.clearCarry(); player.st.carryHeavy = false; player.st.liftTo = 0; bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Escada devolvida.'); };
+    // letting go leaves the ladder lying on the floor where the player stands; it can be picked up again
+    inventory.dropHandlers.escada = () => {
+      const sp = dropSpot({ player, world }), h = ladder.home.pos;
+      posto.displace('escada', [sp.x - h[0], 0, sp.z - h[2]], sp.yaw - (ladder.home.ry || 0));
+      ladder.root.visible = true; ladder.syncCollider(); ladder.collider.enabled = true;
+      inventory.clearCarry(); player.st.carryHeavy = false; player.st.liftTo = 0; bus.emit('sfx', 'carrinho', {}); bus.emit('hint', 'Escada no chão. Mire nela para pegar de novo.');
+    };
   }
   function spawnLamp() {
     const pool = (posto.lampIds || []).filter((id) => { const L = world.light(id); return L && L.pos[1] <= 3.1 && !L.burnt && world.lampBase(id) && !active.has('lampada-' + id); });
@@ -325,6 +351,8 @@ export function createChores(bus, { world, render, interaction, inventory, progr
   function done(kind) { void kind; bus.emit('sfx', 'tarefa_ok', {}); progression.ok('tarefa'); }
 
   function clear() {
+    for (const [, f] of floorBags) { render.scene.remove(f.mesh); interaction.unregister(f.tid); }
+    floorBags.clear();
     for (const [, a] of active) a.undo?.();
     active.clear();
     if (bathroom) {
@@ -340,6 +368,7 @@ export function createChores(bus, { world, render, interaction, inventory, progr
     burntIds.clear(); stuck.clear(); down.length = 0;
     for (const a of posto.breakers?.areas || []) posto.breakers.setOn(a, true);
     for (const n of Object.keys(posto.pumps || {})) { posto.pumps[n]?.setJammed?.(false); posto.pumps[n]?.valve?.setAngle(0); }
+    posto.displace('escada', [0, 0, 0], 0); posto.displace('rodo', [0, 0, 0], 0); posto.displace('balde', [0, 0, 0], 0);
     ladder?.stow(); if (ladder) { ladder.root.visible = true; ladder.collider.enabled = true; }
     showKit(true);
     player.st.liftTo = 0; busyBathroom = false;
@@ -349,6 +378,8 @@ export function createChores(bus, { world, render, interaction, inventory, progr
   void boardT0;
   return {
     clear, startBathroom,
+    /** Where the bag of task `id` (lixeiraN / saco-lixo) lies on the floor after the player let go of it, or null. */
+    floorBag: (id) => floorBags.get(id)?.mesh.position || null,
     begin(seed, day) { rr = mulberry32(seed * 7 + day * 13 + 1); },
     /** Spawns one task of a kind. Returns true if it appeared. */
     spawn(kind) {

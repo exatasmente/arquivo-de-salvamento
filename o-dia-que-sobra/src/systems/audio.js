@@ -19,6 +19,7 @@ export function createAudioSystem(bus, { world, player, lighting, mod, opts }) {
     if (audio) { ctx?.resume?.(); return audio; }
     ctx = mod.createAudioContext ? mod.createAudioContext() : null;
     audio = mod.createAudio(ctx);
+    audio.setVolume?.(opts.volume ?? 0.9);
     ctx?.resume?.();
     return audio;
   }
@@ -65,6 +66,7 @@ export function createAudioSystem(bus, { world, player, lighting, mod, opts }) {
     babbleDuration(seed, text, o = {}) { return audio?.babbleDuration ? audio.babbleDuration(seed, text, o) : text.length * 0.05; },
     get missing() { return [...missing]; },
     ui(name) { play(name); },
+    setVolume(v) { opts.volume = v; audio?.setVolume?.(v); },
     setMuted(m) { opts.mute = m; if (m) { for (const l of loops.values()) l.stop?.(0.1); loops.clear(); for (const l of ambient) l.stop?.(0.1); ambient = []; } else this.startAmbient(); },
   };
 }

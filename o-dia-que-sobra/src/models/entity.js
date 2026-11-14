@@ -13,6 +13,12 @@
 //                            SINCE THE POSE STARTED for 'inclinar' (10 s to tilt), 'observar' (4 s) and 'sumir' (2 s)
 //     update(t, estado),     estado = { pose?, desde?: time the pose started (default 0), olhar?: 0..1 (observar
 //                            overrides the 4 s sweep), base?: 'costas'|'olhando' (what 'observar' stands as) }
+//                            Called with the time going forward in small steps it also reads how far the root moved:
+//                            the frames of 'andar' and 'correr' advance with the DISTANCE (one frame per 0.35 m / 0.85 m:
+//                            the feet do not skate), and the body trails a sudden turn of the root for about 0.25 s.
+//                            By the week the stillness is not quite still: from week 2 a hard one-frame twitch of the head
+//                            every few seconds (more often and wider each week), a stepped sway from week 2, and the walk
+//                            leans and tilts more.
 //     mask,                  { mesh, texture, setStage, stage }
 //   }
 // Stepped animation, few frames, hard poses, as in the games of the time. No Math.random, no real clock.
@@ -181,7 +187,7 @@ export function buildEntity(r, { seed = 1998, stage = 1 } = {}) {
 
   // ---- poses: hard, few frames
   const all = Object.values(J);
-  const reset = () => { for (const j of all) j.rotation.set(0, 0, 0); fig.rotation.set(0, 0, 0); root.visible = true; };
+  const reset = () => { for (const j of all) j.rotation.set(0, 0, 0); fig.rotation.set(0, 0, 0); fig.position.x = 0; root.visible = true; };
   const step = (t, fps) => Math.floor(t * fps) / fps;
   const hash = (n) => { const x = Math.sin(n * 127.1 + seed) * 43758.5453; return x - Math.floor(x); };
   let current = 'costas';
@@ -190,12 +196,21 @@ export function buildEntity(r, { seed = 1998, stage = 1 } = {}) {
     const p = ENTITY_POSES.includes(nome) ? nome : 'costas';
     current = p; reset();
     const w = stageNow;
+    // idle life: a one-frame twitch every (10 - 2w) s from week 2, and a stepped sway; never in motion poses
+    const idleLife = (t0) => {
+      if (w < 2) return;
+      const per = 10 - 2 * w, slot = Math.floor(t0 / per), local = t0 - slot * per;
+      if (local < 0.12) { J.head.rotation.z += (hash(slot * 3 + 1) - 0.5) * 0.16 * w; J.head.rotation.y += (hash(slot * 3 + 2) - 0.5) * 0.12 * w; if (w >= 3) J.wristL.rotation.x += -0.5 * hash(slot * 3 + 3); }
+      fig.position.x = Math.round(Math.sin(t0 * 0.5) * 3) / 3 * 0.012 * w;
+    };
     switch (p) {
       case 'costas':
         fig.rotation.y = Math.PI; arms(0.03, -0.03); J.head.rotation.x = 0.05; J.neck.rotation.x = 0.05; J.spine.rotation.x = 0.02;
+        idleLife(o.now ?? t);
         break;
       case 'olhando':
         arms(0.03, -0.03); J.head.rotation.x = -0.05; J.head.rotation.z = 0.03 * w;
+        idleLife(o.now ?? t);
         break;
       case 'observar': {
         // only the head turns: from the back (or the front) it sweeps round until the mask looks at you
@@ -209,14 +224,14 @@ export function buildEntity(r, { seed = 1998, stage = 1 } = {}) {
         break;
       }
       case 'andar': {
-        const f = Math.floor(t * 4) % 4, sw = [-0.34, 0, 0.34, 0][f];
+        const f = (o.dist !== undefined ? Math.floor(o.dist / 0.35) : Math.floor(t * 4)) % 4, sw = [-0.34, 0, 0.34, 0][f];
         J.hipL.rotation.x = sw; J.hipR.rotation.x = -sw; J.kneeL.rotation.x = f === 2 ? 0.1 : 0; J.kneeR.rotation.x = f === 0 ? 0.1 : 0;
         J.shoulderL.rotation.x = -sw * 0.4; J.shoulderR.rotation.x = sw * 0.4; arms(0.03, -0.04);
-        J.head.rotation.z = 0.09; J.head.rotation.x = -0.04; J.spine.rotation.z = 0.02 * (f - 1.5);
+        J.head.rotation.z = 0.06 + 0.02 * w; J.head.rotation.x = -0.04 - 0.02 * (w - 1); J.spine.rotation.z = 0.02 * (f - 1.5) * (0.5 + 0.25 * w); J.spine.rotation.x = 0.02 * (w - 1);
         break;
       }
       case 'correr': {
-        const f = Math.floor(t * 8) % 4, sw = [-0.95, 0, 0.95, 0][f];
+        const f = (o.dist !== undefined ? Math.floor(o.dist / 0.85) : Math.floor(t * 8)) % 4, sw = [-0.95, 0, 0.95, 0][f];
         J.hipL.rotation.x = sw; J.hipR.rotation.x = -sw; J.kneeL.rotation.x = sw < 0 ? 1.0 : 0.25; J.kneeR.rotation.x = sw > 0 ? 1.0 : 0.25;
         J.shoulderL.rotation.x = -sw * 0.9; J.shoulderR.rotation.x = sw * 0.9; J.elbowL.rotation.x = -1.25; J.elbowR.rotation.x = -1.25;
         J.spine.rotation.x = 0.32; J.head.rotation.x = -0.3; J.head.rotation.z = 0.14;
@@ -239,10 +254,24 @@ export function buildEntity(r, { seed = 1998, stage = 1 } = {}) {
   }
   setPose('costas', 0);
 
+  const st = { t: null, px: 0, pz: 0, dist: 0, yaw: 0 };
+  const wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
   return {
     root, joints: J, height: cust.height, eyeHeight: cust.eyeHeight, mask, setStage,
     get stage() { return stageNow; }, get pose() { return current; }, poses: ENTITY_POSES, look: L,
     setPose,
-    update(t, estado = {}) { setPose(estado.pose ?? current, t - (estado.desde ?? 0), estado); },
+    update(t, estado = {}) {
+      const dt = st.t === null ? -1 : t - st.t, p = root.position;
+      const seq = dt > 1e-5 && dt <= 0.25, same = dt >= 0 && dt <= 1e-5;
+      if (seq) {
+        const d = Math.hypot(p.x - st.px, p.z - st.pz);
+        if (d / dt < 12) st.dist += d;                          // a jump (placed, not walked) turns no frame
+        const dy = wrap(root.rotation.y - st.yaw);
+        st.yaw = Math.abs(dy) > 2.6 ? root.rotation.y : st.yaw + dy * (1 - Math.exp(-dt * 10));
+      } else if (!same) { st.dist = 0; st.yaw = root.rotation.y; }
+      if (!same) { st.px = p.x; st.pz = p.z; st.t = t; }
+      setPose(estado.pose ?? current, t - (estado.desde ?? 0), { ...estado, now: t, dist: seq || same ? st.dist : undefined });
+      if (seq || same) { const lag = wrap(st.yaw - root.rotation.y); fig.rotation.y += lag; J.head.rotation.y -= lag * 0.4; }
+    },
   };
 }

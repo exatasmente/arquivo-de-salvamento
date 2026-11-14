@@ -4,7 +4,7 @@
 //    The first is sealed with a key derived from the very phrase that opens the account (so reading the code is not enough:
 //    the phrase is the key); the second with a key derived from a fixed text in this file, which anyone who reads the code can
 //    derive: it is not clear text, but it is not a lock either. The prize is the story, and the secret is for who plays.
-// The answers are in kb/games/o-dia-que-sobra.md of the Breu, never in this repository.
+// The answers are never in this repository: only their hashes, and the texts they unlock, ciphered.
 const SALT_H = 'o-dia-que-sobra/vault/hash/v1:', SALT_K = 'o-dia-que-sobra/vault/key/v1:';
 const HASH = {
   senha: '8aee007c4ba79c25fc85eea4ec0f0d95953810394e1841949bed0cfa9ade6ccf',

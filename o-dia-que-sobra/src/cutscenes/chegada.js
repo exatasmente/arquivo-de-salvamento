@@ -95,7 +95,7 @@ export default {
         const { rig } = hands;
         const c = cam(t), w = walking(t), b = bob(t, Math.min(1, w) * 0.9);
         const eye = [c.eye[0] + b[0] * 0.3, c.eye[1] + b[1], c.eye[2]];
-        const x = -70 + (t - 3.2) * 26; car.root.position.set(x, 0, -28.5); car.root.rotation.y = Math.PI / 2; car.root.visible = t > 2.6 && t < 7;
+        const x = -70 + (t - 3.2) * 26; car.root.position.set(x, 0, -28.5); car.root.rotation.y = Math.PI / 2; car.root.visible = t > 2.6 && t < 7; car.update(t);
         const sway = Math.sin(t * 1.4);
         const push = smooth(ramp(t, 35.0, 35.7)) * (1 - smooth(ramp(t, 36.4, 37.2)));
         rig.hang(sway * (w ? 2 : 1));

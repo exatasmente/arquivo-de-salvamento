@@ -9,7 +9,7 @@ export function run({ lighting, world, bus, sanity, event, rng }) {
       t += dt;
       const k = t < 9 ? 0.18 + 0.82 * (0.5 + 0.5 * Math.cos(t * 2.1)) ** 2 : 1;   // three slow dips
       lighting.dimLight(id, k);
-      if (t > 2 && !done) { done = true; bus.emit('sfx', 'lampada_estalo', { pos: world.light(id).pos, opts: { gain: 0.5 } }); sanity.add(event.sanidade, event.id); }
+      if (t > 2 && !done) { done = true; bus.emit('sfx', 'lampada_estalo', { pos: world.light(id).pos, opts: { gain: 0.5 } }); bus.emit('sfx', 'luz_oscila', { pos: world.light(id).pos, opts: { dur: 2.4 } }); sanity.add(event.sanidade, event.id); }
       return t > 9.5;
     },
     dispose() { lighting.dimLight(id, null); },

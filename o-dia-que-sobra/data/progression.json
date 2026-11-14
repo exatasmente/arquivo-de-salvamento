@@ -28,7 +28,7 @@
   "semanas": {
     "1": {
       "nome": "Normalidade",
-      "meta": 450,
+      "meta": 420,
       "salario": 480,
       "contas": [
         {
@@ -50,7 +50,7 @@
     },
     "2": {
       "nome": "Desconfiança",
-      "meta": 540,
+      "meta": 490,
       "salario": 500,
       "contas": [
         {
@@ -72,7 +72,7 @@
     },
     "3": {
       "nome": "Esgotamento",
-      "meta": 620,
+      "meta": 550,
       "salario": 520,
       "contas": [
         {
@@ -94,7 +94,7 @@
     },
     "4": {
       "nome": "O Dia que Sobra",
-      "meta": 700,
+      "meta": 620,
       "salario": 540,
       "contas": [
         {

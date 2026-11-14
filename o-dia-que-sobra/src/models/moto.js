@@ -4,7 +4,9 @@
 // buildMoto(r, { seed, color, tint }) -> { root, setRider(bool), setLights(on), setSpeed(mps), update(t), size, headlight, color }
 //   setRider: shows or hides the rider (an adult in a dark jacket and a plain helmet).
 //   setLights: headlight and tail light.
-//   setSpeed: wheels turn as speed * t, so update(t) stays a pure function of time.
+//   setSpeed: optional; if the caller never uses it, the wheels turn with the DISTANCE the root covered between two
+//   update(t) calls (no skating) and the bike leans into a bend and dips its nose braking, on a spring. With setSpeed(mps) the
+//   wheels turn as speed * t instead. Out of sequence (a seek) the state resets quietly.
 import { D, createBuilder, mulberry32 } from '../scenes/paint.js';
 
 const COLORS = ['#3a5a7a', '#8a3a2a', '#5a6a38', '#8a8a82'];
@@ -41,8 +43,9 @@ export function buildMoto(r, { seed = 1, color, tint = 1 } = {}) {
 
   // wheels: loose groups so they can turn
   const wheels = [];
+  const wheelRoot = new T.Group(); c.dyn.add(wheelRoot);
   for (const z of [0.64, -0.64]) {
-    const g = new T.Group(); g.position.set(0, WHEEL_R, z); c.dyn.add(g);
+    const g = new T.Group(); g.position.set(0, WHEEL_R, z); wheelRoot.add(g);
     c.mesh(new T.CylinderGeometry(WHEEL_R, WHEEL_R, 0.12, 10), dark, [0, 0, 0], [0, 0, Math.PI / 2], g);
     c.mesh(new T.CylinderGeometry(0.15, 0.15, 0.14, 8), chrome, [0, 0, 0], [0, 0, Math.PI / 2], g);
     c.mesh(new T.BoxGeometry(0.15, 0.04, 0.3), dark, [0, 0, 0], [0, 0, 0], g);
@@ -78,11 +81,38 @@ export function buildMoto(r, { seed = 1, color, tint = 1 } = {}) {
 
   b.flush(c.dyn);
   const root = c.dyn; root.name = 'moto';
-  const st = { speed: 0 };
+  // everything but the wheels rides on the body group: it leans and dips on a spring
+  const body3 = new T.Group(); body3.name = 'corpo';
+  for (const ch of [...root.children]) if (ch !== wheelRoot) body3.add(ch);
+  const lean = new T.Group(); lean.name = 'inclina'; lean.add(wheelRoot, body3); root.add(lean);   // the wheels lean with the bike; only the body dips
+  const st = { speed: 0, forced: false };
+  const mv = { t: null, x: 0, z: 0, yaw: 0, v: 0, a: 0, spin: 0, pitch: 0, pv: 0, roll: 0, rv: 0, brake: false };
+  const norm = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+  const tailOn = { on: false };
+  function roll(t) {
+    const dt = mv.t === null ? -1 : t - mv.t, p = root.position, yaw = root.rotation.y;
+    if (dt > 1e-5 && dt <= 0.25) {
+      const dx = p.x - mv.x, dz = p.z - mv.z, ds = dx * Math.sin(yaw) + dz * Math.cos(yaw), v = ds / dt;
+      if (Math.abs(v) < 40) {
+        mv.spin += ds / WHEEL_R;
+        const dyaw = norm(yaw - mv.yaw), a = (v - mv.v) / dt; mv.a += (a - mv.a) * (1 - Math.exp(-dt * 8)); mv.v = v;
+        const pt = Math.max(-0.05, Math.min(0.05, -mv.a * 0.014)), rt = Math.max(-0.35, Math.min(0.35, (dyaw / dt) * v * -0.06));
+        const n = Math.max(1, Math.ceil(dt / 0.01)), h = dt / n;
+        for (let i = 0; i < n; i++) { mv.pv += ((pt - mv.pitch) * 80 - mv.pv * 7) * h; mv.pitch += mv.pv * h; mv.rv += ((rt - mv.roll) * 40 - mv.rv * 6) * h; mv.roll += mv.rv * h; }
+      }
+    } else if (dt < -1e-5 || dt > 0.25 || mv.t === null) { mv.v = mv.a = mv.pitch = mv.pv = mv.roll = mv.rv = 0; }
+    if (dt < -1e-5 || dt > 1e-5 || mv.t === null) { mv.x = p.x; mv.z = p.z; mv.yaw = yaw; mv.t = t; }
+    body3.rotation.x = mv.pitch; lean.rotation.z = mv.roll;
+    const brake = mv.v > 0.3 && mv.a < -0.5;
+    if (brake !== mv.brake) { mv.brake = brake; tail.material.uniforms.uColor.value.set(brake ? '#ff4a30' : tailOn.on ? '#e03020' : offT); }
+    return mv.spin;
+  }
+  const setLights2 = (on) => { tailOn.on = Boolean(on); setLights(on); if (mv.brake) tail.material.uniforms.uColor.value.set('#ff4a30'); };
   return {
-    root, setRider, setLights, setSpeed(mps) { st.speed = mps; }, headlight, color: col, size: { l: 2.0, w: 0.75, h: 1.65 },
+    root, setRider, setLights: setLights2, setSpeed(mps) { st.speed = mps; st.forced = true; }, headlight, color: col, size: { l: 2.0, w: 0.75, h: 1.65 },
     update(t) {
-      const a = (st.speed * t) / WHEEL_R;
+      const spin = roll(t);
+      const a = st.forced ? (st.speed * t) / WHEEL_R : spin;
       for (const w of wheels) w.rotation.x = a;
       head3.rotation.y = rider.visible ? Math.sin(t * 0.45) * 0.3 : 0;
       rider.position.y = rider.visible ? Math.sin(t * 31) * 0.0025 : 0;

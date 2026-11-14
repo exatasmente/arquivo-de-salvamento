@@ -47,6 +47,7 @@ export default {
   anchors: { calendario: 'O calendário novo nas mãos do gerente', vara: 'A vara de pesca do pai, na mão de Heitor', placa: 'A placa do Sol, de costas para a rodovia' },
   sfx: [
     { t: 0, name: 'vento', opts: { dur: 22, gain: 0.55 } },
+    { t: 0, name: 'amanhecer', opts: { dur: D } },
     { t: 0, name: 'insetos', opts: { dur: 22, gain: 0.35 } },
     { t: 1.0, name: 'motor_carro', opts: { dur: 5.2, gain: 0.7, pos: [4, 1, -4.8] } },
     { t: 6.9, name: 'porta_fecha', opts: { pos: [4, 1, -4.8], gain: 0.7 } },

@@ -6,7 +6,7 @@ export function run({ world, bus, sanity, event, rng, progression }) {
   return {
     update(dt) {
       t += dt;
-      if (t > 1 + n * 1.3 && n < 3) { n++; bus.emit('sfx', 'passos_longe', { pos: [a.pos.x, 0.2, a.pos.z], opts: { n: 2 } }); if (n === 1) { bus.emit('incident', 'barulho', { id: event.id }); sanity.add(event.sanidade, event.id); progression.seen?.(event.id); } }
+      if (t > 1 + n * 1.3 && n < 3) { n++; bus.emit('sfx', 'passos_cascalho', { pos: [a.pos.x, 0.2, a.pos.z], opts: { n: 2 } }); if (n === 1) { bus.emit('incident', 'barulho', { id: event.id }); sanity.add(event.sanidade, event.id); progression.seen?.(event.id); } }
       return t > 6;
     },
   };

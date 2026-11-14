@@ -7,6 +7,7 @@
 // shelf under LOW of its capacity (the 'shelf:taken' event of customers.js).
 import { mulberry32 } from '../rng.js';
 import { fill, money } from '../util.js';
+import { dropSpot } from './dropspot.js';
 
 const LOW = 0.3;       // a shelf under this fraction of its capacity asks to be restocked
 
@@ -61,7 +62,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     sc.place(nx, nz, y + Math.PI);
   }
   function returnBox(rec) {
-    rec.taken = false; const bx = world.boxes[rec.n]; if (bx?.root) bx.root.visible = true;
+    rec.taken = false; const bx = world.boxes[rec.n]; if (bx?.root) { bx.root.visible = true; if (bx.home) { bx.root.position.copy(bx.home); bx.root.rotation.y = bx.homeRy; } }
     bus.emit('sfx', 'caixa_papelao', {});
   }
   const handleP = new THREE.Vector3(), deckP = new THREE.Vector3();
@@ -91,7 +92,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
   function clearBoxes() {
     for (const id of tids) interaction.unregister(id);
     tids = [];
-    for (const b of boxes.values()) { const bx = world.boxes[b.n]; if (bx?.root) bx.root.visible = true; }
+    for (const b of boxes.values()) { const bx = world.boxes[b.n]; if (bx?.root) { bx.root.visible = true; if (bx.home) { bx.root.position.copy(bx.home); bx.root.rotation.y = bx.homeRy; } } }
     cart.boxes = [];
     if (cart.pushing) stopPush();
     sc?.reset();
@@ -108,6 +109,7 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
     nums.forEach((n, i) => boxes.set(n, { n, produto: prods[i % prods.length], taken: false, used: false }));
     world.boxes.forEach((bx) => {
       if (!bx) return;
+      if (!bx.home) { bx.home = bx.root.position.clone(); bx.homeRy = bx.root.rotation.y; }   // where the rack keeps it (a dropped box comes back here at the end of the night)
       const b = boxes.get(bx.n);
       tids.push(interaction.register({
         id: bx.id, reach: 2.5, priority: 1,
@@ -131,9 +133,13 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
       }));
     });
   }
+  /** Letting go of a box leaves it on the floor where the player stands: it can be picked up again, and it is not on a shelf (the job stays open). */
   inventory.dropHandlers.caixa = (c) => {
-    const rec = boxes.get(c.n); if (rec) returnBox(rec);
-    inventory.clearCarry(); player.st.carryHeavy = false; bus.emit('hint', 'Caixa de volta na estante.');
+    const rec = boxes.get(c.n), bx = world.boxes[c.n];
+    if (!rec || !bx?.root) { inventory.clearCarry(); player.st.carryHeavy = false; return; }
+    const sp = dropSpot({ player, world });
+    bx.root.position.set(sp.x, 0, sp.z); bx.root.rotation.y = sp.yaw; bx.root.visible = true; rec.taken = false;
+    inventory.clearCarry(); player.st.carryHeavy = false; bus.emit('sfx', 'caixa_papelao', {}); bus.emit('hint', 'Caixa no chão. Mire nela para pegar de novo.');
   };
 
   // ------------------------------------------------------------------ the shelf job

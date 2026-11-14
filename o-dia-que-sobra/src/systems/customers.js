@@ -560,15 +560,19 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     render.scene.add(h);
     if (c.comp) { c.comp.root.position.copy(h.position); render.scene.add(c.comp.root); }
     c.inCar = false; c.agent.hidden = false; nav.add(c.agent);
-    c.car.setDriver(false); c.car.setLights(false);
+    c.car.setDriver(false); c.car.setLights(false); c.car.setDoor?.(0); c.exitT = 0;
     planShop(c);
     c.state = 'entering';
   }
+  /** Back to the car: the person stays in view for the pose of getting in (about 0.9 s) while the door swings, then the car is theirs. */
   function getInCar(c) {
-    const h = c.human.root;
-    render.scene.remove(h); if (c.comp) render.scene.remove(c.comp.root);
+    if (c.comp) render.scene.remove(c.comp.root);
     nav.remove(c.agent); c.agent.hidden = true; c.inCar = true;
-    c.car.setDriver(true); c.car.setLights(true);
+    c.boardT = 0.9; c.car.setDoor?.(1);
+  }
+  function finishBoarding(c) {
+    render.scene.remove(c.human.root);
+    c.car.setDoor?.(0); c.car.setDriver(true); c.car.setLights(true);
     c.leaveAfter = 0.9;
   }
   /** Leaves: back through the bell door if they are in the shop, then to the car (or the pump's side, or the road). */
@@ -989,8 +993,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function animate(c, t, moving) {
     const h = c.human;
     if (h.update) {
-      const pose = c.state === 'entering' ? (c.tipo?.poses?.chegada || 'parado') : c.state === 'leaving' ? (c.tipo?.poses?.saindo || c.rec?.poses?.saindo || 'parado') : c.paying ? (c.tipo?.poses?.pagando || 'pagando') : (c.state === 'watch' ? (c.rec?.poses?.esperando || 'fixo') : (c.tipo?.poses?.esperando || 'parado'));
-      h.update(t, { pose, andando: moving ? 1 : 0, fase: c.walkPhase, falando: false });
+      const leg = c.state === 'entering' && c.atLeg ? c.legs?.[c.legI] : null;
+      const picking = leg && leg.kind === 'shop' && leg.take?.length;
+      const pose = c.exitT > 0 && c.state === 'exiting' ? 'saindo-carro' : c.boardT > 0 ? 'entrando-carro' : picking ? 'pegando' : c.state === 'entering' ? (c.tipo?.poses?.chegada || 'parado') : c.state === 'leaving' ? (c.tipo?.poses?.saindo || c.rec?.poses?.saindo || 'parado') : c.paying ? (c.tipo?.poses?.pagando || 'pagando') : (c.state === 'watch' ? (c.rec?.poses?.esperando || 'fixo') : (c.tipo?.poses?.esperando || 'parado'));
+      h.update(t, { pose, andando: moving ? 1 : 0, fase: c.walkPhase, falando: false, ...(picking ? { altura: Math.max(0, Math.min(1, (leg.take[0].row?.nivel ?? 1) / 2)) } : {}) });
     } else poseWalk(h.joints, c.walkPhase, moving ? 1 : 0);
   }
   /** Moves a walker toward a point. Returns the distance left. */
@@ -1049,8 +1055,9 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
           // in the car: it is still coming in, the customer is about to get out, or has got back in and the car is about to go
           if (c.state === 'driving') {
             if (!c.engine && c.veh.s > 50) { c.engine = true; bus.emit('sfx', 'carro_vai', { pos: [c.spot.x, 0, c.spot.z] }); }
-            if (c.veh.state === 'parked') { c.state = 'exiting'; c.exitT = 0.9; }
-          } else if (c.state === 'exiting') { c.exitT -= dt; if (c.exitT <= 0) stepOut(c); }
+            if (c.veh.state === 'parked') { c.state = 'exiting'; c.exitT = 0.9; const p = traffic.lotDoor(c.spot); c.human.root.position.set(p.x, 0, p.z); render.scene.add(c.human.root); }
+          } else if (c.state === 'exiting') { c.exitT -= dt; c.car.setDoor?.(Math.max(0, Math.min(1, c.exitT / 0.9 > 0.5 ? (0.9 - c.exitT) / 0.45 : 1))); animate(c, t, false); if (c.exitT <= 0) stepOut(c); }
+          else if (c.boardT > 0) { c.boardT -= dt; c.car.setDoor?.(Math.max(0, Math.min(1, c.boardT / 0.9 > 0.5 ? 1 : c.boardT / 0.45))); animate(c, t, false); if (c.boardT <= 0) finishBoarding(c); }
           else if (c.state === 'leaving' && c.veh.state === 'parked' && !c.departed) { c.leaveAfter -= dt; if (c.leaveAfter <= 0) departCar(c); }
           continue;
         }

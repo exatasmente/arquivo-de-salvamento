@@ -16,7 +16,7 @@ export function run({ world, kit, bus, sanity, progression, event, ui, player })
       }
       if (st === 'on') {
         if (kit.look(spot.clone().setY(1.2)) > 0.9 && kit.dist(spot) < 40) watched += dt; else watched = Math.max(0, watched - dt);
-        if (watched > 0.9) { st = 'seen'; t = 0; away = 0; sanity.add(event.sanidade, event.id); progression.seen(event.id); bus.emit('event:seen', event.id); bus.emit('sfx', 'passos_longe', { pos: spot.toArray(), opts: { n: 1 } }); ui.say('Heitor', '(Alguém ao lado do carro do fundo. De costas.)', { seed: 16, ms: 3400 }); }
+        if (watched > 0.9) { st = 'seen'; t = 0; away = 0; sanity.add(event.sanidade, event.id); progression.seen(event.id); bus.emit('event:seen', event.id); bus.emit('sfx', 'passos_cascalho', { pos: spot.toArray(), opts: { n: 2 } }); ui.say('Heitor', '(Alguém ao lado do carro do fundo. De costas.)', { seed: 16, ms: 3400 }); }
         return t > 45;
       }
       if (kit.look(spot.clone().setY(1.2)) < 0.4) away += dt;

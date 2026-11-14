@@ -56,7 +56,7 @@ export function createShift(bus, d) {
     const declared = await ui.keypad({
       title: 'FECHAR O CAIXA',
       lines: ['Conte o que está na gaveta, nota por nota e moeda por moeda.', 'Digite o valor contado. Notas rasgadas não contam.'],
-      pile, okLabel: 'CONTAR E FECHAR',
+      pile, okLabel: 'CONTAR E FECHAR', calc: true,
     });
     if (declared === null) { counting = false; return; }
     const res = cash.close(declared);

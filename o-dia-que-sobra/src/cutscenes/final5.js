@@ -62,6 +62,8 @@ export default {
     { t: LEVER_T + 0.2, name: 'lampada_estalo', opts: { gain: 0.8 } },
     { t: 13.2, name: 'vento', opts: { dur: 22, gain: 0.35 } },
     { t: 13.2, name: 'insetos', opts: { dur: 7, gain: 0.3 } },
+    { t: CAR_T0 + 0.4, name: 'carro_parte', opts: { pos: [-18.9, 0.8, 18.5], dur: 5 } },
+    { t: 35.3, name: 'papel_folha' },
     { t: CAR_T0 + 0.6, name: 'motor_sem_som', opts: { gain: 0.8 } },
     { t: CAR_T0 + 1.6, name: 'motor_carro', opts: { dur: 11, gain: 0.8 } },
     { t: 35.2, name: 'fluorescente', opts: { dur: 9.8, gain: 0.45 } },
@@ -97,7 +99,7 @@ export default {
         let carPos = [-18.9, 0, 18.5];
         if (lot) {
           const p = route.pose(t - CAR_T0);
-          if (t >= CAR_T0) { car.root.position.set(p.x, 0, p.z); car.root.rotation.y = p.yaw; carPos = [p.x, 0, p.z]; } else restore();
+          if (t >= CAR_T0) { car.root.position.set(p.x, 0, p.z); car.root.rotation.y = p.yaw; carPos = [p.x, 0, p.z]; car.update(t); } else restore();
           car.setLights(t >= 21.8);
           // the head follows the car, a little behind it
           const pl = route.pose(t - CAR_T0 - 0.35), tgt = t >= CAR_T0 ? [pl.x, 0.9, pl.z] : [-18.9, 1.0, 18.5];

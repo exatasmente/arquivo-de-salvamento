@@ -8,11 +8,16 @@
 //     height, eyeHeight (metres),
 //     castsShadow,     false for the "no shadow" customer; `shadow` is the dark patch under the feet (null then)
 //     categoria,       'comum' | 'recorrente' | 'inconveniente' | 'suspeito' | 'sobrenatural'
-//     poses,           ['parado', 'impaciente', 'apontando', 'pagando', 'costas', 'fixo']
+//     poses,           ['parado', 'impaciente', 'apontando', 'pagando', 'costas', 'fixo'] (POSES_EXTRA: see below)
 //     pose,            the current pose name
 //     setPose(nome, t) put the figure in a pose at time t (seconds)
 //     update(t, estado) per-frame animation; estado = { pose?, andando?: 0..1, fase?: rad, falando?: bool,
-//                      olhar?: rad (head yaw, relative to the body) }
+//                      olhar?: rad (head yaw, relative to the body), altura?: 0..1 (for 'pegando') }
+//                      Called with the time going forward in small steps, update() also reads how far the root moved
+//                      since the last call: the legs follow the DISTANCE walked (no skating), the body turns to the
+//                      heading over about 0.2 s instead of snapping, and a change of pose blends over 0.22 s.
+//                      Called out of sequence (a seek) it falls back to estado.fase and snaps: still a pure function
+//                      of what it was given.
 //   }
 //
 // spec (from data/cast.json, "aparencia"): {
@@ -26,11 +31,17 @@
 //   nota?                    colour of the banknote held in the 'pagando' pose
 // }
 import { buildHuman } from './human.js';
-import { customerLook, customerIdentity, poseWalk } from '../look.js';
+import { customerLook, customerIdentity } from '../look.js';
 import { makeTexture } from './faces.js';
 import { mulberry32 } from '../rng.js';
 
 export const POSES = ['parado', 'impaciente', 'apontando', 'pagando', 'costas', 'fixo'];
+// Extra poses for the systems that want them (nothing calls them by default; an unknown pose falls back to 'parado'):
+//   'pegando'         reach for a product on a shelf and bring it to the chest (estado.altura 0 low .. 1 high)
+//   'saindo-carro'    getting up out of the driver's seat, one hand on the door frame (about 0.9 s)
+//   'entrando-carro'  the same backwards, ending seated
+export const POSES_EXTRA = ['pegando', 'saindo-carro', 'entrando-carro'];
+const ALL_POSES = [...POSES, ...POSES_EXTRA];
 export const CATEGORIAS = ['comum', 'recorrente', 'inconveniente', 'suspeito', 'sobrenatural'];
 
 // --------------------------------------------------------------------------------------------- colours
@@ -379,19 +390,23 @@ export function buildCustomer(r, specIn = {}, { seed = 1 } = {}) {
   // ---- poses
   const all = Object.values(J);
   const manias = new Set(spec.manias ?? O.manias ?? []);
-  const state = { pose: 'parado' };
+  const state = { pose: 'parado', since: 0 };
   const sw = Math.sin;
   function reset() {
     for (const j of all) j.rotation.set(0, 0, 0);
-    fig.rotation.set(0, 0, 0); note.visible = false;
+    fig.rotation.set(0, 0, 0); note.visible = false; J.hips.position.y = hipsY0;
   }
   function rest(t, k = 1) {
     J.shoulderL.rotation.z = 0.07 * k; J.shoulderR.rotation.z = -0.07 * k;
     J.elbowL.rotation.x = -0.12; J.elbowR.rotation.x = -0.12;
     J.spine.rotation.x = sw(t * 1.7) * 0.008 * k;
   }
-  function setPose(nome, t = 0) {
-    const p = POSES.includes(nome) ? nome : 'parado';
+  const hipsY0 = J.hips.position.y;
+  const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  function setPose(nome, t = 0, o = {}) {
+    const p = ALL_POSES.includes(nome) ? nome : 'parado';
+    if (p !== state.pose || t < state.since) state.since = t;
+    const ts = t - state.since;
     state.pose = p; reset();
     const rigid = manias.has('rigido') || p === 'fixo';
     rest(t, rigid ? 0 : 1);
@@ -415,11 +430,36 @@ export function buildCustomer(r, specIn = {}, { seed = 1 } = {}) {
         J.shoulderR.rotation.set(-1.42, 0, -0.14); J.elbowR.rotation.x = -0.1; J.wristR.rotation.x = 0.1;
         J.spine.rotation.x += 0.04; J.spine.rotation.y = -0.1; J.head.rotation.y = 0.1; J.head.rotation.x = -0.02 + sw(t * 2.2) * 0.02;
         break;
-      case 'pagando':
-        J.shoulderR.rotation.set(-1.0, 0, -0.12); J.elbowR.rotation.x = -0.75; J.wristR.rotation.x = -0.1;
-        J.spine.rotation.x += 0.05; J.head.rotation.x = 0.1 + sw(t * 1.4) * 0.015; J.head.rotation.y = -0.05;
-        note.visible = true; note.rotation.z = sw(t * 3) * 0.03;
+      case 'pagando': {
+        // the hand comes up from the side and out over the counter (0.55 s), the note held out and nudged now and then
+        const k = ease(ts / 0.55), nudge = Math.max(0, sw(ts * 2.3)) * Math.max(0, sw(ts * 0.7)) * 0.08 * k;
+        J.shoulderR.rotation.set(-1.0 * k - nudge, 0, -0.12); J.elbowR.rotation.x = -0.12 + (-0.63) * k; J.wristR.rotation.x = -0.1 * k;
+        J.spine.rotation.x += 0.05 * k; J.head.rotation.x = 0.1 * k + sw(t * 1.4) * 0.015; J.head.rotation.y = -0.05 * k;
+        note.visible = k > 0.25; note.rotation.z = sw(t * 3) * 0.03;
         break;
+      }
+      case 'pegando': {
+        // right arm out toward the shelf (0.45 s), a pause with the fingers closing, then the product is brought to the chest
+        const hi = o.altura ?? 0.5, out = ease(ts / 0.45), back = ease((ts - 0.8) / 0.5), k = out * (1 - back);
+        const low = Math.max(0, 0.55 - hi) / 0.55;
+        J.shoulderR.rotation.set(-(0.55 + 0.95 * hi) * k - 0.5 * back, 0, -0.1 - 0.12 * k);
+        J.elbowR.rotation.x = -0.2 - 0.3 * k - 0.9 * back; J.wristR.rotation.x = -0.15 * back;
+        J.spine.rotation.x += (0.07 + 0.35 * low) * k; J.head.rotation.x = 0.14 * k + 0.05 * back; J.head.rotation.y = 0.12 * k;
+        J.hipL.rotation.x = -0.5 * low * k; J.hipR.rotation.x = -0.5 * low * k; J.kneeL.rotation.x = 0.8 * low * k; J.kneeR.rotation.x = 0.8 * low * k;
+        J.hips.position.y = hipsY0 - 0.12 * low * k;
+        break;
+      }
+      case 'saindo-carro':
+      case 'entrando-carro': {
+        // seated at the start (or the end): the thighs forward, the shins down, the hips low; one hand on the frame
+        const up = ease(p === 'saindo-carro' ? ts / 0.9 : 1 - ts / 0.9), sit = 1 - up, lean = Math.sin(Math.PI * Math.max(0, Math.min(1, p === 'saindo-carro' ? ts / 0.9 : 1 - ts / 0.9)));
+        J.hips.position.y = hipsY0 - 0.42 * sit;
+        J.hipL.rotation.x = J.hipR.rotation.x = -1.35 * sit; J.kneeL.rotation.x = J.kneeR.rotation.x = 1.3 * sit;
+        J.spine.rotation.x += 0.12 * sit + 0.4 * lean; J.head.rotation.x = 0.1 * lean - 0.05;
+        J.shoulderL.rotation.set(-0.9 * lean - 0.2 * sit, 0, 0.1 + 0.15 * lean); J.elbowL.rotation.x = -0.8 * lean - 0.4 * sit;
+        J.shoulderR.rotation.set(-0.7 * sit, 0, -0.07); J.elbowR.rotation.x = -0.12 - 0.4 * sit;
+        break;
+      }
       case 'costas':
         fig.rotation.y = Math.PI;
         J.head.rotation.x = 0.04; J.neck.rotation.x = 0.03;
@@ -433,22 +473,77 @@ export function buildCustomer(r, specIn = {}, { seed = 1 } = {}) {
   }
   setPose('parado', 0);
 
+  // ---- walking: the legs follow the distance the root covered, not the clock
+  const SCALE = human.height / 1.75, LEG = 0.9 * SCALE, SWING = 0.4;
+  const CYCLE = 4 * LEG * Math.sin(SWING);        // metres per full cycle (two steps) so the planted foot does not slide
+  // hip angle over the cycle: a straight line while the foot is on the ground (so it keeps the ground still while the body
+  // moves over it) and a soft arc to bring it forward again. u in [-pi/2, 3pi/2): stance first, swing after.
+  const swingAngle = (u) => {
+    while (u < -Math.PI / 2) u += Math.PI * 2; while (u >= Math.PI * 1.5) u -= Math.PI * 2;
+    return u < Math.PI / 2 ? u / (Math.PI / 2) : Math.cos(u - Math.PI / 2);     // -1 .. 1 .. -1
+  };
+  function gait(phase, k) {
+    const s = sw(phase), c = Math.cos(phase), A = SWING * k;
+    const hl = swingAngle(phase) * A, hr = swingAngle(phase + Math.PI) * A;
+    J.hipL.rotation.x = hl; J.hipR.rotation.x = hr;
+    J.kneeL.rotation.x = (Math.max(0, -c) * 0.85 + 0.06) * k; J.kneeR.rotation.x = (Math.max(0, c) * 0.85 + 0.06) * k;
+    J.ankleL.rotation.x = -(hl - J.kneeL.rotation.x * 0.4) * 0.55; J.ankleR.rotation.x = -(hr - J.kneeR.rotation.x * 0.4) * 0.55;
+    J.shoulderL.rotation.x = -s * A * 0.9; J.shoulderR.rotation.x = s * A * 0.9;
+    J.elbowL.rotation.x = -0.14 - Math.max(0, -s) * 0.35 * k; J.elbowR.rotation.x = -0.14 - Math.max(0, s) * 0.35 * k;
+    J.hips.rotation.y = s * 0.09 * k; J.spine.rotation.y = -s * 0.07 * k; J.spine.rotation.x += 0.03 * k;
+    J.hips.position.y = hipsY0 - Math.abs(c) * 0.018 * SCALE * k + 0.009 * SCALE * k;        // lowest as the feet pass under, up on the strides
+    J.head.rotation.y += s * 0.04 * k; J.head.rotation.x += Math.abs(c) * 0.012 * k;
+  }
+  const norm = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+  const nj = all.length;
+  const anim = { t: null, px: 0, pz: 0, phase: 0, speed: 0, yaw: 0, key: '', last: null, from: null, blendT: -9, k: 1 };
+  const capture = () => { const a = new Float32Array(nj * 3 + 4); all.forEach((j, i) => { a[i * 3] = j.rotation.x; a[i * 3 + 1] = j.rotation.y; a[i * 3 + 2] = j.rotation.z; }); a[nj * 3] = fig.rotation.y; a[nj * 3 + 1] = fig.rotation.x; a[nj * 3 + 2] = J.hips.position.y; return a; };
+  const apply = (a) => { all.forEach((j, i) => j.rotation.set(a[i * 3], a[i * 3 + 1], a[i * 3 + 2])); fig.rotation.y = a[nj * 3]; fig.rotation.x = a[nj * 3 + 1]; J.hips.position.y = a[nj * 3 + 2]; };
+  function update(t, estado = {}) {
+    const dt = anim.t === null ? -1 : t - anim.t, p = root.position;
+    const same = dt >= 0 && dt < 1e-5, seq = dt > 1e-5 && dt <= 0.25;
+    if (seq) {
+      const d = Math.hypot(p.x - anim.px, p.z - anim.pz);
+      const v = d / dt;
+      if (v < 6) {   // faster than anyone walks: the caller moved the figure (a warp), not the figure walking
+        anim.speed += (v - anim.speed) * (1 - Math.exp(-dt * 12));
+        anim.phase += (d / CYCLE) * Math.PI * 2;
+      }
+      const dy = norm(root.rotation.y - anim.yaw);
+      anim.yaw = Math.abs(dy) > 2.6 ? root.rotation.y : anim.yaw + dy * (1 - Math.exp(-dt * 14));
+    } else if (!same) {
+      anim.phase = estado.fase ?? t * 6; anim.speed = estado.andando > 0 ? 1.4 : 0; anim.yaw = root.rotation.y; anim.last = null;
+    }
+    if (!same) { anim.px = p.x; anim.pz = p.z; anim.t = t; }
+    const want = estado.andando > 0;
+    const k = want ? Math.max(0, Math.min(1, (anim.speed - 0.08) / 0.5)) * Math.min(1, estado.andando) : 0;
+    const walking = want && k > 0.02;
+    const pose = estado.pose ?? state.pose;
+    setPose(walking ? 'parado' : pose, t, estado);
+    if (walking) { gait(seq || same ? anim.phase : (estado.fase ?? anim.phase), k); }
+    if (estado.falando) { J.head.rotation.x += sw(t * 9) * 0.03; J.head.rotation.y += sw(t * 5.3) * 0.04; }
+    if (typeof estado.olhar === 'number') J.head.rotation.y += estado.olhar;
+    // the body trails the heading: the caller turns the root at once, the figure catches up in about 0.2 s
+    if (seq || same) { const lag = norm(anim.yaw - root.rotation.y); fig.rotation.y += lag; J.head.rotation.y -= lag * 0.5; J.spine.rotation.y -= lag * 0.25; }
+    // a change of pose or of gait blends from what was on screen
+    const key = walking ? 'walk' : state.pose;
+    const target = capture();
+    if (anim.last && key !== anim.key) { anim.from = anim.last; anim.blendT = t; }
+    anim.key = key;
+    if (anim.from && t - anim.blendT < 0.22 && t >= anim.blendT) {
+      const e = ease((t - anim.blendT) / 0.22), out = new Float32Array(target.length);
+      for (let i = 0; i < out.length; i++) out[i] = anim.from[i] + (target[i] - anim.from[i]) * e;
+      apply(out); anim.last = out;
+    } else { anim.from = null; anim.last = target; }
+  }
+
   const idEyes = human.eyeHeight;
   return {
     root, joints: J, height: human.height, eyeHeight: idEyes, castsShadow, shadow, categoria, roupa: roupaName,
     poses: POSES, look: L, seed: faceSeed,
     get pose() { return state.pose; },
     setPose,
-    update(t, estado = {}) {
-      const pose = estado.pose ?? state.pose;
-      if (estado.andando > 0) {
-        setPose('parado', t);
-        poseWalk(J, estado.fase ?? t * 6, estado.andando);
-        J.spine.rotation.x += 0.02;
-      } else setPose(pose, t);
-      if (estado.falando) { J.head.rotation.x += sw(t * 9) * 0.03; J.head.rotation.y += sw(t * 5.3) * 0.04; }
-      if (typeof estado.olhar === 'number') J.head.rotation.y += estado.olhar;
-    },
+    update,
   };
 }
 

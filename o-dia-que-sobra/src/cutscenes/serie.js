@@ -220,7 +220,7 @@ export default {
           }
           case 'v1-acostamento': {
             // the car comes down the highway at us and passes at 2.2 s, then the head comes up to the sign
-            const x = 36 - 30 * rel; hwy.root.visible = x > -76 && x < 60; hwy.root.position.set(x, 0, -27.0); hwy.root.rotation.y = -Math.PI / 2; // westbound, headlights on us
+            const x = 36 - 30 * rel; hwy.root.visible = x > -76 && x < 60; hwy.root.position.set(x, 0, -27.0); hwy.root.rotation.y = -Math.PI / 2; hwy.update(rel); // westbound, headlights on us
             const k = smooth(ramp(rel, 2.9, 4.8));
             f = lowCam(P1, [lerp(ROAD[0], SIGN[0], k), lerp(ROAD[1], SIGN[1], k), lerp(ROAD[2], SIGN[2], k)], { world: { ambient: ROAD_AMB, fog: FOG_ROAD, state: { hora: 0.1 }, sign: { on: true, smile: 0, ray: -1 } } });
             f.amb = 100; break;
@@ -255,7 +255,7 @@ export default {
           // ------------------------------------------------------------------------------- V3
           case 'v3-longo': {
             const c = v3Cam(rel), b = bob(rel, v3Amp(rel) * 0.9, V3_FREQ);
-            const x = -70 + (rel - V3_CAR) * 26; hwy.root.visible = x > -76 && x < 60; hwy.root.position.set(x, 0, -28.5); hwy.root.rotation.y = Math.PI / 2;
+            const x = -70 + (rel - V3_CAR) * 26; hwy.root.visible = x > -76 && x < 60; hwy.root.position.set(x, 0, -28.5); hwy.root.rotation.y = Math.PI / 2; hwy.update(rel);
             f = lowCam([c.eye[0] + b[0] * 0.3, c.eye[1] + b[1], c.eye[2]], c.look, { roll: b[2], world: { ambient: ROAD_AMB, fog: FOG_ROAD, state: { hora: 0.1 }, sign: { on: v3SignOn(rel), smile: 0, ray: v3Ray(rel) } } });
             break;
           }

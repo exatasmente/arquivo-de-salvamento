@@ -104,6 +104,7 @@ export default {
         const c8 = w === 'c08-dormir';
         car.root.visible = (w === 'c01-abertura' && t > 0.4) || (c8 && rel > 1.4);
         if (c8) { car.root.position.set(-4 - 7.6 * (rel - 1.4), 0, -27.0); car.root.rotation.y = -Math.PI / 2; } else { car.root.position.set(-62 + 26 * (t - 0), 0, -28.5); car.root.rotation.y = Math.PI / 2; }
+        car.update(t);
         const fade = Math.max(1 - smooth(ramp(t, 0, 0.7)), 0);
         const out = { eye, look: c.look, roll: c.roll + b[2], fade, dialog: say.at(t) };
         if (inCasa) {

@@ -18,12 +18,12 @@
     "geladeira": "Parcela da geladeira"
   },
   "objetivo": {
-    "falta": "Falta: {lista}",
-    "tudo": "Pronto. Durma na cama para encerrar a folga.",
+    "falta": "falta {lista}",
+    "tudo": "pronto, é só dormir",
     "contas": "contas",
     "recados": "recados",
     "farmacia": "farmácia",
-    "cama": "dormir"
+    "cama": "cama"
   },
   "dica": {
     "keyboard": "WASD anda · mouse olha · E usa",

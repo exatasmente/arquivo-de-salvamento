@@ -80,7 +80,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       phase = 'call'; obj(null);
       await dialogue(DG.gerente, DG.ligacao1, 77);
       bus.emit('sfx', 'telefone_desliga', { pos: phonePos().toArray() });
-      tasks.addFixed(['abrir-caixa']);
+      tasks.setTillEnabled(true); tasks.addFixed(['abrir-caixa']);
       phase = 'caixa1';
       obj('Abra o caixa: a registradora do balcão. Segure o botão de usar.');
     } else if (kind === 'ring2') {
@@ -155,6 +155,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
     begin({ tutorial }) {
       extra = null; t0 = 0; shopDone = stockDone = fuelDone = false; ringing = false; called = false; answered550 = false; ringKind = null;
       registerPhone();
+      tasks.setTillEnabled(!tutorial);   // the tutorial opens the till when the manager says so (a till opened before the call would leave the lesson waiting for it)
       if (tutorial) { phase = 'ring1'; ringKind = 'ring1'; ringAt = 22.5; obj('Fique por perto. O telefone vai tocar.'); }
       else { phase = 'free'; progression.st.tutorialDone = true; obj('Abra o caixa: a registradora do balcão. Segure o botão de usar.'); }
     },

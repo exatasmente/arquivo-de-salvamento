@@ -40,6 +40,7 @@ export function run({ world, kit, bus, sanity, progression, event, ui, time, pla
           fig.root.visible = false;
           // the clock goes back to 00:00 once; the second round runs fast
           time.setCap(time.parse(data.progression.expediente.fim)); time.rewind(); time.setRate(4);
+          bus.emit('sfx', 'relogio_volta', {});
           ui.say('Heitor', '(O relógio voltou. Zero hora.)', { seed: 93, ms: 3600 });
           bus.emit('sfx', 'sino_fantasma', { pos: world.anchor('sino').pos.toArray() });
           entity.force('aproximacao', 4);

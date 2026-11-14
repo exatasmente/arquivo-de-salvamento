@@ -346,5 +346,21 @@ export function buildFirstPersonArms(r, look = {}) {
     }
     joints['shoulder' + side] = sh; joints['elbow' + side] = el; joints['wrist' + side] = wr;
   }
-  return { root, joints };
+  // ---- life for the hands (nothing calls these by default; with no call the arms stay exactly as they were)
+  // grip(kind, side): the fingers of a bare hand for what it holds ('aberta' | 'solta' | 'bico' | 'lanterna' | 'carrinho');
+  // side is 'right' | 'left' (on the screen) or 'both'. A gloved hand has no fingers: it does nothing.
+  const GRIPS = { aberta: 0, solta: 0.2, bico: 0.75, lanterna: 0.9, carrinho: 0.65 };
+  const grip = (kind, side = 'both') => {
+    const k = GRIPS[kind] ?? 0.2;
+    if (side !== 'left') joints.curlL?.(k);
+    if (side !== 'right') joints.curlR?.(k);
+  };
+  // idle(t, walk, phase): breathing and a hand-held sway on the root that hangs on the camera, plus a step bob when walk > 0
+  // (phase in radians from the caller's walk, or from t). Offsets stay under 2 cm and never move the hands toward the lens.
+  const idle = (t, walk = 0, phase = t * 7) => {
+    const w = Math.max(0, Math.min(1, walk));
+    root.position.set(Math.sin(t * 0.9) * 0.003 + Math.cos(phase * 0.5) * 0.008 * w, Math.sin(t * 1.3) * 0.004 - Math.abs(Math.sin(phase * 0.5)) * 0.012 * w, 0);
+    root.rotation.set(Math.sin(t * 0.8 + 1) * 0.004, 0, Math.sin(t * 0.6) * 0.006 + Math.sin(phase * 0.5) * 0.01 * w);
+  };
+  return { root, joints, grip, idle };
 }

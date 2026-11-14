@@ -27,7 +27,7 @@ export function createSecrets(bus, { world, render, interaction, inventory, prog
     progression.flag('cracha');
     dress(); S.p = 0; player.st.liftTo = 0;
     bus.emit('inventory:add', { item: 'cracha' });
-    bus.emit('sfx', 'frasco', {});
+    bus.emit('sfx', 'frasco', {}); bus.emit('sfx', 'cracha_pega', {});
     bus.emit('secret:found', 's2');
     bus.emit('hint', 'Um crachá velho, preso por um cordão. O rosto da foto está apagado. No bolso.');
   }

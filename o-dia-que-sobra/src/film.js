@@ -56,7 +56,7 @@ export function manifest() {
 }
 
 /** Long sounds that keep going across a cut: a stretch that starts inside them gets the rest of them (`opts.offset`). */
-const BEDS = new Set(['rodovia', 'insetos', 'vento', 'fluorescente', 'geladeira', 'motor_carro', 'bomba_corre', 'telefone_toca', 'chuva', 'estatica_camera', 'respiracao', 'coracao', 'sol_presenca']);
+const BEDS = new Set(['rodovia', 'insetos', 'vento', 'fluorescente', 'geladeira', 'motor_carro', 'bomba_corre', 'telefone_toca', 'chuva', 'estatica_camera', 'respiracao', 'coracao', 'sol_presenca', 'amanhecer', 'rua_noite', 'casa_tom', 'farmacia_ar']);
 
 /**
  * The sound events of a shot from view `from` to view `to` (the same stretch `shot()` plays) of one cutscene.

@@ -1,7 +1,7 @@
 import { createAudio, createAudioContext, NAMES, LOOP_ONLY } from '../src/audio/index.js';
 const $ = (id) => document.getElementById(id);
 const log = (s) => { $('log').textContent = s + '\n' + $('log').textContent.slice(0, 1500); };
-const LOOPS = ['fluorescente', 'rodovia', 'insetos', 'vento', 'geladeira', 'motor_carro', 'bomba_corre', 'chuva', 'sol_presenca', 'telefone_toca', 'estatica_camera', 'respiracao', 'coracao', 'zumbido_ouvido'];
+const LOOPS = ['fluorescente', 'rodovia', 'insetos', 'vento', 'geladeira', 'motor_carro', 'bomba_corre', 'chuva', 'sol_presenca', 'telefone_toca', 'estatica_camera', 'respiracao', 'coracao', 'zumbido_ouvido', 'rua_noite', 'casa_tom', 'farmacia_ar', 'amanhecer'];
 let ctx, audio; const running = {};
 function ensure() { if (audio) return; ctx = createAudioContext(); audio = createAudio(ctx); window.audio = audio; window.ctx = ctx; ctx.resume(); log('sr ' + ctx.sampleRate); }
 const pos = () => ($('spatial').checked ? { pos: [2, 1.5, -1] } : {});

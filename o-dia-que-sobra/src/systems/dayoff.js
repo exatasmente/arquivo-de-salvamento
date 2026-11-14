@@ -50,7 +50,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
   loadText().catch(() => {});   // warm up; start() waits for it anyway
 
   let active = false, casa = null, casaSeed = null, player = null, interaction = null, seed = 1, rand = mulberry32(1);
-  let clock = 0, wallet = 0, info = null, sanidade = 100, sleeping = null, fadeIn = 1, busy = false;
+  let clock = 0, wallet = 0, info = null, sanidade = 100, sleeping = null, fadeIn = 1, busy = false, pharmLoop = false;
   let contas = [], heard = new Set(), recados = [], compras = { remedio: 0, pilha: 0 };
   let hidden = [], timers = [], ring = null, lastObj = '', sayN = 0, ended = false;
   const doorTarget = {}, doorWait = {}, doorState = {};
@@ -90,7 +90,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     if (unheard().length) falta.push(o.recados);
     if (!visitedPharmacy) falta.push(o.farmacia);
     falta.push(o.cama);
-    return falta.length === 1 ? `${money(wallet * 100)} · ${o.tudo}` : `${money(wallet * 100)} · ${fill(o.falta, { lista: falta.join(' · ') })}`;
+    return falta.length === 1 ? `${money(wallet * 100)} · ${o.tudo}` : `${money(wallet * 100)} · ${fill(o.falta, { lista: falta.join(', ') })}`;
   }
   let visitedPharmacy = false;
 
@@ -114,7 +114,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     for (const id of Object.keys(casa.doors)) {
       const col = casa.doors[id].collider;
       const inFrame = g.x > col.min[0] - 0.7 && g.x < col.max[0] + 0.7 && g.z > col.min[2] - 0.7 && g.z < col.max[2] + 0.7;
-      if ((doorTarget[id] ?? 0) < 0.5 && inFrame) { doorTarget[id] = 1; doorWait[id] = true; sfx('porta_abre'); }
+      if ((doorTarget[id] ?? 0) < 0.5 && inFrame) { doorTarget[id] = 1; doorWait[id] = true; sfx(id === 'portaFarmacia' ? 'farmacia_sino' : 'porta_abre', id === 'portaFarmacia' ? { pos: [16.5, 1.1, 5.5] } : {}); }
       else if (doorWait[id] && !inFrame) { doorTarget[id] = 0; doorWait[id] = false; sfx('porta_fecha'); }
       const cur = doorState[id] ?? 0, tg = doorTarget[id] ?? 0;
       doorState[id] = cur + Math.sign(tg - cur) * Math.min(Math.abs(tg - cur), dt * 2.2);
@@ -126,6 +126,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
   // ------------------------------------------------------------------ what each thing does
   function openBills() {
     const t = T().mesa;
+    sfx('papel_folha');
     if (!contas.length) { self(t.vazia); return; }
     ui.menu({
       title: t.titulo, lines: () => [fill(t.linha, { carteira: money(wallet * 100) })],
@@ -149,10 +150,11 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     if (!list.length) { self(t.sem); return; }
     busy = true;
     ring = null;
-    sfx('telefone_atende');
+    sfx('secretaria_inicio', { pos: [3.95, 0.8, 0.88] });
     for (const m of list) {
       const n = recados.indexOf(m) + 1;
       sfx('tecla');
+      sfx('secretaria_fita', { pos: [3.95, 0.8, 0.88], opts: { dur: Math.max(2, m.texto.length * 0.06), ...(m.de === 'gerente' ? { estranho: true } : {}) } });
       await ui.dialogue(`${t[m.de]} · ${fill(t.recado, { n, hora: m.hora })}`, [m.texto], m.de === 'gerente' ? 7 : 3 + n);
       heard.add(m.id);
       if (m.evento) {
@@ -160,7 +162,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
         bus.emit('dayoff:event', { id: m.evento, week: info.week });
       }
     }
-    sfx('telefone_desliga');
+    sfx('secretaria_fim', { pos: [3.95, 0.8, 0.88] });
     busy = false;
   }
 
@@ -183,7 +185,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     if (!transact('money:spend', { valor: P[item], item })) { ui.toast(t.recusa); sfx('erro'); return; }
     compras[item]++;
     bus.emit('inventory:add', { item });
-    sfx('moeda'); ui.toast(t.comprou[item]);
+    sfx('moeda'); sfx('sacola'); ui.toast(t.comprou[item]);
   }
 
   function openBed() {
@@ -194,7 +196,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
       onBack: () => ui.closeModal(),
     });
   }
-  function goSleep() { sleeping = { t: 0 }; interaction.cancel(); self(T().dormir); }
+  function goSleep() { sleeping = { t: 0 }; interaction.cancel(); self(T().dormir); sfx('cama_deita', { pos: [1, 0.5, 1.4] }); sfx('sono_pesado', { opts: { dur: 3 } }); }
 
   function end() {
     if (ended) return;
@@ -229,7 +231,7 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
         tap: () => { setDoor(id, doorTarget[id] > 0.5 ? 0 : 1); sfx(doorTarget[id] > 0.5 ? 'porta_abre' : 'porta_fecha'); },
       });
     }
-    reg('vara', { label: () => L.vara, tap: () => { const l = T().vara[wk]; self(l[thoughtN++ % l.length]); } });
+    reg('vara', { label: () => L.vara, tap: () => { sfx('vara_pega', { pos: [9.1, 1, 2.6] }); const l = T().vara[wk]; self(l[thoughtN++ % l.length]); } });
     reg('janela', { label: () => L.janela, tap: () => { const l = T().janela; self(l[windowN++ % l.length]); } });
     const sticker = wk >= 3;
     reg('geladeira', {
@@ -273,8 +275,10 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     active = true;
     input.setMode('play', r.canvas); if (input.device() !== 'touch') input.lock();
     ui.hideHud(false); ui.setTotal(null); ui.toggleSheet(false);
-    bus.emit('loop', 'dayoff:insetos', 'insetos', { gain: 0.45 });
-    bus.emit('loop', 'dayoff:geladeira', 'geladeira', { gain: 0.5 });
+    bus.emit('loop', 'dayoff:insetos', 'insetos', { pos: [6, 1.5, 5.5], gain: 1.5 });
+    bus.emit('loop', 'dayoff:geladeira', 'geladeira', { pos: [8.7, 1, 1.55], gain: 2 });
+    bus.emit('loop', 'dayoff:rua', 'rua_noite', { pos: [6, 1.5, 5.5], gain: 1.4 });
+    bus.emit('loop', 'dayoff:tom', 'casa_tom', { gain: 1 });
     after(1.2, () => self(pick(T().acorda)));
     after(4.2, () => ui.toast(T().dica[input.device()] || T().dica.keyboard));
     const tr = T().regras.toca;
@@ -283,11 +287,11 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
   }
   function cleanup() {
     if (!active) return;
-    active = false;
+    active = false; pharmLoop = false;
     for (const c of hidden) c.visible = true;
     hidden = [];
     if (casa) r.scene.remove(casa.group);
-    for (const id of ['dayoff:insetos', 'dayoff:geladeira']) bus.emit('loop', id, null, { on: false });
+    for (const id of ['dayoff:insetos', 'dayoff:geladeira', 'dayoff:rua', 'dayoff:tom', 'dayoff:farmacia']) bus.emit('loop', id, null, { on: false });
     ui.setObjective(null); ui.setPrompt?.(null);
     if (interaction) interaction.cancel();
     if (ui.modalOpen) ui.closeModal();
@@ -304,6 +308,8 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
   }
   function stepScene(dt) {
     stepDoors(dt);
+    const inPharm = casa.areaAt(player.st.x, player.st.z)?.id === 'farmacia';
+    if (inPharm !== pharmLoop) { pharmLoop = inPharm; bus.emit('loop', 'dayoff:farmacia', inPharm ? 'farmacia_ar' : null, inPharm ? { pos: [16.2, 1.5, 3.4], gain: 1.5 } : { on: false }); }
     casa.update(clock, sceneState());
   }
 
@@ -339,6 +345,8 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
 
   return {
     start, stop, update, draw, end,
+    /** The clock of the house, HH:MM (the wall clock the scene shows). */
+    get clock() { const R = T().regras, h = Math.min(R.horaMaxima, R.horaInicial + clock / R.segundosPorHora), hh = Math.floor(h) % 24; return `${String(hh).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`; },
     get active() { return active; }, get seed() { return seed; }, get scene() { return casa?.group || null; }, get casa() { return casa; }, get player() { return player; }, get interaction() { return interaction; },
     get state() { return { wallet, contas: contas.map((c) => ({ ...c })), recados: unheard().length, compras: { ...compras }, sanidade, week: info?.week, clock }; },
   };

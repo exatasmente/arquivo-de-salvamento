@@ -625,7 +625,7 @@ const DEFS = {
       leaves.push({ piv, sx });
     }
     const st = { open: 0 };
-    const setOpen = (k) => { st.open = Math.max(0, Math.min(1, k)); for (const { piv, sx } of leaves) piv.rotation.y = -sx * 1.9 * st.open; };
+    const setOpen = (k) => { st.open = Math.max(0, Math.min(1, k)); for (const { piv, sx } of leaves) piv.rotation.y = -sx * 1.9 * st.open * st.open * (3 - 2 * st.open); };
     setOpen(o.open ?? 0);
     return { setOpen, get open() { return st.open; }, doors: leaves.map((l) => l.piv), shelfAt: [-0.2, 1.46, -Dp / 2 + t + 0.1] };
   },
@@ -914,10 +914,18 @@ const DEFS = {
     c.box([0.04, 0.12, 0.03], M.gray, [0, 2.2, 0]);
     const piv = new T.Group(); piv.position.set(0, 2.14, 0); c.dyn.add(piv);
     c.mesh(new T.ConeGeometry(0.05, 0.08, 6), D('#c8a040', 'steel'), [0, -0.06, 0], [0, 0, 0], piv);
-    c.mesh(new T.SphereGeometry(0.012, 4, 3), M.dark, [0, -0.11, 0], [0, 0, 0], piv);
-    return { pivot: piv, update: (t, st) => {
+    // the clapper hangs from its own pivot and lags behind the bell: it swings a little later and a little wider
+    const clap = new T.Group(); clap.position.set(0, -0.09, 0); piv.add(clap);
+    c.mesh(new T.SphereGeometry(0.012, 4, 3), M.dark, [0, -0.02, 0], [0, 0, 0], clap);
+    return { pivot: piv, clapper: clap, update: (t, st) => {
       const t0 = st?.sino; const age = t0 === undefined || t0 === null ? 99 : t - t0;
-      piv.rotation.z = age >= 0 && age < 2.5 ? Math.sin(age * 28) * 0.5 * Math.exp(-age * 1.8) : 0;
+      const ring = age >= 0 && age < 2.5 ? Math.exp(-age * 1.8) : 0;
+      // the shop door jingles it while it moves (peak in the middle of the swing), on top of the rung bell
+      const dk = st?.doors?.['porta-loja'] ?? 0, move = 4 * dk * (1 - dk);
+      piv.rotation.z = ring ? Math.sin(age * 28) * 0.5 * ring : 0;
+      piv.rotation.x = ring ? Math.sin(age * 23 + 1.3) * 0.16 * ring : 0;
+      piv.rotation.z += Math.sin(t * 26) * 0.14 * move;
+      clap.rotation.z = (ring ? Math.sin(age * 28 - 0.9) * 0.9 * ring : 0) + Math.sin(t * 26 - 0.9) * 0.3 * move;
     } };
   },
 
@@ -947,7 +955,20 @@ const DEFS = {
     const hit = c.hit([w, h, 0.2], [0, h / 2, 0], o.id ?? 'porta', 'porta'); hit.visible = true;
     // `sticker`: a Sun sticker on each face of the leaf (hidden), turning with it
     const sticker = o.sticker && kind !== 'vidro' ? [sunDecal(c, 0.2, [-hl * w / 2, 1.5, 0.031], [0, 0, 0], piv), sunDecal(c, 0.2, [-hl * w / 2, 1.5, -0.031], [0, Math.PI, 0], piv)] : [];
-    return { pivot: piv, leaf, hit, w, h, sticker, setOpen: (k) => { piv.rotation.y = -hl * sw * 1.65 * k; } };
+    // the leaf follows a curve rather than the linear 0..1 the systems send: slow start, a small overshoot when it
+    // reaches the stop (opening), a short hesitation just before the latch (closing). Pure function of k and of
+    // whether k last went up or down.
+    let last = 0, dir = 1;
+    const setOpen = (k) => {
+      const q = Math.max(0, Math.min(1, k));
+      if (q > last) dir = 1; else if (q < last) dir = -1;
+      last = q;
+      let a = q * q * (3 - 2 * q);
+      if (dir > 0) a += 0.05 * Math.sin(Math.PI * Math.max(0, Math.min(1, (q - 0.55) / 0.45)));
+      else a += 0.025 * Math.sin(Math.PI * Math.max(0, Math.min(1, q / 0.18)));
+      piv.rotation.y = -hl * sw * 1.65 * a;
+    };
+    return { pivot: piv, leaf, hit, w, h, sticker, setOpen };
   },
 
   pia(c) {
@@ -976,7 +997,7 @@ const DEFS = {
     const hit = c.hit([W, 1.9, 0.2], [0, 0.95, Dp / 2], o.id ?? 'cabine', 'esconderijo');
     const toilet = o.vaso !== false;
     if (toilet) { c.box([0.38, 0.4, 0.5], M.porcelain, [0, 0.2, -Dp / 2 + 0.35]); c.box([0.4, 0.4, 0.16], M.porcelain, [0, 0.6, -Dp / 2 + 0.1]); }
-    return { door, hit, setOpen: (k) => { door.rotation.y = -1.6 * k; } };
+    return { door, hit, setOpen: (k) => { const q = Math.max(0, Math.min(1, k)); door.rotation.y = -1.6 * q * q * (3 - 2 * q); } };
   },
 
   espelho(c, o) {

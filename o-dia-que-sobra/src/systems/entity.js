@@ -11,12 +11,20 @@
 //    locked from inside cuts the way: if the way through it is the short one it goes to the door and bangs on it for a few seconds,
 //    then goes round (the stock room has three doors and the back door) if there is a way round; if there is none it keeps
 //    banging and gives up after 20 s. The conditions and the states of the machine are the ones above; only the walking changed.
+//  - hunts (phase 6): in week 4 only, the Sun also comes on a schedule: 3 hunts a night at seeded times from 01:10 to 05:30. Weeks 2 and 3 keep the
+//    design's conditions (week 2 watches and never chases; week 3 approaches at sanity < 40 and chases at sanity < 20 or 60 s in the dark). A hunt is the same machine (observation, approach, chase) started by the clock and by where the player stands, so a
+//    player with a steady mind is hunted too. It is fair: it starts 15-30 m away, in the dark, it walks only when not looked at, it begins to run
+//    from 14 m or farther, it runs at 3.0 / 3.3 / 3.6 m/s (weeks 2 / 3 / 4) against the player's 3.6 m/s run, it knows where the player is for 6 s
+//    and then only what it hears or sees, and a toast says once what works (the light, a hiding place, a locked door). The ending 4 comes from
+//    being reached: stopping in the dark, hiding in sight, or running the wrong way.
 //  - hiding (esconderijo1..4 with E/A) works if it did not see the player go in; holding the breath (Space/X/button) when it passes near keeps it from hearing.
 import { buildEntity } from '../models/entity.js';
 import { mulberry32 } from '../rng.js';
 import { getNav } from './nav.js';
 
-export const LOCKABLE = { 'porta-estoque': 'estoque', 'porta-escritorio': 'escritorio', 'porta-estoque-escritorio': 'estoque' };
+/** Locking is by room, from inside: every door that gives access to the room is locked together (the stock room has three, the office two; they share one). */
+export const ROOM_DOORS = { estoque: ['porta-estoque', 'porta-estoque-escritorio', 'porta-estoque-servico'], escritorio: ['porta-escritorio', 'porta-estoque-escritorio'] };
+export const LOCKABLE = Object.fromEntries([...new Set(Object.values(ROOM_DOORS).flat())].map((d) => [d, Object.keys(ROOM_DOORS).filter((room) => ROOM_DOORS[room].includes(d))]));
 const HIDES = ['esconderijo1', 'esconderijo2', 'esconderijo3', 'esconderijo4'];
 
 export function createEntity(bus, { world, render, player, sanity, lighting, inventory, progression, time, interaction, ui, kit }) {
@@ -24,17 +32,28 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   const nav = getNav(world, player);
   const ent = buildEntity(render, { seed: 5, stage: 1 });
   ent.root.visible = false; render.scene.add(ent.root);
-  const S = { state: 'ausente', t: 0, cool: 20, pose: 'costas', since: 0, target: null, lockT: 0, darkT: 0, seenOnce: false, forced: false, sawEnter: false, black: 0, hidden: null, breath: 6, holding: false, near: 0, lastStep: 0, rng: mulberry32(9), stuck: 0, attackT: 0 };
+  const S = { doorT: 0, knockT: 0, hunts: null, hunt: null, aware: 0, huntN: 0, state: 'ausente', t: 0, cool: 20, pose: 'costas', since: 0, target: null, lockT: 0, darkT: 0, seenOnce: false, forced: false, sawEnter: false, black: 0, hidden: null, breath: 6, holding: false, near: 0, lastStep: 0, rng: mulberry32(9), stuck: 0, attackT: 0 };
   const locked = new Set();
   nav.setLocked(() => locked);
-  const BANG = 5;                 // seconds at a locked door before it goes round
+  const BANG = 20;                // seconds at a locked door before it goes round (or gives up: the design's 20 s)
   const nr = { goal: null, pts: null, i: 0, t: 0, sig: '', bang: 0, lockedDoor: null };
   const P = new THREE.Vector3(), v = new THREE.Vector3();
+  // by week: how long it watches before it starts to come (s), how fast it runs (m/s), how long it searches before it gives up (s)
+  const HUNT = { 3: { speed: 3.3, search: 14 }, 4: { watch: 5, speed: 3.6, search: 16, n: 3 } };
+  const huntCfg = () => (progression.st.week >= 4 ? HUNT[4] : HUNT[3]);
+  const chaseSpeed = () => (progression.st.week >= 2 ? huntCfg().speed : 3.3);
+  /** The night's hunts: seeded times between 01:10 and 05:30. Made at the first step of the night. */
+  function planHunts() {
+    S.hunts = []; S.hunt = null; S.huntN = 0;
+    const w = progression.st.week; if (w < 4) return;       // the design: week 4 hunts and attacks; weeks 2 and 3 only by their own conditions
+    const n = huntCfg().n, rng = mulberry32((progression.st.seed || 1) * 17 + progression.st.day * 5 + 3), a = 70, b = 330, seg = (b - a) / n;
+    for (let i = 0; i < n; i++) S.hunts.push({ at: Math.round(a + seg * i + rng() * seg * 0.7), done: false });
+  }
   const pos = ent.root.position;
   const dist = () => Math.hypot(pos.x - player.st.x, pos.z - player.st.z);
   const heard = [];   // { x, z, t }
   bus.on('noise', (lvl) => { if (S.hidden) return; if (lvl > 0) heard.push({ x: player.st.x, z: player.st.z, r: lvl >= 1 ? 16 : lvl >= 0.5 ? 7 : 2.5, t: 0 }); });
-  bus.on('sfx', (name, o = {}) => { if ((name === 'porta_abre' || name === 'porta_fecha') && o.pos) heard.push({ x: o.pos[0], z: o.pos[2], r: 20, t: 0, door: true }); });
+  bus.on('sfx', (name, o = {}) => { if ((name === 'porta_abre' || name === 'porta_fecha') && o.pos && !o.opts?.knock) heard.push({ x: o.pos[0], z: o.pos[2], r: 20, t: 0, door: true }); });
 
   const lit = (x, z) => lighting.litAt(x, z);
   const playerLit = () => lit(player.st.x, player.st.z) || (inventory.flash.on && inventory.flash.charge > 0);
@@ -55,10 +74,12 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
   /** Plans the way to (tx, tz): round the locked doors; if the short way is through one, go and bang on it first. */
   function plan(tx, tz) {
     nr.goal = { x: tx, z: tz }; nr.t = 1.5; nr.sig = lockSig(); nr.i = 0;
-    const free = nav.path(pos, nr.goal);
+    // a way that stops short of the goal (the room is sealed) is no way in
+    const reach = (w) => (w && w.length && Math.hypot(w[w.length - 1].x - tx, w[w.length - 1].z - tz) < 1.5 ? w : null);
+    const free = reach(nav.path(pos, nr.goal));
     const direct = locked.size ? nav.path(pos, nr.goal, { ignoreLocked: true }) : free;
     const through = direct && direct.find((p) => p.doors && p.doors.some((id) => locked.has(id)));
-    nr.lockedDoor = through ? through.doors.find((id) => locked.has(id)) : null;
+    nr.lockedDoor = through ? through.doors.find((id) => locked.has(id)) : null; nr.hasFree = Boolean(free);
     nr.pts = nr.lockedDoor && (nr.bang < BANG || !free) ? direct : (free || direct);
   }
   function walk(tx, tz, speed, dt) {
@@ -76,23 +97,26 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     moved = Math.hypot(pos.x - ox, pos.z - oz) > speed * dt * 0.3;       // sliding along a wall is not getting there
     for (const id of Object.keys(world.doors)) { const a = world.anchor(id); if (a && !locked.has(id) && Math.hypot(a.pos.x - pos.x, a.pos.z - pos.z) < 1.8 && !world.doorOpen(id)) world.setDoor(id, 1); }
     S.stuck = moved ? 0 : S.stuck + dt;
-    if (S.stuck > 0.3 && nr.lockedDoor) nr.bang += dt;       // at the locked door: knocking
+    if (S.stuck > 0.3 && nr.lockedDoor) {                    // at the locked door: knocking, with sound
+      nr.bang += dt; nr.knock = (nr.knock || 0) - dt;
+      if (nr.knock <= 0) { nr.knock = 1.1; const a = world.anchor(nr.lockedDoor); if (a) bus.emit('sfx', 'porta_fecha', { pos: a.pos.toArray(), gain: 1, opts: { knock: true } }); }
+    }
     ent.root.rotation.y = Math.atan2(wx, wz);
     return d;
   }
   function place(p) { pos.set(p.x, 0, p.z); ent.root.visible = true; }
-  function spawnFar(min, max) {
+  function spawnFar(min, max, needSight = true) {
     for (let i = 0; i < 20; i++) {
       const a = S.rng() * Math.PI * 2, d = min + S.rng() * (max - min), x = player.st.x + Math.cos(a) * d, z = player.st.z + Math.sin(a) * d;
       if (Math.abs(x) > 60 || Math.abs(z) > 50 || blockedE(x, z) || lit(x, z)) continue;
-      if (!kit.clear(P.set(x, 1.4, z), eye()) && min > 10) continue;
+      if (needSight && !kit.clear(P.set(x, 1.4, z), eye()) && min > 10) continue;
       return { x, z };
     }
     return null;
   }
   const say = (pose, since = 0) => { S.pose = pose; S.since = since; };
   function go(state) { nr.goal = null; nr.bang = 0; S.state = state; S.t = 0; bus.emit('entity:state', state); }
-  function fade() { go('sumindo'); say('sumir', 0); }
+  function fade() { go('sumindo'); say('sumir', 0); S.hunt = null; }
   const SOL = (n, pz, gain = 1) => bus.emit('sfx', n, { pos: [pz.x, 1.2, pz.z], gain, opts: n === 'sol_presenca' ? { dur: 3.5 } : undefined });
 
   function attack() {
@@ -104,6 +128,12 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     bus.emit('entity:attack');
   }
 
+  /** The chase starts: it knows where the player is for the first 6 s, then only what it hears and sees. */
+  function startChase() {
+    go('perseguicao'); S.target = { x: player.st.x, z: player.st.z }; S.aware = 6; S.search = 0; S.sweep = null;
+    sanity.add(S.hunt ? -4 : -20, 'perseguido'); say('correr'); bus.emit('entity:chase');
+    if (!progression.hasFlag('chase:hint')) { progression.flag('chase:hint'); bus.emit('hint', 'Ela corre. A luz a afasta: a loja, o escritório, a cobertura. Ou esconda-se.'); }
+  }
   function canAppear(ctx) { return (progression.st.week >= 2 || S.forced) && (ctx.danger >= 3 || S.forced); }
 
   function update(dt, simT, ctx) {
@@ -117,6 +147,13 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
       ent.root.visible = false;
       S.cool -= dt;
       if (ctx.sanity === 0 && S.t > 4 && !hidden()) { const p = spawnFar(6, 9); if (p) { place(p); go('perseguicao'); S.target = null; S.seenOnce = false; S.sure = true; say('correr'); } return; }
+      if (!S.hunts) planHunts();
+      const due = S.hunts.find((h) => !h.done && time.minutes >= h.at && time.minutes < h.at + 90);
+      for (const h of S.hunts) if (!h.done && time.minutes >= h.at + 90) h.done = true;       // a hunt that never found the player in a risk area is let go
+      if (due && S.cool <= 0 && !hidden() && ctx.danger >= 2) {
+        const p = spawnFar(15, 30) || spawnFar(15, 24, false);   // in sight if there is a place for it; else anywhere dark: it comes round the walls
+        if (p) { due.done = true; S.hunt = due; place(p); ent.setStage(Math.min(4, progression.st.week)); go('observacao'); say('observar'); S.seenOnce = false; S.huntN++; return; }
+      }
       if (S.cool <= 0 && ctx.sanity < 80 && canAppear(ctx) && S.rng() < dt * 0.06) {
         const p = spawnFar(15, 30); if (p) { place(p); ent.setStage(Math.min(4, progression.st.week)); go('observacao'); say('observar'); S.seenOnce = false; }
       }
@@ -133,18 +170,18 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     }
     if (lit(pos.x, pos.z) && !S.forcedLit) { fade(); return; }           // the strong light makes it go
     // seen: costs sanity once per appearance
-    if (vis && !S.seenOnce && d < 40) { S.seenOnce = true; sanity.add(-10, 'sol'); bus.emit('event:seen', 'sol'); }
+    if (vis && !S.seenOnce && d < 40) { S.seenOnce = true; sanity.add(S.hunt ? -6 : -10, 'sol'); bus.emit('event:seen', 'sol'); }
     if (S.state === 'observacao') {
       const flashHit = inventory.flash.on && inventory.flash.charge > 0 && player.forward().dot(v.set(pos.x - player.st.x, 1.2 - player.st.eye, pos.z - player.st.z).normalize()) > 0.93 && d < inventory.flash.range;
       if (flashHit || d < 8 || S.t > 28) { fade(); return; }
       if (S.t % 4 < dt) SOL('sol_presenca', pos, 0.6);
       ent.root.rotation.y = Math.atan2(player.st.x - pos.x, player.st.z - pos.z);
-      if (ctx.sanity < 40 && ctx.danger >= 3 && !playerLit() || S.forceApproach) go('aproximacao');
+      if (ctx.sanity < 40 && progression.st.week >= 3 && ctx.danger >= 3 && !playerLit() || S.forceApproach || (S.hunt && S.t > huntCfg().watch && ctx.danger >= 2)) go('aproximacao');
       return;
     }
     if (S.state === 'aproximacao') {
-      if (ctx.sanity < 20 || (S.darkT > 60 && progression.st.week >= 3)) { go('perseguicao'); S.target = null; sanity.add(-20, 'perseguido'); say('correr'); return; }
-      if (ctx.danger < 3 || playerLit() && !S.forceApproach) { if (S.t > 4) { fade(); return; } }
+      if (ctx.sanity < 20 || (S.darkT > 60 && progression.st.week >= 3) || (S.hunt && d < 14 && S.t > 3 && ctx.danger >= 2)) { startChase(); return; }
+      if (S.hunt ? ctx.danger < 2 : (ctx.danger < 3 || playerLit() && !S.forceApproach)) { if (S.t > 4) { fade(); return; } }
       if (vis) { say('olhando'); } else if (d > 3) { say('andar'); walk(player.st.x, player.st.z, 1.5, dt); if ((simT * 2 | 0) !== (S.lastStep | 0) && (S.lastStep = simT)) SOL('sol_passos', pos, 0.8); }
       if (d < 6 && S.t % 5 < dt) SOL('sol_respira', pos, 0.7);
       if (S.t > 70) fade();
@@ -155,14 +192,32 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
       for (const h of heard) if (Math.hypot(h.x - pos.x, h.z - pos.z) < h.r + 14 && Math.hypot(h.x - player.st.x, h.z - player.st.z) < h.r + 16) S.target = { x: h.x, z: h.z };
       if (inventory.flash.on && d < 26 && vis) S.target = { x: player.st.x, z: player.st.z };
       if (!hidden() && vis && d < 14 && playerLit()) { S.target = { x: player.st.x, z: player.st.z }; S.seesPlayer = true; } else S.seesPlayer = false;
+      if (S.aware > 0) { S.aware -= dt; if (!hidden()) S.target = { x: player.st.x, z: player.st.z }; }
       if (S.sure && !hidden()) S.target = { x: player.st.x, z: player.st.z };
       say('correr');
       if (S.target) {
-        const td = walk(S.target.x, S.target.z, 4.0, dt);
+        const td = walk(S.target.x, S.target.z, chaseSpeed(), dt);
         if ((simT * 3 | 0) !== (S.lastStep | 0) && (S.lastStep = simT)) SOL('sol_passos', pos, 1);
-        if (td < 0.6) { S.target = null; S.search = 0; }
-      } else { S.search = (S.search || 0) + dt; if (S.search > 8) { fade(); return; } say('observar'); }
-      // a locked door: it bangs on it for 20 s, then gives up
+        if (td < 0.6) { S.target = null; S.search = 0; S.sweep = null; }
+      } else {
+        // nobody there: it sweeps round the place it lost them, then gives up
+        S.search = (S.search || 0) + dt; if (S.search > (S.sure ? 20 : huntCfg().search) && S.doorT < 1) { fade(); return; }
+        say('observar');
+        if (S.doorT <= 0.5) {              // (at a locked door it stays and knocks instead)
+          if (!S.sweep || Math.hypot(S.sweep.x - pos.x, S.sweep.z - pos.z) < 0.8 || S.sweepT > 4) {
+            const a = S.rng() * Math.PI * 2, r = 3 + S.rng() * 4; S.sweep = { x: pos.x + Math.cos(a) * r, z: pos.z + Math.sin(a) * r }; S.sweepT = 0;
+          }
+          S.sweepT = (S.sweepT || 0) + dt; walk(S.sweep.x, S.sweep.z, 2.2, dt);
+        }
+      }
+      // a locked door: it bangs on it for 20 s, then goes round if there is another way in, else gives up
+      let atLocked = null;
+      for (const id of locked) { const a = world.anchor(id); if (a && Math.hypot(a.pos.x - pos.x, a.pos.z - pos.z) < 1.9) { atLocked = a; break; } }
+      if (atLocked) {
+        S.doorT += dt; S.knockT -= dt;
+        if (S.knockT <= 0) { S.knockT = 1.1; bus.emit('sfx', 'porta_fecha', { pos: atLocked.pos.toArray(), gain: 1, opts: { knock: true } }); }
+        if (S.doorT >= BANG) { fade(); return; }       // the door held 20 s: it gives up
+      } else S.doorT = Math.max(0, S.doorT - dt * 0.25);
       if (S.stuck > 0.5) { S.lockT += dt; if (S.lockT > 20) { S.lockT = 0; fade(); return; } } else S.lockT = Math.max(0, S.lockT - dt);
       // reaching the player
       if (d < 1.0 && !hidden() && ctx.sanity < 100) { attack(); return; }
@@ -170,7 +225,7 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
         if (S.sawEnter || (!S.holding && S.near > 1.4)) { attack(); return; }
         S.near = S.holding ? 0 : S.near + dt;
       } else S.near = 0;
-      if (S.t > 120) fade();
+      if (S.t > 75) fade();
       return;
     }
   }
@@ -219,25 +274,31 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     tap: () => leaveHide(),
   });
   // ---------------------------------------------------------------- locking the doors of the stock room and the office (from inside)
-  const roomOf = (id) => LOCKABLE[id];
+  const lockedRooms = new Set();
+  const here = () => world.areaAt(player.st.x, 1, player.st.z)?.id;
+  const syncLocks = () => { locked.clear(); for (const room of lockedRooms) for (const d of ROOM_DOORS[room]) locked.add(d); };
   for (const id of Object.keys(LOCKABLE)) {
     interaction.register({
       id: 'trancar-' + id, reach: 2.4, priority: 1,
       aim: () => ({ box: world.aimBox(id, 0.1) }),
-      enabled: () => !world.doorOpen(id) && (locked.has(id) || S.state !== 'ausente' && (world.areaAt(player.st.x, 1, player.st.z)?.id === roomOf(id))),
-      label: () => (locked.has(id) ? { text: 'Destrancar a porta' } : { text: 'Trancar a porta, por dentro' }),
+      enabled: () => !world.doorOpen(id) && (locked.has(id) || S.state !== 'ausente' && LOCKABLE[id].includes(here())),
+      label: () => (locked.has(id) ? { text: 'Destrancar o cômodo' } : { text: 'Trancar o cômodo, por dentro' }),
       tap: () => {
-        if (locked.has(id)) { locked.delete(id); bus.emit('sfx', 'disjuntor', {}); bus.emit('hint', 'Porta destrancada.'); }
-        else { locked.add(id); bus.emit('sfx', 'disjuntor', {}); bus.emit('hint', 'Porta trancada. Ela segura, mas não para sempre.'); }
+        const room = LOCKABLE[id].includes(here()) ? here() : LOCKABLE[id].find((q) => lockedRooms.has(q)) || LOCKABLE[id][0];
+        if (lockedRooms.has(room)) { lockedRooms.delete(room); syncLocks(); bus.emit('sfx', 'disjuntor', {}); bus.emit('hint', 'Cômodo destrancado.'); }
+        else {
+          lockedRooms.add(room); for (const d of ROOM_DOORS[room]) world.setDoor(d, 0);      // every way in shuts
+          syncLocks(); bus.emit('sfx', 'disjuntor', {}); bus.emit('hint', 'Cômodo trancado, todas as portas. Ela bate por uns 20 s e desiste.');
+        }
       },
     });
   }
   return {
-    S, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = null; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
+    S, nr, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = state === 'perseguicao' ? { x: player.st.x, z: player.st.z } : null; S.aware = state === 'perseguicao' ? 6 : 0; S.search = 0; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
     /** The Sun reaches the player now (the last night's call answered by going outside): the silent cut and the black, as in any attack. */
     catchNow() { if (S.state === 'ataque') return; if (S.hidden) leaveHide(); ent.setStage(4); attack(); },
     leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; },
-    reset() { S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
+    reset() { S.doorT = 0; S.hunts = null; S.hunt = null; S.aware = 0; S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; lockedRooms.clear(); lockedRooms.clear(); locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
     darkTick(dt, inRiskDark) { S.darkT = inRiskDark ? S.darkT + dt : Math.max(0, S.darkT - dt); },
   };
 }

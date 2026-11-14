@@ -25,6 +25,7 @@ import { createCameras } from './systems/cameras.js';
 import { createMedication } from './systems/medication.js';
 import { createCampaign } from './systems/campaign.js';
 import { createSecrets } from './systems/secrets.js';
+import { createGoals } from './systems/goals.js';
 import { mulberry32 } from './rng.js';
 import { createCoffee } from './systems/coffee.js';
 import { createMirror } from './systems/mirror.js';
@@ -37,8 +38,17 @@ import { money } from './util.js';
 
 export const DT = 1 / 60;
 const OPT_KEY = 'o-dia-que-sobra.opts';
+const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1 };
+const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5] };
+/** The player's options: one key of their own in this browser (never in the memory card). A value out of range falls back to the default. */
 export function loadOpts() {
-  try { return { reduceFlash: false, mute: false, ...JSON.parse(localStorage.getItem(OPT_KEY) || '{}') }; } catch { return { reduceFlash: false, mute: false }; }
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch { o = {}; }
+  const out = { ...OPT_DEFAULT };
+  for (const k of Object.keys(OPT_DEFAULT)) {
+    if (typeof o[k] === typeof OPT_DEFAULT[k] && (!OPT_STEPS[k] || OPT_STEPS[k].some((v) => Math.abs(v - o[k]) < 1e-6))) out[k] = o[k];
+  }
+  return out;
 }
 const saveOpts = (o) => { try { localStorage.setItem(OPT_KEY, JSON.stringify(o)); } catch { /* private mode */ } };
 
@@ -93,6 +103,7 @@ export async function createGame({ root, render, input, params }) {
   const save = createSaveSystem(bus, { progression, storage: (params.debug || Object.keys(dbg).length) ? debugStorage() : undefined });
   const cash = createCash(bus, { items: data.items });
 
+  applyOpts();
   let lastDevice = 'keyboard', tick = 0, simT = 0, state = 'title', modalCount = 0, lastPauseAt = -1e9, nightSeedNow = 1;
   const glyph = (k) => ({ tap: { keyboard: 'E', gamepad: 'A', touch: 'TOQUE' }, hold: { keyboard: 'SEGURE E', gamepad: 'SEGURE A', touch: 'SEGURE' } }[k][input.device()] || 'E');
   let fx = sanity.fx(0);
@@ -116,8 +127,8 @@ export async function createGame({ root, render, input, params }) {
       cal: progression.calendar(), weekNow: progression.st.weekPts + progression.night.pontos, meta: progression.weekRules().meta,
       tasks: tasks.list, perf: progression.night, undone: tasks.undone(),
       blank: medication.active('concentracao') && Math.floor(simT / 7) % 2 === 1, mind: fx.mind,
-      orders: [...customers.list.filter((c) => c.kind === 'car' && c.ordered && !c.done).map((c) => `Bomba ${c.pump}: ${money(c.value)}`),
-        ...customers.list.filter((c) => c.kind === 'walk' && !c.done).flatMap((c) => c.prods.filter((p) => p.atras && !p.done).map((p) => `Balcão: ${p.nome} (prateleira atrás do balcão)`))],
+      orders: goals.orders(), goalKey: goals.key,
+      pickHint: { keyboard: 'Tab escolhe o objetivo', gamepad: '\u25C4 \u25BA escolhe o objetivo', touch: 'toque numa linha para marcar' }[input.device()] || '',
       fuels: Object.values(data.items.combustiveis).map((f) => ({ nome: f.nome, cor: f.cor })),
     }),
     inventory: () => ({ slots: inventory.slots, sel: inventory.sel, flash: inventory.flash }),
@@ -143,6 +154,7 @@ export async function createGame({ root, render, input, params }) {
   const tasks = createTasks(bus, { world, render, interaction, inventory, progression, player, data, time, cash });
   const chores = createChores(bus, { world, render, interaction, inventory, progression, player, data, tasks, customers });
   tasks.attach(chores, customers); customers.attach(chores);
+  const goals = createGoals(bus, { world, render, player, tasks, customers, chores, inventory, progression, ui, lastNight: rules.campanha.ultimaNoite });
   const office = createOffice(bus, { world, render, interaction, ui, time, progression, tasks, cash, data, inventory });
   const cameras = createCameras(bus, { render, world, ui, time, sanity, input, data, player, interaction, office, lighting, progression });
   const dialogue = (who, lines, seed) => ui.dialogue(who, lines, seed);
@@ -156,7 +168,7 @@ export async function createGame({ root, render, input, params }) {
   bus.on('sanity:add', (d, why) => sanity.add(d, why));
   const campaign = createCampaign(bus, { progression, sanity, entity, ui, save, secrets, rules, data, hooks: {
     startNight: (day) => startNight(day, false, false, true), showTitle: () => showTitle(), seed: () => baseSeed, playing: () => state === 'play',
-    enterDayOff, leaveDayOff, newGame: () => { save.wipe(); startNight(1, !params.skiptutorial, false); }, continueRun: () => continueRun(),
+    enterDayOff, leaveDayOff, newGame: () => { save.wipe(); newCampaign(); }, continueRun: () => continueRun(),
   } });
   const events = await createEvents(bus, { world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
   const shift = createShift(bus, { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
@@ -164,7 +176,12 @@ export async function createGame({ root, render, input, params }) {
   bus.on('hint', (t) => ui.toast(t));
   bus.on('shift:closed', (summary, week, choice) => campaign.onClosed(summary, week, choice));
   bus.on('time:hour', () => ui.setCalendar(calText()));
-  bus.on('shift:open', () => ui.setCalendar(calText()));
+  bus.on('time:minute', () => { if (state === 'play') ui.setClock(time.text()); });
+  bus.on('shift:open', () => { ui.setCalendar(calText()); ui.setClock(time.text()); });
+  // what the hands hold and how to let go of it, on the screen, for the device in use
+  const DROPPABLE = new Set(['caixa', 'limpeza', 'escada', 'saco']);
+  const dropText = () => ({ keyboard: 'Soltar: E em lugar vazio', gamepad: 'Soltar: A em lugar vazio', touch: 'Soltar: toque em lugar vazio' }[input.device()] || 'Soltar: E em lugar vazio');
+  bus.on('carry', (c) => ui.setCarryHint(c && DROPPABLE.has(c.kind) ? dropText() : null));
   bus.on('interact:none', () => { if (inventory.drop()) return; if (inventory.selectedItem()) inventory.useSelected(); });
   bus.on('inventory:change', () => ui.showInventory());
   bus.on('sanity:stage', (s) => { if (s >= 2 && !opts.reduceFlash) bus.emit('sfx', 'coracao', { gain: 0.5 }); });
@@ -178,7 +195,7 @@ export async function createGame({ root, render, input, params }) {
   }
   function showTitle() {
     state = 'title'; shift.abort(); audioSys.stopAmbient();
-    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null);
+    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null);
     input.setMode('ui', render.canvas);
     campaign.reset(); leaveDayOff(true);
     save.card.reload();
@@ -187,41 +204,88 @@ export async function createGame({ root, render, input, params }) {
     const run = save.card.data.run;
     const items = [];
     if (hasRun) items.push({ label: () => (run.fase === 'folga' ? `CONTINUAR  (FOLGA, SEMANA ${progression.weekOf(run.day - 1)})` : run.fase === 'fim' ? 'CONTINUAR  (O FIM)' : `CONTINUAR  (SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day})`), act: () => continueRun() });
-    items.push({ label: () => (hasRun ? 'NOVO JOGO' : 'COMEÇAR'), act: () => (hasRun ? confirmNew() : startNight(1, !params.skiptutorial, false)) });
+    items.push({ label: () => (hasRun ? 'NOVO JOGO' : 'COMEÇAR'), act: () => (hasRun ? confirmNew() : newCampaign()) });
+    items.push({ label: () => 'OPÇÕES', act: () => optionsScreen(showTitle) });
     items.push({ label: () => 'CONTROLES', act: () => ui.controlsScreen(showTitle) });
     items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, showTitle) });
-    items.push(...optionItems(() => ui.redrawModal()));
     ui.menu({
       title: 'O DIA QUE SOBRA', subtitle: 'Posto Bom Dia · Um novo dia sempre começa com um sorriso!',
       lines: titleLines, items, foot: () => `Semente do jogo: ${baseSeed}  (?seed=N)`,
     });
   }
+  const HOW = { gamepad: 'Analógicos andam e olham · A usa · Start pausa', touch: 'Direcional anda · arraste olha · toque usa', keyboard: 'WASD anda · mouse olha · E usa · Esc pausa' };
   function titleLines() {
-    const d = input.device();
-    const how = d === 'gamepad' ? 'Controle: analógicos andam e olham · A usa · segure A para manipular · Y lanterna · Select prancheta'
-      : d === 'touch' ? 'Toque: direcional à esquerda anda · arraste para olhar · toque no objeto usa · segure para manipular'
-        : 'Teclado: WASD anda · mouse olha · E usa (segure para manipular) · F lanterna · Q prancheta · Esc pausa';
-    return ['Você é o frentista da madrugada. Abasteça, atenda, reponha.', how];
+    return ['Você é o frentista da madrugada. Abasteça, atenda, reponha.', HOW[input.device()] || HOW.keyboard];
   }
-  function optionItems(redraw) {
-    return [
-      { label: () => `REDUZIR CLARÕES: ${opts.reduceFlash ? 'SIM' : 'NÃO'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); redraw(); } },
-      { label: () => `SOM: ${opts.mute ? 'NÃO' : 'SIM'}`, act: () => { audioSys.init(); audioSys.setMuted(!opts.mute); saveOpts(opts); redraw(); } },
+  /** The first minutes of a new game: what the buttons do, on the screen, for the device in the player's hands. */
+  function coachLines() {
+    const d = input.device();
+    if (d === 'gamepad') return ['Analógicos andam e olham · LB corre', 'A usa · segure A para manipular', 'Select prancheta · Y lanterna · Start pausa'];
+    if (d === 'touch') return ['Direcional anda · arraste a tela olha', 'Toque usa · toque e segure manipula', 'PRANCH. lista · LANT. lanterna'];
+    return ['WASD anda · mouse olha · Shift corre', 'Mire no ponto central: E usa, segure E manipula', 'Q prancheta · F lanterna · Esc pausa'];
+  }
+  /** Applies the options that something outside the menus depends on (the text size, the volume). */
+  function applyOpts() { root.style.setProperty('--ts', String(opts.text)); audioSys.setVolume(opts.volume); }
+  /** One setting that goes through a list of values: left/right (or a click) move along it. */
+  function stepper(key, label, fmt) {
+    const list = OPT_STEPS[key];
+    const move = (d) => {
+      const i = Math.max(0, list.findIndex((v) => Math.abs(v - opts[key]) < 1e-6));
+      opts[key] = list[Math.max(0, Math.min(list.length - 1, i + d))]; saveOpts(opts); applyOpts();      // it stops at the ends: 10 / 10 never falls to 0 / 0
+    };
+    return { label: () => `${label}:\u00A0\u2039\u00A0${fmt(opts[key]).replace(/ /g, '\u00A0')}\u00A0\u203A`, act: () => move(1), adj: move };
+  }
+  /** The options screen (from the title and from the pause): volume, how fast the view turns, fewer flashes, the size of the text. */
+  function optionsScreen(back) {
+    const items = [
+      stepper('volume', 'VOLUME', (v) => `${Math.round(v * 10)} / 10`),
+      { label: () => `SOM: ${opts.mute ? 'DESLIGADO' : 'LIGADO'}`, act: () => { audioSys.init(); audioSys.setMuted(!opts.mute); saveOpts(opts); } },
+      stepper('look', 'SENSIBILIDADE DO OLHAR', (v) => `${v}×`),
+      { label: () => `REDUZIR CLARÕES: ${opts.reduceFlash ? 'SIM' : 'NÃO'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); } },
+      stepper('text', 'TAMANHO DO TEXTO', (v) => (v === 1 ? 'NORMAL' : v === 1.25 ? 'GRANDE' : 'MAIOR')),
+      { label: () => 'VOLTAR', act: back },
     ];
+    items.forEach((it) => { if (it.adj) it.cls = 'adj'; });
+    return ui.menu({
+      title: 'OPÇÕES', items, onBack: back, cls: 'wide',
+      lines: ['Esquerda e direita mudam o valor. No toque, o lado esquerdo da linha abaixa e o resto sobe.', 'Reduzir clarões troca o que pisca por escurecimentos suaves.'],
+      foot: () => 'Ficam salvas neste navegador.',
+    });
   }
   function confirmNew() {
     ui.menu({
       title: 'NOVO JOGO', lines: ['Isto apaga a noite salva no cartão de memória. O resto do cartão fica.'],
-      items: [{ label: () => 'NÃO, VOLTAR', act: showTitle }, { label: () => 'SIM, APAGAR E COMEÇAR', act: () => { save.wipe(); startNight(1, !params.skiptutorial, false); } }],
+      items: [{ label: () => 'NÃO, VOLTAR', act: showTitle }, { label: () => 'SIM, APAGAR E COMEÇAR', act: () => { save.wipe(); newCampaign(); } }],
       onBack: showTitle,
     });
+  }
+  /** A new game: the arrival and the manager (skippable), then the first night. `?nointro` and `?skiptutorial` go straight to the night. */
+  async function newCampaign() {
+    audioSys.init();
+    const skip = params.skiptutorial || new URLSearchParams(location.search).has('nointro');
+    if (!skip) await playIntro();
+    startNight(1, !params.skiptutorial, false);
+  }
+  /** `chegada` then `gerente`. Holding Esc, Start or the PULAR button for a second skips what is playing and the rest of the intro. */
+  async function playIntro() {
+    state = 'cutscene'; time.pause(); shift.abort(); audioSys.stopAmbient();
+    ui.closeModal(); modalCount = 0; ui.hideHud(true); ui.toggleSheet(false);
+    input.setMode('ui', render.canvas);
+    try {
+      const cs = await import('./cutscenes/player.js');
+      cs.configureCutscenes({ render, audio: () => audioSys.audio, seed: baseSeed });
+      for (const name of ['chegada', 'gerente']) {
+        const info = await new Promise((res) => cs.playCutscene(name, { render, audio: () => audioSys.audio, seed: baseSeed, skippable: true, reduceFlash: opts.reduceFlash, onEnd: res }));
+        if (info?.skipped) break;
+      }
+    } catch (e) { console.warn('the intro did not play:', e.message); }
   }
   /** The title's "continue": the run says where it stopped (a night, the day off after a week, or the end that was being told). */
   function continueRun() {
     audioSys.init();
     save.card.reload();
     const run = save.card.data.run;
-    if (!run) { startNight(1, !params.skiptutorial, false); return; }
+    if (!run) { newCampaign(); return; }
     progression.fromRun(run);
     ui.closeModal(); modalCount = 0;
     if (campaign.resume(run)) return;
@@ -242,6 +306,7 @@ export async function createGame({ root, render, input, params }) {
     audioSys.startAmbient();
     entity.reset();
     shift.begin({ day, seed: nightSeedNow, tutorial: tutorial && !progression.st.tutorialDone, event: params.event || null });
+    if (tutorial && !progression.st.tutorialDone) ui.coach(coachLines(), 18); else ui.coach(null);
     if (params.sol) entity.force(params.sol, 2);
     if (dbg.sanity !== undefined && dbg.once) { sanity.reset(dbg.sanity, nightSeedNow); dbg.once = false; }
   }
@@ -252,13 +317,13 @@ export async function createGame({ root, render, input, params }) {
     state = 'pause'; time.pause();
     const back = () => { resume(); };
     const root_ = () => ui.menu({
-      title: 'PAUSA', foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()} · Semente ${nightSeedNow}`,
+      title: 'PAUSA', lines: ['Sair para o título perde a noite em andamento.'], foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()} · Semente ${nightSeedNow}`,
       items: [
         { label: () => 'CONTINUAR', act: back },
-        ...optionItems(() => ui.redrawModal()),
+        { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
         { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_) },
-        { label: () => 'SAIR PARA O TÍTULO (perde a noite)', act: () => { ui.closeModal(); showTitle(); } },
+        { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
       ],
       onBack: back,
     });
@@ -284,7 +349,7 @@ export async function createGame({ root, render, input, params }) {
   async function enterDayOff() {
     state = 'dayoff'; time.pause(); shift.abort(); audioSys.stopAmbient(); audioSys.init();
     ui.el.inv.hidden = true;
-    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.closeModal(); modalCount = 0;
+    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null); ui.closeModal(); modalCount = 0; ui.setCarryHint(null);
     input.setMode('play', render.canvas);
     if (!dayoffTried) {
       dayoffTried = true;
@@ -301,11 +366,12 @@ export async function createGame({ root, render, input, params }) {
     if (state !== 'dayoff' || ui.modalOpen) return;
     const back = () => ui.closeModal();
     const root_ = () => ui.menu({
-      title: 'PAUSA', foot: () => `Folga · semana ${progression.weekOf(progression.st.day)} · Semente ${baseSeed}`,
+      title: 'PAUSA', lines: ['Sair para o título guarda a folga: ela recomeça depois.'], foot: () => `Folga · semana ${progression.weekOf(progression.st.day)} · Semente ${baseSeed}`,
       items: [
-        { label: () => 'CONTINUAR', act: back }, ...optionItems(() => ui.redrawModal()),
+        { label: () => 'CONTINUAR', act: back },
+        { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
         { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
-        { label: () => 'SAIR PARA O TÍTULO (a folga recomeça depois)', act: () => { ui.closeModal(); showTitle(); } },
+        { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
       ],
       onBack: back,
     });
@@ -315,6 +381,7 @@ export async function createGame({ root, render, input, params }) {
   bus.on('dayoff:event', (e) => { if (e && e.id === 'secretaria') { progression.flag('secretaria'); progression.relatar('secretaria'); } });
   // without the day off's own file the week still turns: the sleep is counted as done
   bus.on('dayoff:start', (e) => {
+    ui.setCalendar(`FOLGA \u00B7 SEMANA ${e.week}`); ui.setClock(dayoff?.clock || null);
     if (dayoff) { dayoff.start({ ...e, seed: baseSeed * 100 + e.week }); return; }     // the day off starts from this event (its own contract: `start(info)`)
     if (dayoff === false && !globalThis.__odqDayoffStub) Promise.resolve().then(() => bus.emit('dayoff:end', { sanidade: Math.min(100, e.sanidade + 40) }));
   });
@@ -322,7 +389,7 @@ export async function createGame({ root, render, input, params }) {
   // the endings: the cutscene `final<id>` (src/cutscenes) when there is one, then `ending:done` and the screen of the ending
   bus.on('ending', async ({ id }) => {
     state = 'ending'; time.pause(); shift.abort(); audioSys.stopAmbient(); entity.reset();
-    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.closeModal(); modalCount = 0;
+    ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null); ui.closeModal(); modalCount = 0;
     input.setMode('ui', render.canvas);
     const done = () => bus.emit('ending:done', { id });
     let played = false;
@@ -348,23 +415,29 @@ export async function createGame({ root, render, input, params }) {
       if (p.k === 'esc') openPause();
       else if (p.k === 'flash') { inventory.toggleFlash(); ui.showInventory(); }
       else if (p.k === 'sheet') ui.toggleSheet();
-      else if (p.k === 'inv') { inventory.select(1); ui.showInventory(); }
-      else if (p.k === 'invNext') { inventory.select(1); ui.showInventory(); }
-      else if (p.k === 'invPrev') { inventory.select(-1); ui.showInventory(); }
+      // with the clipboard open the same keys choose the goal (Tab, the pad's left and right); closed, they choose what is in the hands
+      else if (p.k === 'inv' || p.k === 'invNext') { if (ui.sheetOpen) goals.cycle(1); else { inventory.select(1); ui.showInventory(); } }
+      else if (p.k === 'invPrev') { if (ui.sheetOpen) goals.cycle(-1); else { inventory.select(-1); ui.showInventory(); } }
       else if (p.k === 'crouch') player.toggleCrouch();
     }
   }
   function step(dt) {
     tick++;
     // the day off samples the input and runs its own modals and HUD (never two samples in a frame)
-    if (state === 'dayoff') { simT += dt; if (dayoff) { if (dayoff.update) dayoff.update(dt, simT); else dayoff.step?.(dt, simT); } return; }
+    if (state === 'dayoff') { simT += dt; if (tick % 20 === 0 && dayoff && dayoff.clock) ui.setClock(dayoff.clock); if (dayoff) { if (dayoff.update) dayoff.update(dt, simT); else dayoff.step?.(dt, simT); } return; }
     const intent = input.sample();
+    // a finger on the open clipboard marks a goal and does nothing else
+    if (ui.sheetOpen && intent.acts.length) {
+      intent.acts = intent.acts.filter((a) => { if (a.type !== 'down' || !a.screen) return true; const k = ui.sheetKeyAt(a.screen.x, a.screen.y); if (k === null) return true; if (k) goals.toggle(k); return false; });
+    }
+    if (opts.look !== 1) { intent.look.yaw *= opts.look; intent.look.pitch *= opts.look; }
     presses(intent.press);
     ui.update(dt);
     if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); }
     simT += dt;
+    if (state === 'play' && tick % 20 === 0) ui.setClock(time.text());
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
-    if (state === 'ending') return;
+    if (state === 'ending' || state === 'cutscene') return;
     if (state === 'title') { world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     if ((ui.modalOpen && !cameras.watching) || state !== 'play') { world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     fx = sanity.fx(simT);
@@ -400,11 +473,13 @@ export async function createGame({ root, render, input, params }) {
     ui.setFx({ vignette: fx.vignette, aimX: fx.aimX, aimY: fx.aimY, filter: fx.filter, lid: fx.lid, black: fx.black });
   }
   function draw() {
-    if (state === 'dayoff') { if (dayoff && dayoff.draw) dayoff.draw(); else render.draw(); return; }
-    if (state === 'ending') return;
+    if (state === 'dayoff') { goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false); if (dayoff && dayoff.draw) dayoff.draw(); else render.draw(); return; }
+    if (state !== 'play') goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false);
+    if (state === 'ending' || state === 'cutscene') return;
     const f = state === 'title' ? { roll: 0, fov: 0, shakeX: Math.sin(simT * 0.2) * 0.05, shakeY: 0 } : { roll: fx.roll, fov: fx.fov, shakeX: Math.sin(simT * 1.7) * fx.sway, shakeY: Math.sin(simT * 1.3) * fx.sway };
     if (state !== 'title') { f.shakeY = (f.shakeY || 0) + Math.sin(simT * 1.9) * fx.breath; f.droop = fx.droop; }
     player.apply(render.camera, simT, f);
+    if (state === 'play') goals.frame(0, simT, render.camera, { w: render.size.cssW, h: render.size.cssH }, true);
     mirror.draw();
     cameras.draw();
     render.draw();
@@ -429,7 +504,7 @@ export async function createGame({ root, render, input, params }) {
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
     bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, cameras, shift, save, ui, audioSys, data,
-    step, draw, showTitle, startNight, continueRun, openPause, resume,
+    goals, step, draw, showTitle, startNight, continueRun, openPause, resume,
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; },
   };
   return api;
