@@ -3,7 +3,7 @@
 //   - the left thumb, anywhere in the lower left: a stick is born there; pushed to its edge it runs;
 //   - a drag anywhere else looks (and the gyroscope, when on: tilt.js);
 //   - a short tap on the picture: hooks.tap(x, y) (the game uses the thing under the finger, or walks there);
-//   - two fingers tapping together: the flashlight; a swipe up from the bottom edge: the clipboard;
+//   - two fingers tapping together: the flashlight; a swipe up from the bottom edge, or the button in the lower corner opposite flashlight and crouch: the clipboard;
 //   - the actions of what is in front come as big buttons by the right thumb, and a marker over the thing
 //     (setActions); a hold action shows its ring;
 //   - in a hiding place (setHiding) the stick and the hand go, and the big button holds the breath.
@@ -37,6 +37,7 @@ export function mountMobile(root, hooks, options = {}) {
     <div class="m-mark" hidden><b></b><i></i></div>
     <div class="m-acts"></div>
     <div class="m-btns"><button type="button" data-k="flash" aria-label="Lanterna">◐<small>LANT.</small></button><button type="button" data-k="crouch" aria-label="Agachar">▾<small>AGACHAR</small></button></div>
+    <button type="button" class="m-sheetbtn" aria-label="Prancheta">▤<small>PRANCHETA</small></button>
     <button type="button" class="m-hand" hidden><i></i><span><b></b><small></small></span></button>
     <button type="button" class="m-pause" aria-label="Pausa">❚❚</button>
     <div class="m-walk" hidden></div>`;
@@ -141,6 +142,10 @@ export function mountMobile(root, hooks, options = {}) {
   }
   const back = $('.m-back');
   back.addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); hooks.press?.('sheet'); });
+  // the clipboard button, in the lower corner opposite the flashlight and crouch (the swipe up still opens it too)
+  const sheetBtn = $('.m-sheetbtn');
+  sheetBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); sheetBtn.classList.add('down'); hooks.press?.('sheet'); vibrate(8); });
+  for (const t of ['pointerup', 'pointercancel']) sheetBtn.addEventListener(t, () => sheetBtn.classList.remove('down'));
   $('.m-pause').addEventListener('pointerdown', (e) => { e.preventDefault(); hooks.used?.(); hooks.press?.('esc'); });
   // ---- the hand: a tap opens the pocket, a sideways slide changes the item ----
   let hx = null;
