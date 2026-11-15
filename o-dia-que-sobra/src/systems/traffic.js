@@ -24,6 +24,8 @@ const LOT_IN_X = -11.0, LOT_OUT_X = -14.3, LOT_TURN_Z = -16.0, LOT_BACK_Z = -18.
 export function createTraffic(bus, { world, render, player }) {
   const THREE = render.THREE;
   let navSys = null, navTried = false;
+  let wetK = 1;      // the weather's multiplier (weather:flow): in the rain the vehicles keep to a slower pace
+  bus?.on?.('weather:flow', (k) => { wetK = 0.82 + 0.18 * Math.max(0, Math.min(1, Number(k) || 1)); });
   /** The pedestrians a vehicle has to give way to (the nav system, found the first time it is needed). */
   const walkers = () => {
     if (!navTried && world.doors) { navTried = true; import('./nav.js').then((m) => { navSys = m.getNav(world, player); }).catch(() => {}); }
@@ -271,7 +273,7 @@ export function createTraffic(bus, { world, render, player }) {
       const remain = v.path.L - v.s;
       const ix = Math.min(v.path.xs.length - 1, Math.round(v.s / 0.35));
       const cruise = v.state === 'arriving' && v.s < 52 ? CRUISE : (v.state === 'leaving' && (v.path.xs[ix] > EXIT_X - 1 || v.lot) && v.path.zs[ix] < -26) ? CRUISE : LOT;
-      let target = cruise;
+      let target = cruise * wetK;
       if (v.path.rv && v.path.rv[Math.min(v.path.rv.length - 1, Math.round(v.s / 0.35))]) target = BACK;
       if (v.state === 'arriving') target = Math.min(target, Math.sqrt(2 * 2.2 * Math.max(0, remain)) + 0.4);
       const block = blockedBy(v);

@@ -24,6 +24,7 @@ export function createUI(root, api) {
         <div id="coach" hidden></div>
         <div id="toast" hidden></div>
       </div>
+      <div id="ncard" hidden><b></b><span></span></div>
       <div id="arrow" hidden><i></i></div>
       <div id="carryhint" hidden></div>
       <div id="prompt" hidden><b></b><span></span><em><i></i></em></div>
@@ -35,7 +36,7 @@ export function createUI(root, api) {
     <div id="dlg" hidden><div class="box"><b></b><p></p><small></small></div></div>
     <div id="modal" hidden></div>`);
   const $ = (s) => root.querySelector(s);
-  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), cal: $('#calhud'), goal: $('#goalhud'), arrow: $('#arrow'), carryhint: $('#carryhint'), prompt: $('#prompt'), choice: $('#choice'), toast: $('#toast'), coach: $('#coach'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
+  const el = { lid: $('#lid'), black: $('#black'), vig: $('#vig'), hud: $('#hud'), dot: $('#dot'), obj: $('#objective'), total: $('#total'), cal: $('#calhud'), goal: $('#goalhud'), arrow: $('#arrow'), carryhint: $('#carryhint'), prompt: $('#prompt'), choice: $('#choice'), toast: $('#toast'), ncard: $('#ncard'), coach: $('#coach'), say: $('#say'), inv: $('#invstrip'), sheet: $('#sheet'), dlg: $('#dlg'), modal: $('#modal') };
   const pk = { b: el.prompt.querySelector('b'), span: el.prompt.querySelector('span'), bar: el.prompt.querySelector('i'), em: el.prompt.querySelector('em') };
   let sheetOpen = false, trayOpen = false;
 
@@ -103,7 +104,12 @@ export function createUI(root, api) {
     if (!a) { el.arrow.hidden = true; return; }
     el.arrow.hidden = false; el.arrow.style.transform = `translate(${Math.round(a.x)}px, ${Math.round(a.y)}px) rotate(${a.rot.toFixed(3)}rad)`;
   }
-  let toastT = 0, coachT = 0;
+  let toastT = 0, coachT = 0, ncardT = 0;
+  /** The name of the night on opening it ("Noite 6 · O turno extra"), a few seconds over the picture, then it fades. */
+  function nightCard(title, sub = '', secs = 4.6) {
+    el.ncard.querySelector('b').textContent = title; el.ncard.querySelector('span').textContent = sub;
+    el.ncard.hidden = false; el.ncard.classList.remove('out'); ncardT = secs;
+  }
   function toast(t) { el.toast.textContent = t; el.toast.hidden = false; toastT = 2.6; }
   /** A line of teaching at the bottom of the picture (the first minutes of a new game); lines: [text]. Goes away by itself, or with coach(null). */
   function coach(lines, secs = 14) {
@@ -422,13 +428,15 @@ export function createUI(root, api) {
     el.sheet.dataset.tab = sheetTab;
     el.sheet.innerHTML = `<h3>PRANCHETA</h3><nav class="stabs">${tab('noite', 'NOITE')}${tab('semana', 'SEMANA')}${tab('bicos', 'BICOS')}</nav>
       <section class="s-semana s-noite"><div class="top"><b>${d.time}</b><span>Semana ${d.week} · ${esc(d.cal.dia)} · dia ${d.cal.calDay} de 28</span><span>Carteira <b>${money(d.wallet * 100)}</b></span></div>
+      ${d.sky ? `<div class="sky dim">${esc(d.sky.date)} · ${esc(d.sky.line)}</div>` : ''}
       </section><section class="s-semana"><div class="week"><span>${esc(d.cal.weekName)}</span><span>Meta da semana <b>${d.weekNow} / ${d.meta}</b></span><i><u style="width:${Math.round(Math.min(1, d.weekNow / d.meta) * 100)}%"></u></i></div></section>
       <section class="s-noite">${prepRows.length && !d.blank ? `<h4>Preparação <small class="pick">${esc(d.prep ? d.prep.replace('PREPARAÇÃO ', 'faltam ') : 'atrasada')}</small></h4><ul>${prepRows.map(line).join('')}</ul>` : ''}
       ${closeAll.length && !d.blank ? `<h4>Fechamento <small class="pick">${esc(d.closing ? d.closing.replace('FECHAMENTO ', 'faltam ') : 'atrasado')}</small></h4><ul>${closeRows.join('')}</ul>` : ''}
       <h4>Tarefas <small class="pick">${esc(d.pickHint || '')}</small></h4><ul>${tasks}${doneRows}</ul>${fin.length > 3 ? `<div class="dim">+ ${fin.length - 3} feitas antes</div>` : ''}
       ${orders ? `<h4>Pedidos</h4><ul>${orders}</ul>` : ''}</section>
       <section class="s-bicos"><h4>Bicos</h4><div class="fuels">${fuels}</div></section>
-      <section class="s-semana"><h4>Desempenho da noite</h4><div class="perf"><span>Atendimentos ${p.atendimentos}</span><span>Vendas ${p.vendas}</span><span>Abastec. ${p.abastecimentos}</span><span>Tarefas ${p.tarefas}</span><span>Pendentes ${d.undone ?? 0}</span><span>Erros ${p.erros}</span><span>Reclam. ${p.reclamacoes}</span><span>Divergência ${money(p.divergencia)}</span><span>Ocorrências ${p.ocorrencias}</span><b>Pontos ${p.pontos}</b></div></section>`;
+      <section class="s-semana"><h4>Desempenho da noite</h4><div class="perf"><span>Atendimentos ${p.atendimentos}</span><span>Vendas ${p.vendas}</span><span>Abastec. ${p.abastecimentos}</span><span>Tarefas ${p.tarefas}</span><span>Pendentes ${d.undone ?? 0}</span><span>Erros ${p.erros}</span><span>Reclam. ${p.reclamacoes}</span><span>Divergência ${money(p.divergencia)}</span><span>Ocorrências ${p.ocorrencias}</span><b>Pontos ${p.pontos}</b></div></section>
+      <section class="s-semana"><h4>O que aconteceu</h4><ul class="acontece">${(d.aconteceu || []).length ? d.aconteceu.map((l) => `<li>${esc(l)}</li>`).join('') : '<li class="dim">Nada que mude o rumo, por enquanto.</li>'}</ul></section>`;
   }
   let sheetTab = 'noite';
   /** The clipboard's tab on the phone ('noite' | 'semana' | 'bicos'). */
@@ -481,6 +489,7 @@ export function createUI(root, api) {
       if (n >= text.length) { dlg.done = true; dlg.s.textContent = `${api.glyph('tap')} continuar`; }
     }
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) el.toast.hidden = true; }
+    if (ncardT > 0) { ncardT -= dt; if (ncardT < 1.2) el.ncard.classList.add('out'); if (ncardT <= 0) el.ncard.hidden = true; }
     if (coachT > 0) { coachT -= dt; if (coachT <= 0) el.coach.hidden = true; }
     if (invT > 0) { invT -= dt; if (invT <= 0) el.inv.hidden = true; }
     if (sheetOpen && ((api.tick() % 30) === 0)) renderSheet();
@@ -651,7 +660,7 @@ export function createUI(root, api) {
     return false;
   }
   return {
-    el, setPrompt, setObjective, setTotal, setCalendar, toast, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, goalAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
+    el, setPrompt, setObjective, setTotal, setCalendar, toast, nightCard, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, goalAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
     toggleSheet, setSheetTab, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },

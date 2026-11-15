@@ -15,7 +15,7 @@ import { PREP_FROM } from './prep.js';
 const label = (v) => (v >= 100 ? `R$ ${v / 100}` : `${String(v).padStart(2, '0')} cent.`);
 
 export function createShift(bus, d) {
-  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep } = d, closeHour = d.closing;
+  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep, branches } = d, closeHour = d.closing;
   let open = false, closing = false, rng = mulberry32(1), counting = false, doubled = false;
   const lastNight = rules.campanha.ultimaNoite;
   const endMin = time.parse(rules.expediente.fim), noNewMin = time.parse(rules.expediente.semClientesApos);
@@ -64,6 +64,7 @@ export function createShift(bus, d) {
     });
     if (declared === null) { counting = false; return; }
     const res = cash.close(declared);
+    if (branches) await branches.cashGap(res);   // R3: the note that was not real (the difference is settled before it is counted against the night)
     progression.divergence(res.divergence);
     if (res.miscount) progression.countError();
     progression.st.night.caixa = declared;
@@ -107,6 +108,7 @@ export function createShift(bus, d) {
       narrative.begin({ tutorial });
       prep.begin({ tutorial, seed });
       events.schedule({ day, seed, force: event, tutorialDone: !tutorial });
+      branches?.beginNight(day);
       bus.emit('shift:open', day);
     },
     update() {},

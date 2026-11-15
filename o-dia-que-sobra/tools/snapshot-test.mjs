@@ -40,7 +40,7 @@ async function open(ctx, base, query, errs) {
   const page = await ctx.newPage(); page.__touch = /[?&]touch/.test(query);
   page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}`);
+  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}`);   // (a dry night unless the scenario asks for a weather)
   return page;
 }
 const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}${name}.png` }); };
@@ -397,6 +397,43 @@ async function sun(browser, base) {
   await ctx.close();
 }
 
+/** The weather and the moon of the night come back: a storm night (night 17), the bolts that had passed stay passed, the plan is the same value by value, and the flow of customers, the rain and the moon are what they were. */
+async function weather(browser, base) {
+  const tag = 'clima';
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, serviceWorkers: 'block', acceptDownloads: true });
+  const errs = [];
+  let page = await open(ctx, base, 'debug=day:17&manual&silent&skiptutorial&nointro&seed=1&wx=temporal', errs);
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await page.evaluate(toMidnight);
+  const READ = () => {
+    const G = window.__odq.game, W = G.weather, e = W.env(), sc = G.world.r.scene, flows = [];
+    return { state: JSON.parse(JSON.stringify(W.state())), kind: W.kind, rain: +e.rain.toFixed(3), wet: +e.wet.toFixed(3), cloud: +e.cloud.toFixed(3), moon: { lit: +W.moon.lit.toFixed(3), alt: +W.moon.alt.toFixed(1), age: +W.moon.age.toFixed(2) }, rainShown: sc.getObjectByName('rain').visible, line: W.line(), min: Math.round(G.time.minutes * 100) / 100, flows };
+  };
+  await page.evaluate(() => { const G = window.__odq.game; G.customers.clear(); G.customers.enable(false); G.time.setCap(361); G.time.skip(100 - G.time.minutes); for (let i = 0; i < 600; i++) G.step(1 / 60); });
+  await page.evaluate(`window.__read = ${READ.toString()}`);
+  const before = await page.evaluate(() => window.__read());
+  ok(before.kind === 'temporal' && before.state.idx > 0 && before.state.idx < before.state.plan.strikes.length && before.rain > 0.5, `${tag}: a storm night, ${before.state.idx} of ${before.state.plan.strikes.length} bolts already gone, rain ${before.rain} at ${before.min} min`);
+  await page.evaluate(() => window.__odq.game.openPause()); await clickText(page, 'SALVAR AGORA');
+  const savedSnap = await page.evaluate(() => { const c = JSON.parse(localStorage.getItem('o-dia-que-sobra.card.v1.debug')); return c.run?.snap?.weather ?? null; });
+  ok(savedSnap && savedSnap.plan?.kind === 'temporal' && savedSnap.idx === before.state.idx, `${tag}: the saved moment carries the weather (${savedSnap ? savedSnap.plan.kind + ', bolt ' + savedSnap.idx : 'nothing'})`);
+  await page.close();
+  page = await open(ctx, base, 'debug=load&manual&silent&nointro&seed=1&wx=limpo', errs);    // (a different `wx` on purpose: the saved night keeps its own weather)
+  await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
+  await clickText(page, 'CONTINUAR');
+  await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 30000 });
+  await page.evaluate(PRELOCK); await page.evaluate(`window.__read = ${READ.toString()}`);
+  await page.evaluate(() => { const G = window.__odq.game; G.customers.clear(); G.customers.enable(false); });
+  const after = await page.evaluate(() => { const G = window.__odq.game; G.step(1 / 60); return window.__read(); });
+  const d = diff({ ...before, min: 0, flows: 0, state: { ...before.state } }, { ...after, min: 0, flows: 0, state: { ...after.state } });
+  ok(d.length === 0, `${tag}: the plan of the bolts, the clouds, the rain, the wet ground and the moon are back, value by value${d.length ? '\n         ' + d.slice(0, 20).join('\n         ') : ''}`);
+  const flow = await page.evaluate(() => window.__odq.game.weather.flow);
+  ok(flow < 0.7, `${tag}: the flow of customers is lowered again after the restore (${flow})`);
+  const fired = await page.evaluate(() => { const G = window.__odq.game, log = G.audioSys.audio.log, n0 = log.filter((x) => x === 'trovao').length; let n = 0; while (log.filter((x) => x === 'trovao').length === n0 && n++ < 20000) G.step(1 / 60); return { idx: G.weather.state().idx, thunder: log.filter((x) => x === 'trovao').length - n0, seconds: Math.round(n / 60) }; });   // (the next bolt, and its thunder, late by the distance)
+  ok(fired.idx > after.state.idx && fired.thunder === 1, `${tag}: the plan goes on from there (bolt ${after.state.idx} -> ${fired.idx}, the thunder of the next one after ${fired.seconds} s)`);
+  ok(errs.length === 0, `${tag}: console clean${errs.length ? '\n' + errs.slice(0, 6).join('\n') : ''}`);
+  await ctx.close();
+}
+
 /** Chores of the night come back on the same target: a stain half cleaned (a spill), a tripped breaker, the squeegee in the hands, the ladder and a box on the cart. */
 async function chores(browser, base) {
   const tag = 'tarefas';
@@ -491,15 +528,16 @@ const srv = await serve();
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
-  const which = process.argv[2];      // desktop | mobile | phases | exact | sun | folga (nothing: all of them)
+  const which = process.argv[2];      // desktop | mobile | phases | exact | sun | folga | chores | weather (nothing: all of them)
   const want = (k) => !which || which === k || (which === 'desktop' && k !== 'mobile');
-  if (want('desktop') && which !== 'phases' && which !== 'exact' && which !== 'sun' && which !== 'folga') await scenario(browser, base, 'desktop');
+  if (want('desktop') && which !== 'phases' && which !== 'exact' && which !== 'sun' && which !== 'folga' && which !== 'chores' && which !== 'weather') await scenario(browser, base, 'desktop');
   if (!which || which === 'mobile') await scenario(browser, base, 'mobile');
   if (want('phases')) await phases(browser, base);
   if (want('exact')) await exact(browser, base);
   if (want('sun')) await sun(browser, base);
   if (want('folga')) await folga(browser, base);
   if (want('chores')) await chores(browser, base);
+  if (want('weather')) await weather(browser, base);
 } finally { await browser.close(); srv.close(); }
 if (failures.length) { console.error('\nSNAPSHOT TEST FAILED:\n - ' + failures.join('\n - ')); process.exit(1); }
 console.log('\nsnapshot test passed');

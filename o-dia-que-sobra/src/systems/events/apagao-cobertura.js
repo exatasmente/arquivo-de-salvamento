@@ -3,7 +3,10 @@
 export function run({ chores, customers, world, kit, bus, sanity, progression, event, ui, time }) {
   if (!chores.trip('cobertura')) return { update: () => true };
   const br = world.posto.breakers;
-  const car = customers.spawnEmptyCar(4, 9040 + progression.st.day);
+  // R1: Rafael rang to say "do not stay in the yard tonight" (branches/r1-aviso.js): the car with nobody in it does not come, and the night is only the breaker
+  const warned = progression.hasFlag('r1:avisou');
+  const car = warned ? null : customers.spawnEmptyCar(4, 9040 + progression.st.day);
+  if (warned) ui.say('Heitor', '(O Rafael avisou. Eu já estava na loja quando apagou.)', { seed: 17, ms: 3600 });
   const carPos = kit.v3();
   let t = 0, seen = false, off = 0;
   bus.emit('sfx', 'apagao', {});
@@ -24,4 +27,4 @@ export function run({ chores, customers, world, kit, bus, sanity, progression, e
   };
 }
 /** the canopy is on (there is something to put out) and pump 4 is free for the car with nobody in it. Checked by the event system before the event begins; if it fails the event waits for another moment. */
-export const can = ({ world, customers }) => world.posto.breakers.isOn('cobertura') && customers.freePump(4) === 4;
+export const can = ({ world, customers, progression }) => world.posto.breakers.isOn('cobertura') && (progression.hasFlag('r1:avisou') || customers.freePump(4) === 4);

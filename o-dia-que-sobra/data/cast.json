@@ -85,6 +85,7 @@
       "noites": [
         { "semana": 1, "dia": 2, "cena": "rafael-1" },
         { "semana": 1, "dia": 4, "cena": "rafael-2" },
+        { "semana": 1, "dia": 5, "cena": "rafael-fiado" },
         { "semana": 1, "dia": 6, "cena": "rafael-3" },
         { "semana": 2, "dia": 2, "cena": "rafael-4" },
         { "semana": 2, "dia": 5, "cena": "rafael-5" },

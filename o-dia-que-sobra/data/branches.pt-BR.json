@@ -1,0 +1,206 @@
+{
+  "versao": 1,
+  "_formato": [
+    "RAMOS DA HISTORIA, pt-BR. Um ramo = um acontecimento unico de uma noite, com uma escolha que muda o que vem depois (src/systems/branches.js).",
+    "noites: o nome curto de cada noite na abertura (a chave e o numero da noite, 'extra' e o domingo do turno extra). Sem segredo e sem resposta.",
+    "ramos[]: { id, nome, noite, roteiro?, horario?, menu { titulo, linhas[] }, escolhas { <id>: { rotulo, linha, efeitos } }, eventos { <id>: { linha, efeitos } }, passos[] }.",
+    "efeitos: { conf, sol, laco { <pessoa>: n }, carteira (reais, pode ser negativa), sanidade, flags [], tiraFlags [], metaPct { <semana>: fracao }, relato <id de falas>, ocorrencia: true }.",
+    "passos[]: o que acontece depois, em outra noite: { id, noite (n ou [n]), se (flag), sem (flag), roteiro + horario (um roteiro em src/systems/branches/), aplica { evento, relato } }.",
+    "falas: o que o gerente diz no telefone das 05:50 quando um ramo deixou algo (efeitos.relato). linha: o que a prancheta diz em 'O que aconteceu' (uma por escolha feita ou por consequencia)."
+  ],
+  "noites": {
+    "1": "O primeiro turno",
+    "2": "Sem troco",
+    "3": "A calçada",
+    "4": "O sorriso novo",
+    "5": "O mostrador",
+    "6": "O turno extra",
+    "7": "Um adesivo a mais",
+    "8": "O recado",
+    "9": "O que já estava lá",
+    "10": "O reflexo",
+    "11": "A sexta que pesa",
+    "12": "O monitor",
+    "13": "O sol por dentro",
+    "14": "A cobertura",
+    "15": "Meio caminho",
+    "16": "Sem capacete",
+    "17": "A porta dos fundos",
+    "18": "Alguém na vaga",
+    "19": "Última semana",
+    "20": "Sem folga à vista",
+    "21": "O telefone quieto",
+    "22": "Só o zumbido",
+    "23": "A véspera",
+    "24": "O dia que sobra",
+    "extra": "A placa acesa"
+  },
+  "falas": {
+    "r2-reclama": [
+      "Heitor, a câmera da frente pegou um homem dormindo na calçada do posto.",
+      "Não é cortesia, é risco. Que não se repita."
+    ],
+    "r3-confere": [
+      "Revi a gravação da noite quatro. Tinha uma nota ali, e a contagem fechou certinha.",
+      "Não estou dizendo que você fez algo. Estou dizendo que eu vi. Metade do pagamento da semana fica comigo."
+    ]
+  },
+  "ramos": [
+    {
+      "id": "r1",
+      "nome": "Rafael, fiado",
+      "noite": 2,
+      "menu": {
+        "titulo": "RAFAEL · BOMBA 1",
+        "linhas": ["Rafael está sem dinheiro. Quer encher o tanque fiado: vinte de comum.", "\"Pago amanhã, patrão. Palavra.\""]
+      },
+      "escolhas": {
+        "fiar": {
+          "rotulo": "FIAR (R$ 20 saem do seu bolso)",
+          "linha": "Noite 2: você fiou R$ 20 de gasolina para o Rafael.",
+          "efeitos": { "carteira": -20, "flags": ["r1:fiar"], "laco": { "rafael": 1 } }
+        },
+        "recusar": {
+          "rotulo": "RECUSAR",
+          "linha": "Noite 2: você recusou fiar para o Rafael. Ele foi embora calado.",
+          "efeitos": { "flags": ["r1:recusar"], "laco": { "rafael": -1 } }
+        }
+      },
+      "eventos": {
+        "paga": {
+          "linha": "Noite 5: Rafael voltou, pagou o fiado e deixou gorjeta.",
+          "efeitos": { "carteira": 30, "flags": ["r1:pago"], "laco": { "rafael": 3 } }
+        },
+        "paga-sozinho": {
+          "linha": "Noite 6: Rafael deixou os R$ 20 do fiado no balcão e não ficou para conversar.",
+          "efeitos": { "carteira": 20, "flags": ["r1:pago"], "laco": { "rafael": 1 } }
+        },
+        "avisou": {
+          "linha": "Noite 14: Rafael ligou para avisar que não era para ficar no pátio.",
+          "efeitos": { "flags": ["r1:avisou"], "laco": { "rafael": 1 } }
+        }
+      },
+      "passos": [
+        { "id": "r1-quita", "noite": 6, "se": "r1:fiar", "sem": "r1:pago", "aplica": { "evento": "paga-sozinho" } },
+        { "id": "r1-aviso", "noite": 14, "se": "r1:pago", "roteiro": "branches/r1-aviso.js", "horario": ["01:20", "01:50"] }
+      ]
+    },
+    {
+      "id": "r2",
+      "nome": "O morador de rua e a calçada",
+      "noite": 3,
+      "roteiro": "branches/r2-morador.js",
+      "horario": ["02:10", "03:10"],
+      "dialogo": {
+        "abre": ["Boa noite, moço. Desculpa a hora.", "Posso deitar ali na calçada, perto da luz? Só até clarear.", "Não faço barulho. Prometo."],
+        "deixar": ["Deus lhe pague, moço.", "Pode deixar que eu não incomodo ninguém."],
+        "cafe": ["Nossa. Quente. Faz tempo que eu não bebo um.", "Deus lhe pague, moço."],
+        "mandar": ["Tá certo. Não quero confusão.", "Boa noite, moço."]
+      },
+      "menu": {
+        "titulo": "MORADOR DE RUA",
+        "linhas": ["Ele pede para deitar na calçada, perto da luz do posto. \"Só até clarear, moço.\""]
+      },
+      "escolhas": {
+        "deixar": {
+          "rotulo": "DEIXAR DORMIR NA CALÇADA",
+          "linha": "Noite 3: você deixou o morador de rua dormir na calçada.",
+          "efeitos": { "flags": ["r2:ficou", "r2:deixou"], "laco": { "morador": 2 } }
+        },
+        "cafe": {
+          "rotulo": "DAR UM CAFÉ E DEIXAR FICAR",
+          "linha": "Noite 3: você deu um café ao morador de rua e deixou ele ficar na calçada.",
+          "efeitos": { "flags": ["r2:ficou", "r2:cafe"], "laco": { "morador": 3 }, "sanidade": 2 }
+        },
+        "mandar": {
+          "rotulo": "MANDAR EMBORA",
+          "linha": "Noite 3: você mandou o morador de rua embora da calçada.",
+          "efeitos": { "conf": 1, "flags": ["r2:mandou"], "laco": { "morador": -1 } }
+        }
+      },
+      "eventos": {
+        "reclama": {
+          "linha": "Noite 13: o gerente viu o morador dormindo na calçada pela câmera e reclamou.",
+          "efeitos": { "conf": -1, "relato": "r2-reclama" }
+        },
+        "assobio": {
+          "linha": "Semana 3: o morador assobiou da calçada quando a figura rondou o pátio.",
+          "efeitos": { "laco": { "morador": 0.5 } }
+        },
+        "camera": {
+          "linha": "Noite 20: na câmera do estacionamento, alguém deitado onde ele dormia. Quando você olhou, não havia ninguém.",
+          "efeitos": { "sol": 1 }
+        }
+      },
+      "passos": [
+        { "id": "r2-reclama", "noite": 13, "se": "r2:ficou", "aplica": { "evento": "reclama" } },
+        { "id": "r2-camera", "noite": 20, "se": "r2:mandou", "roteiro": "branches/r2-camera.js", "horario": ["02:20", "04:10"] }
+      ]
+    },
+    {
+      "id": "r3",
+      "nome": "A nota falsa",
+      "noite": 4,
+      "roteiro": "branches/r3-nota.js",
+      "horario": ["02:20", "03:40"],
+      "menu": {
+        "titulo": "O CAIXA NÃO BATE",
+        "linhas": ["Faltam R$ 20 na gaveta: a nota falsa que entrou na troca saiu do caixa e a venda ficou no relatório.", "O que você faz com a diferença?"]
+      },
+      "escolhas": {
+        "repor": {
+          "rotulo": "REPOR DO BOLSO (R$ 20)",
+          "linha": "Noite 4: o caixa fechou R$ 20 a menos por uma nota falsa. Você repôs do bolso.",
+          "efeitos": { "carteira": -20, "flags": ["r3:repos"] }
+        },
+        "registrar": {
+          "rotulo": "REGISTRAR A OCORRÊNCIA",
+          "linha": "Noite 4: o caixa fechou R$ 20 a menos por uma nota falsa. Você registrou a ocorrência.",
+          "efeitos": { "conf": 1, "flags": ["r3:registrou"], "ocorrencia": true }
+        },
+        "ajustar": {
+          "rotulo": "AJUSTAR A CONTAGEM",
+          "linha": "Noite 4: o caixa fechou R$ 20 a menos por uma nota falsa. Você ajustou a contagem para bater.",
+          "efeitos": { "flags": ["r3:ajustou"] }
+        }
+      },
+      "eventos": {
+        "confere": {
+          "linha": "Noite 11: o gerente conferiu o vídeo da noite 4 e viu a contagem ajustada: perdeu meio salário da semana.",
+          "efeitos": { "conf": -3, "sol": 2, "flags": ["r3:corte"], "relato": "r3-confere" }
+        }
+      },
+      "passos": [
+        { "id": "r3-confere", "noite": 11, "se": "r3:ajustou", "aplica": { "evento": "confere" } }
+      ]
+    },
+    {
+      "id": "r4",
+      "nome": "O turno extra do domingo",
+      "noite": 6,
+      "menu": {
+        "titulo": "TURNO EXTRA NO DOMINGO",
+        "linhas": ["O Seu Amaro quer alguém no posto no domingo: \"Só desta vez. Pago em dobro.\"", "Aceitar rende R$ 180, mas não há folga e a sanidade não recupera."]
+      },
+      "escolhas": {
+        "aceitar": {
+          "rotulo": "ACEITAR (+R$ 180, SEM FOLGA)",
+          "linha": "Noite 6: você aceitou o turno extra do domingo.",
+          "efeitos": { "flags": ["r4:aceitou"] }
+        },
+        "recusar": {
+          "rotulo": "RECUSAR",
+          "linha": "Noite 6: você recusou o turno extra. O gerente não gostou, e a meta da semana 2 subiu.",
+          "efeitos": { "conf": -1, "metaPct": { "2": 0.05 }, "flags": ["r4:recusou"] }
+        }
+      },
+      "eventos": {
+        "domingo": {
+          "linha": "Domingo: você fez o turno extra no posto fechado. A irmã ligou e ninguém atendeu em casa.",
+          "efeitos": { "carteira": 180, "sol": 1, "flags": ["r4:feito"] }
+        }
+      },
+      "passos": []
+    }
+  ]
+}

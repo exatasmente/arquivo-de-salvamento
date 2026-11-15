@@ -2,7 +2,7 @@
 // to the renderer each frame (the PS1 look: at most 8 dynamic lights; the rest is baked colour).
 // Also: ambient by area, lights that fail, the flashlight cone, the switch board.
 
-export function createLighting(bus, { world, render, player, flash, opts, hours = () => 0 }) {
+export function createLighting(bus, { world, render, player, flash, opts, hours = () => 0, weather = () => null }) {
   const lights = world.lights;
   const N = render.POINT_LIGHTS;
   let chosen = new Set();
@@ -17,7 +17,8 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
   // changes; from 04:00 to 06:00 the east horizon glows a little and the trees and the highway show against it. At 06:00 it is still dark: the lights of
   // the station, the sign and the flashlight still matter. `hours()` is the shift's clock in hours, 0 when no night is on (the title, the preparation, the day off).
   const NIGHT = new THREE.Color('#07080d'), DAWN_FOG = new THREE.Color('#161e2c'), DAWN_SKY = new THREE.Color('#121a28'), AMB0 = new THREE.Color(0x3c3f4c), AMB1 = new THREE.Color(0x474f61);
-  const fogC = new THREE.Color(), skyC = new THREE.Color(), ambC = new THREE.Color();
+  const fogC = new THREE.Color(), skyC = new THREE.Color(), ambC = new THREE.Color(), keyC = new THREE.Color(), RAIN_SKY = new THREE.Color('#10141d'), FLASH = new THREE.Color('#6f80ab'), KEY0 = new THREE.Color(0x0a0c14), MOONKEY = new THREE.Color(0x232d48);
+  const KEYDIR = [-0.3, -1, -0.2];
   const dawnK = (h) => (h <= 0 ? 0 : h < 4 ? 0.04 * h / 4 : 0.04 + 0.96 * ((u) => u * u * (3 - 2 * u))(Math.min(1, (h - 4) / 2)));
   // a dome of glow around the player: strongest low in the east, none overhead; added to the dark sky, under everything (so what stands in front stays dark)
   const dome = (() => {
@@ -46,6 +47,9 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
       if (!h || t >= h.until) { h = { v: l.level ?? 1, until: t + 0.34 }; held.set(l.id, h); }
       k *= opts.reduceFlash ? Math.max(0.65, h.v) : h.v;
     }
+    // a storm: the line flickers with the bolts (the lamps dip, never go out by it; with "reduce flashes" they dim only a little)
+    const wx = weather();
+    if (wx && wx.lampK < 1) k *= opts.reduceFlash ? Math.max(0.65, wx.lampK) : Math.max(0.2, wx.lampK);
     return k;
   }
 
@@ -56,7 +60,18 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
     const indoor = area && ['loja', 'escritorio', 'estoque', 'banheiros', 'servico'].includes(area.id);
     const k = dawnK(hours());
     fogC.copy(NIGHT).lerp(DAWN_FOG, k); skyC.copy(NIGHT).lerp(DAWN_SKY, k); ambC.copy(AMB0).lerp(AMB1, k * 0.8);
-    render.light({ ambient: indoor ? 0x464954 : ambC.getHex(), key: 0x0a0c14, keyDir: [-0.3, -1, -0.2], fog: fogC.getHex() });
+    // the weather (weather.js): the moon's weak key light, the clouds and the rain greying the sky, a closer fog, the flash of a bolt (a blue-grey, never white) or its dip
+    const wx = weather();
+    let keyHex = 0x0a0c14, keyDir = KEYDIR, fogNear = 10, fogFar = 40;
+    if (wx) {
+      const r = wx.rain, cl = Math.max(wx.cloud * 0.5, r);
+      keyC.copy(KEY0).lerp(MOONKEY, wx.moonLight); keyHex = keyC.getHex(); if (wx.moonLight > 0.01) keyDir = wx.moonDir;
+      fogC.lerp(RAIN_SKY, cl * 0.55); skyC.lerp(RAIN_SKY, cl * 0.55); ambC.multiplyScalar(1 + 0.1 * cl);
+      if (wx.flash > 0.01) { fogC.lerp(FLASH, wx.flash * 0.8); skyC.lerp(FLASH, wx.flash * 0.9); ambC.lerp(FLASH, wx.flash * 0.75); }
+      if (wx.dark > 0.01) { const d = 1 - wx.dark * 0.9; fogC.multiplyScalar(d); skyC.multiplyScalar(d); ambC.multiplyScalar(d); }
+      fogNear = wx.fogNear; fogFar = wx.fogFar;
+    }
+    render.light({ ambient: indoor && !(wx && wx.flash > 0.01) ? 0x464954 : ambC.getHex(), key: keyHex, keyDir, fog: fogC.getHex(), fogNear, fogFar });
     render.scene.background.copy(skyC);
     dome.visible = k > 0.005; dome.position.set(p.x, 0, p.z); dome.material.color.setScalar(k);
     // score the lights: those that reach the player first, then the closest
@@ -96,7 +111,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
   return {
     update,
     /** The dawn's glow goes off at once (a cutscene or an ending takes the picture: it has its own sky). */
-    dawnOff() { dome.visible = false; },
+    dawnOff() { dome.visible = false; bus.emit('weather:off'); },
     setPower(id, on) { if (on) off.delete(id); else off.add(id); bus.emit('light:power', id, on); },
     isOn: (id) => !off.has(id),
     dimLight(id, k) { if (k === null) dim.delete(id); else dim.set(id, k); },

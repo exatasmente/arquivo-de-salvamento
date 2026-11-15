@@ -24,7 +24,7 @@ const TERMINAL = new Set([1, 2, 5]);   // the run is over; 3 and 4 go back to th
 
 export function createCampaign(bus, { progression, sanity, entity, ui, save, secrets, rules, data, hooks }) {
   const C = rules.campanha, st = progression.st;
-  let endingNow = 0, collT = 0, atDayOff = false, shownFor = 0;
+  let endingNow = 0, collT = 0, atDayOff = false, shownFor = 0, extraOn = false;
 
   // ------------------------------------------------------------------ the endings
   function ending(id) {
@@ -62,16 +62,34 @@ export function createCampaign(bus, { progression, sanity, entity, ui, save, sec
     await balance(week);
     if (week.demitido) ending(2);
     else if (week.ultima) ending(1);
+    else if (extraDue(week)) startExtra();
     else startDayOff(week.week);
+  }
+  /** R4: the extra shift on the Sunday after the first week replaces its day off (it was accepted at the 05:50 call of the sixth night, and not done yet). */
+  const extraDue = (w) => Boolean(w) && w.week === 1 && !w.demitido && !w.ultima && progression.hasFlag('r4:aceitou') && !progression.hasFlag('r4:feito');
+  async function startExtra() {
+    atDayOff = true; st.paidSum = 0; st.billsPaid = []; extraOn = true;
+    await hooks.enterExtra();
+  }
+  /** The Sunday is over: the pay comes, the bills of the week go out of the wallet (what cannot be paid weighs, as in the day off) and the sanity does not recover. */
+  function endExtra() {
+    if (!extraOn) return;
+    extraOn = false;
+    hooks.onExtraEnd?.();
+    const r = progression.weekRules(1);
+    for (const c of r.contas) bus.emit('money:pay', { valor: c.valor, motivo: c.id });
+    bus.emit('dayoff:end', { sanidade: Math.max(0, st.sanidade - 5) });
   }
   async function balance(w) {
     const D = data.dialogue.balanco, fill = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
     const lines = [fill(D.meta, { meta: w.meta, pts: w.pts }),
       w.bateu ? fill(D.bateu, { sal: money(w.salario * 100) }) : fill(D.perdeu, { sal: money(w.salario * 100), cheio: money(w.cheio * 100) })];
     if (!w.bateu) lines.push(w.misses >= C.metasPerdidasDemissao ? D.perdidas2 : w.ultima ? D.perdidas1Ultima : fill(D.perdidas1, {}));
-    if (!w.demitido && !w.ultima) lines.push(D.folga);
+    if (w.corte) lines.push(D.corte);
+    const extra = extraDue(w);
+    if (!w.demitido && !w.ultima) lines.push(extra ? D.domingoExtra : D.folga);
     lines.push(`Carteira: ${money(st.wallet * 100)}.`);
-    await ui.showBalance({ title: fill(D.titulo, { w: w.week }), sub: progression.weekRules(w.week).nome, lines, ok: w.demitido ? 'CONTINUAR' : w.ultima ? 'CONTINUAR' : 'IR PARA CASA' });
+    await ui.showBalance({ title: fill(D.titulo, { w: w.week }), sub: progression.weekRules(w.week).nome, lines, ok: w.demitido ? 'CONTINUAR' : w.ultima ? 'CONTINUAR' : extra ? 'IR AO POSTO' : 'IR PARA CASA' });
   }
 
   // ------------------------------------------------------------------ the day off
@@ -103,7 +121,8 @@ export function createCampaign(bus, { progression, sanity, entity, ui, save, sec
   });
 
   return {
-    ending, onClosed, startDayOff, showEnd, ENDINGS,
+    ending, onClosed, startDayOff, startExtra, endExtra, showEnd, ENDINGS,
+    get extraOpen() { return extraOn; },
     get endingId() { return endingNow; },
     get dayOffOpen() { return atDayOff; },
     /** One game step while a night is played (the attack, if it comes, takes the ending 4 before the wait of the collapse is over). */
@@ -115,9 +134,10 @@ export function createCampaign(bus, { progression, sanity, entity, ui, save, sec
     caught() { entity.catchNow(); },
     secretReady: () => secrets.ready(),
     resetNight() { endingNow = 0; collT = 0; },
-    reset() { endingNow = 0; collT = 0; atDayOff = false; },
+    reset() { endingNow = 0; collT = 0; atDayOff = false; extraOn = false; },
     /** The title's "continue": the run said where it stopped. */
     resume(run) {
+      if (run.fase === 'folga' && run.snap?.type !== 'folga' && progression.hasFlag('r4:aceitou') && !progression.hasFlag('r4:feito') && progression.weekOf(run.day - 1) === 1) { st.day = run.day - 1; startExtra(); return true; }
       if (run.fase === 'folga') { st.day = run.day - 1; startDayOff(progression.weekOf(st.day)); return true; }
       if (run.fase === 'fim' && run.fim) { ending(run.fim); return true; }
       return false;

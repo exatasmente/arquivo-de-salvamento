@@ -48,6 +48,18 @@
       "equipamento": "O defeito eu mando o técnico olhar.",
       "barulho": "Barulho de noite é o prédio. Mas anotei."
     },
+    "confianca": {
+      "frio": [
+        "Vou ficar de olho nas câmeras, Heitor. Não leve a mal.",
+        "Tem coisa que eu prefiro conferir eu mesmo.",
+        "Eu confiava mais. Vamos ver como fica."
+      ],
+      "caloroso": [
+        "Pode contar comigo, Heitor. Você é o que eu tenho de melhor aí.",
+        "É por isso que eu deixo o posto na sua mão.",
+        "Se faltar alguma coisa aí, é só ligar. Sério."
+      ]
+    },
     "fecha": [
       "Quando der seis horas, conta a gaveta e fecha o caixa. Boa noite."
     ],
@@ -118,6 +130,8 @@
     "perdidas1": "Metas perdidas até agora: 1. A segunda é demissão.",
     "perdidas2": "Segunda meta perdida.",
     "folga": "Amanhã é folga. As contas estão na mesa.",
+    "domingoExtra": "Amanhã é domingo, mas não é folga: o turno extra, no posto fechado.",
+    "corte": "O gerente cortou metade do pagamento da semana.",
     "perdidas1Ultima": "Metas perdidas: 1. Esta era a última semana."
   },
   "reacoesEvento": {

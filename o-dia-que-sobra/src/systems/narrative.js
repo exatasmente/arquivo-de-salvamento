@@ -10,6 +10,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   let ringing = false, ringAt = 0, phoneId = null, shopDone = false, stockDone = false, fuelDone = false;
   let ringKind = null, called = false, answered550 = false, tutNight = false;
   let t0 = 0;                  // real seconds since the night opened
+  const hooks = {};            // the story branches plug in here (game.js): `lines()` adds lines to the 05:50 call, `after()` is what comes once it is over
   let closingOn = false;       // the closing hour (after 05:00) is on
   const phoneMin = time.parse(data.progression.expediente.telefone);
 
@@ -69,6 +70,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       else if (got >= r.meta * cal.noite / 6) lines.push(fill(d.meta.ritmo, { pts: got, meta: r.meta }));
       else lines.push(fill(d.meta.atrasado, { pts: got, meta: r.meta, falta: Math.max(0, r.meta - got) }));
     }
+    if (hooks.lines) lines.push(...hooks.lines());
     lines.push(...d.fecha);
     return lines;
   }
@@ -98,7 +100,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       if (muteNight()) {   // `gerente-mudo` (week 4): nobody speaks on the other side, only the hum of the tube
         progression.seen('gerente-mudo'); bus.emit('event:seen', 'gerente-mudo'); bus.emit('sanity:add', -6, 'gerente-mudo');
         await dialogue('Telefone', DG.telefoneMudo, 81);
-      } else await dialogue(DG.gerente, managerLines(), 80);
+      } else { await dialogue(DG.gerente, managerLines(), 80); if (hooks.after) await hooks.after(); }
       bus.emit('sfx', 'telefone_desliga', { pos: phonePos().toArray() });
       obj(cash.closed ? null : closingOn ? 'Termine o fechamento e feche o caixa, na registradora.' : 'Às seis horas, feche o caixa na registradora.');
     }
@@ -151,6 +153,7 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
   });
 
   return {
+    hooks,
     get phase() { return phase; },
     /** Opens the night. tutorial: the first night; otherwise the night goes on by itself. */
     begin({ tutorial }) {
@@ -189,6 +192,8 @@ export function createNarrative(bus, { world, interaction, customers, tasks, pro
       }
     },
     endNight() { extra = null; ring(false); phase = 'off'; obj(null); },
+    /** The extra Sunday (no shift, no preparation, no manager's call): the phone can ring for a script. */
+    openExtra() { extra = null; ring(false); registerPhone(); phase = 'free'; called = true; answered550 = true; ringKind = null; t0 = 0; },
     /** The closing hour begins (05:00): the line on top says what is left; the 05:50 call and the time cap go on writing it after. */
     setClosing(on) {
       closingOn = Boolean(on);

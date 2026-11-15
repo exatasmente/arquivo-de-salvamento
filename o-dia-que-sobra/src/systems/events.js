@@ -67,6 +67,7 @@ export async function createEvents(bus, ctx) {
     // the stickers the player has already seen on earlier nights stay on the walls
     const stk = ctx.world.posto.stickers;
     if (stk) { stk.hideAll(); for (const f of progression.st.flags) if (f.startsWith('adesivo:')) stk.show(f.slice(8), true); }
+    pruneDrawn(day);
     for (const ev of records) {
       if (!ev.roteiro) continue;
       if (ev.semanaMin > progression.st.week && forced !== ev.id) continue;
@@ -76,11 +77,21 @@ export async function createEvents(bus, ctx) {
       const [a, b] = ev.horario.map((s) => time.parse(s));
       const roll = rr(), draw = rr(), story = [].concat(ev.fixoNoite ?? []).includes(day);
       if (forced === ev.id) { plan.push({ ev, at: 0, forced: true }); continue; }
+      if (!story && drawnBefore(ev, day)) continue;      // a drawn event does not come twice in a week (a hallucination does not come two nights running)
       if (ev.repetivel) { plan.push({ ev, at: a, until: b, pool: true, next: a, count: 0 }); continue; }
       const at = story ? a : a + draw * (b - a);   // a story event happens at the start of its window
       if (story || roll < ev.chance) plan.push({ ev, at, until: b });
     }
   }
+  // ---- the draw does not repeat: what ran in an earlier night of this week is left out of the draw (flags `sorteio:<week>:<day>:<id>`, kept in the run)
+  const weekOfDay = (d) => Math.floor((d - 1) / 6) + 1;
+  const drawnFlags = () => progression.st.flags.filter((f) => f.startsWith('sorteio:')).map((f) => { const [, w, d, ...id] = f.split(':'); return { f, w: Number(w), d: Number(d), id: id.join(':') }; });
+  function pruneDrawn(day) { for (const x of drawnFlags()) if (x.w !== weekOfDay(day) && x.d !== day - 1) progression.unflag(x.f); }
+  function drawnBefore(ev, day) {
+    return drawnFlags().some((x) => x.id === ev.id && x.d !== day && (ev.repetivel ? x.d === day - 1 && x.w === weekOfDay(day) : x.w === weekOfDay(day)));
+  }
+  const markDrawn = (ev) => { const day = progression.st.day, f = `sorteio:${weekOfDay(day)}:${day}:${ev.id}`; if (!ev.fixoNoite && !progression.st.flags.includes(f)) progression.st.flags.push(f); };
+
   function ok(ev, p) {
     if (p && p.forced) return true;
     const c = ev.condicoes || {};
@@ -106,6 +117,7 @@ export async function createEvents(bus, ctx) {
     const mod = mods[p.ev.id];
     if (!mod || active) return false;
     counts[p.ev.id] = (counts[p.ev.id] || 0) + 1;
+    markDrawn(p.ev);
     let run;
     try { run = mod.run({ ...ctx, event: p.ev, bus, kit, est, rng: mulberry32(progression.st.seed * 131 + progression.st.day * 17 + p.ev.id.length * 7 + (counts[p.ev.id] || 0)), forced: Boolean(p.forced) }); } catch (e) { console.error('event', p.ev.id, e); return false; }
     active = { ev: p.ev, run };
@@ -125,7 +137,7 @@ export async function createEvents(bus, ctx) {
       if (cur.run.update(dt, t)) { if (active === cur) { cur.run.dispose?.(); bus.emit('event:end', cur.ev.id); active = null; lastEnd = clock; } }
       return;
     }
-    if (readyAt === null || !calm()) return;
+    if (readyAt === null || !calm() || est.hold) return;   // (`hold`: a branch of the story is on, systems/branches.js)
     const wait = forced ? 3 : 25;
     if (clock - readyAt < wait || clock - lastEnd < GAP) return;
     const m = time.minutes, stage = sanity.stage;

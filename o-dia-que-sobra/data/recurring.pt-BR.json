@@ -166,11 +166,12 @@
       }
     },
     {
-      "id": "rafael-1", "quem": "rafael", "noite": { "semana": 1, "dia": 2 },
+      "id": "rafael-1", "quem": "rafael", "noite": { "semana": 1, "dia": 2 }, "ramo": "r1",
       "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
       "falas": [
         { "q": "cliente", "t": "E aí, patrão! Vinte de comum, por favor." },
-        { "q": "cliente", "t": "Só tenho nota de cem, desculpa. A noite não rendeu.", "pose": "pagando" }
+        { "q": "cliente", "t": "Só que a noite não rendeu: tô sem um real, desculpa." },
+        { "q": "cliente", "t": "Enche fiado? Pago amanhã. Palavra.", "pose": "pagando" }
       ],
       "reacoes": {
         "gentileza": ["Valeu, patrão. Você é de boa.", "Salvou a noite."],
@@ -180,7 +181,7 @@
     },
     {
       "id": "rafael-2", "quem": "rafael", "noite": { "semana": 1, "dia": 4 },
-      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": { "semFlag": "r1:fiar" } },
       "falas": [
         { "q": "cliente", "t": "Levei um pacote pra um sítio aí na estrada." },
         { "q": "cliente", "t": "Ninguém atendeu. Deixei na porta. Estava pago." },
@@ -190,6 +191,20 @@
         "gentileza": ["Valeu por não reclamar do cem.", "Você é gente boa."],
         "erro": ["Peraí, olha de novo.", "Tá faltando."],
         "demora": ["Preciso ir. Outro dia.", "Valeu mesmo assim."]
+      }
+    },
+    {
+      "id": "rafael-fiado", "quem": "rafael", "noite": { "semana": 1, "dia": 5 }, "ramo": "r1", "evento": "paga",
+      "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": { "flag": "r1:fiar" } },
+      "falas": [
+        { "q": "cliente", "t": "Patrão! Vim pagar o de segunda, como eu disse." },
+        { "q": "cliente", "t": "Vinte do tanque e mais dez pela espera. Palavra é palavra." },
+        { "q": "cliente", "t": "E põe mais vinte de comum. Só tenho cem, desculpa.", "pose": "pagando" }
+      ],
+      "reacoes": {
+        "gentileza": ["Eu falei que voltava. Valeu mesmo.", "Você é gente fina, patrão."],
+        "erro": ["Opa, olha de novo, patrão.", "Acho que tá errado aí."],
+        "demora": ["Tenho entrega. Outro dia eu volto.", "Vou nessa."]
       }
     },
     {
@@ -241,6 +256,14 @@
         { "q": "cliente", "t": "Não uso mais capacete. Aqui não tem vento." },
         { "q": "cliente", "t": "Vinte de comum. Só tenho isto. Passa?", "pose": "pagando" },
         { "q": "pensamento", "t": "Uma moeda velha, de cobre apagado. Não é do troco." }
+      ],
+      "variantes": [
+        { "condicao": { "flag": "r1:recusar" }, "falas": [
+          { "q": "cliente", "t": "Boa noite. Lembra de mim? Você não quis me fiar." },
+          { "q": "cliente", "t": "Tudo bem. Não uso mais capacete. Aqui não tem vento." },
+          { "q": "cliente", "t": "Vinte de comum. Só tenho isto. Passa?", "pose": "pagando" },
+          { "q": "pensamento", "t": "A moeda é fria na palma, mais do que devia ser." }
+        ] }
       ],
       "efeito": { "item": "moeda-antiga" },
       "reacoes": {

@@ -8,6 +8,7 @@ import { createWorld } from './systems/world.js';
 import { createTime } from './systems/time.js';
 import { createPlayer } from './systems/player.js';
 import { createLighting } from './systems/lighting.js';
+import { createWeather } from './systems/weather.js';
 import { createInteraction } from './systems/interaction.js';
 import { createInventory } from './systems/inventory.js';
 import { createSanity } from './systems/sanity.js';
@@ -17,6 +18,7 @@ import { createTasks } from './systems/tasks.js';
 import { createNarrative } from './systems/narrative.js';
 import { createEvents } from './systems/events.js';
 import { createShift } from './systems/shift.js';
+import { createBranches } from './systems/branches.js';
 import { createCash } from './systems/cash.js';
 import { createTraffic } from './systems/traffic.js';
 import { createChores } from './systems/chores.js';
@@ -60,6 +62,8 @@ export function loadOpts() {
 const saveOpts = (o) => { try { localStorage.setItem(OPT_KEY, JSON.stringify(o)); } catch { /* private mode */ } };
 
 export const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+/** `?wx=temporal` (limpo, nublado, fraca, forte, temporal): forces the night's weather, only on the local addresses (the tests and whoever is making the game). */
+const wxParam = () => (typeof location !== 'undefined' && LOCAL.has(location.hostname) ? new URLSearchParams(location.search).get('wx') : null);
 /** `?debug=day:13,...` -> { day: 13, secrets: true... } (see the top of the file). */
 function parseDebug() {
   const o = {};
@@ -86,6 +90,7 @@ async function loadData() {
   try { out.cast = await (await fetch('./data/cast.json')).json(); } catch { out.cast = { tipos: [], recorrentes: [] }; }
   try { out.recurring = await (await fetch('./data/recurring.pt-BR.json')).json(); } catch { out.recurring = { cenas: [] }; }
   try { out.dayoff = await (await fetch('./data/dayoff.pt-BR.json')).json(); } catch { out.dayoff = null; }
+  try { out.branches = await (await fetch('./data/branches.pt-BR.json')).json(); } catch { out.branches = { ramos: [], noites: {}, falas: {} }; }
   return out;
 }
 
@@ -105,7 +110,8 @@ export async function createGame({ root, render, input, params }) {
   const sanity = createSanity(bus, { opts });
   const progression = createProgression(bus, { rules });
   const inventory = createInventory(bus, { world, render, items: data.items, stock: progression.st });
-  const lighting = createLighting(bus, { world, render, player, flash: () => inventory.flash, opts, hours: () => (state === 'play' && time.minutes > 0 ? time.minutes / 60 : 0) });
+  let weather = null;      // (made after the events: the sky, the rain and the moon of the night; lighting reads its env)
+  const lighting = createLighting(bus, { world, render, player, flash: () => inventory.flash, opts, hours: () => (state === 'play' && time.minutes > 0 ? time.minutes / 60 : 0), weather: () => weather?.env() });
   const audioSys = createAudioSystem(bus, { world, player, lighting, mod: audioMod, opts });
   const save = createSaveSystem(bus, { progression, storage: (params.debug || Object.keys(dbg).length) ? debugStorage() : undefined });
   const cash = createCash(bus, { items: data.items });
@@ -118,6 +124,7 @@ export async function createGame({ root, render, input, params }) {
   };
   if (opts.gyro && input.tilt) input.tilt.enable().then((got) => { if (!got) { opts.gyro = false; saveOpts(opts); } });
   let lastDevice = 'keyboard', tick = 0, simT = 0, state = 'title', modalCount = 0, lastPauseAt = -1e9, nightSeedNow = 1, restoreSeed = null, saveNote = '', pendingDayoff = null;
+  let extraNow = false, extraRun = null;      // the extra Sunday of the story (R4): a night with no shift, `extraRun` is its script
   const glyph = (k) => ({ tap: { keyboard: 'E', gamepad: 'A', touch: 'TOQUE' }, hold: { keyboard: 'SEGURE E', gamepad: 'SEGURE A', touch: 'SEGURE' } }[k][input.device()] || 'E');
   let fx = sanity.fx(0);
 
@@ -138,13 +145,14 @@ export async function createGame({ root, render, input, params }) {
       else if (modalCount === 0 && (state === 'play' || state === 'dayoff')) { input.setMode('play', render.canvas); if (input.device() !== 'touch') input.lock(); }
     },
     sheetData: () => ({
-      time: time.text(), day: progression.st.day, week: progression.st.week, wallet: progression.st.wallet,
+      time: time.text(), day: progression.st.day, week: progression.st.week, wallet: progression.st.wallet, sky: weather.on ? { line: weather.line(), date: weather.date.short } : null,
       cal: progression.calendar(), weekNow: progression.st.weekPts + progression.night.pontos, meta: progression.weekRules().meta,
       tasks: tasks.list, perf: progression.night, undone: tasks.undone(),
       blank: medication.active('concentracao') && Math.floor(simT / 7) % 2 === 1, mind: fx.mind,
       orders: goals.orders(), goalKey: goals.key, prep: prep.text(), closing: closing.text(),
       pickHint: { keyboard: 'Tab escolhe o objetivo', gamepad: '\u25C4 \u25BA escolhe o objetivo', touch: 'toque numa linha para marcar' }[input.device()] || '',
       fuels: Object.values(data.items.combustiveis).map((f) => ({ nome: f.nome, cor: f.cor })),
+      aconteceu: branches ? branches.log() : [],
     }),
     inventory: () => ({ slots: inventory.slots, sel: inventory.sel, flash: inventory.flash }),
     tick: () => tick,
@@ -184,13 +192,29 @@ export async function createGame({ root, render, input, params }) {
   const campaign = createCampaign(bus, { progression, sanity, entity, ui, save, secrets, rules, data, hooks: {
     startNight: (day) => startNight(day, false, false, true), showTitle: () => showTitle(), seed: () => baseSeed, playing: () => state === 'play',
     enterDayOff, leaveDayOff, newGame: () => { save.wipe(); newCampaign(); }, continueRun: () => continueRun(),
+    enterExtra: () => enterExtra(), onExtraEnd: () => { extraNow = false; branches.event('r4', 'domingo'); },
   } });
   const events = await createEvents(bus, { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
+  weather = createWeather(bus, { world, render, player, time, progression, sanity, kit, chores, est: () => events.state, audioSys, ui, opts, area: () => lighting.area, lite: Boolean(input.touch?.mobile), lastNight: rules.campanha.ultimaNoite });
+  const branchCtx = { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity, cash, events, ties: progression.ties };
+  const branches = await createBranches(bus, branchCtx);
+  // the story branches plug into the manager's call (what they left to say, and the offer of the extra shift) and into the scenes of the regulars
+  narrative.hooks.lines = () => {
+    const out = [], tier = progression.ties.tier(), L = data.dialogue.telefone550.confianca?.[tier];
+    if (L && progression.st.day > 1) out.push(L[(progression.st.day + progression.st.seed) % L.length]);
+    out.push(...branches.callLines());
+    return out;
+  };
+  narrative.hooks.after = async () => { if (progression.st.day === 6 && !branches.done('r4', 'aceitar') && !branches.done('r4', 'recusar')) await branches.offer('r4'); };
+  customers.hooks.scene = async (scene, c) => {
+    if (scene.evento) { branches.event(scene.ramo, scene.evento); return null; }
+    return branches.offer(scene.ramo, [`${c.name} espera, na bomba ${c.pump}.`]);
+  };
   const hoses = createHoses({ world, render, inventory, customers, player });
   const prep = createPrep(bus, { world, render, interaction, time, tasks, chores, progression, ui, narrative, customers, goals });
   const closing = createClosing(bus, { world, render, interaction, time, tasks, progression, ui, customers, narrative, goals, inventory, chores, cash, data, lastNight: rules.campanha.ultimaNoite });
   tasks.attachClosing(closing);
-  const shift = createShift(bus, { prep, closing, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
+  const shift = createShift(bus, { branches, prep, closing, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
 
   // on the phone the passing lines (the teaching, the hints, the speech, how to let go) sit in one place above the thumbs (mobile.css);
   // the objective of the night stays at the top, under the clock
@@ -226,7 +250,7 @@ export async function createGame({ root, render, input, params }) {
     player.st.eye = 1.7;
   }
   function showTitle() {
-    state = 'title'; shift.abort(); audioSys.stopAmbient();
+    state = 'title'; shift.abort(); audioSys.stopAmbient(); extraNow = false; if (extraRun) { extraRun.dispose?.(); extraRun = null; } branches.reset();
     ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null);
     input.setMode('ui', render.canvas);
     campaign.reset(); leaveDayOff(true);
@@ -469,8 +493,8 @@ export async function createGame({ root, render, input, params }) {
   }
   // ------------------------------------------------------------------ "save now", and the card as a file (systems/snapshot.js)
   const snapSys = () => ({
-    bus, ui, time, progression, sanity, inventory, medication, cash, player, tasks, chores, customers, goals, narrative, events, prep, closing, office, world, shift, data,
-    nightSeed: nightSeedNow, baseSeed, entity, dayoff, state,
+    bus, ui, time, progression, sanity, inventory, medication, cash, player, tasks, chores, customers, goals, narrative, events, branches, prep, closing, office, world, shift, data,
+    nightSeed: nightSeedNow, baseSeed, entity, dayoff, state, weather,
     refresh: () => { ui.setClock(time.text()); ui.setCalendar(calText()); ui.setPrep(prep.text() || closing.text()); ui.showInventory(); },
   });
   /** Opens the saved night from its seed, then lays the saved moment over it. */
@@ -494,7 +518,7 @@ export async function createGame({ root, render, input, params }) {
       const snap = { v: snapshot.SNAP_VERSION, type: 'folga', day: next, slots: inventory.slots.slice(0, 4).map((q) => q || null), sel: inventory.sel, paidSum: st.paidSum, billsPaid: [...st.billsPaid], dayoff: dayoff.snapshotState(), debug: snapshot.debugBlock(snapSys()) };
       return report(save.saveNow(snap, { day: next, week: progression.weekOf(next), fase: 'folga', fim: 0 }), `FOLGA · SEMANA ${progression.weekOf(st.day)} · ${dayoff.clock}`);
     }
-    const why = snapshot.whyNotNow({ progression, shift, cash, medication });
+    const why = snapshot.whyNotNow({ progression, shift, cash, medication, extra: extraNow });
     if (why) { saveNote = why; ui.redrawModal(); return false; }
     const snap = snapshot.captureNight(snapSys());
     return report(save.saveNow(snap), `SEMANA ${progression.st.week} · NOITE ${progression.st.day} · ${time.text()}`);
@@ -557,6 +581,8 @@ export async function createGame({ root, render, input, params }) {
     else if (!keep) { progression.newRun(); }
     progression.st.fase = 'noite'; progression.st.fim = 0;
     campaign.resetNight(); secrets.beginNight();
+    const resuming = restoreSeed !== null, wasExtra = extraNow;
+    extraNow = false; if (extraRun) { extraRun.dispose?.(); extraRun = null; }
     nightSeedNow = restoreSeed ?? baseSeed * 100 + day; restoreSeed = null;      // (a saved moment keeps the seed of its night, whatever ?seed says now)
     ui.closeModal();
     state = 'play'; modalCount = 0;
@@ -565,7 +591,10 @@ export async function createGame({ root, render, input, params }) {
     audioSys.startAmbient();
     entity.reset();
     shift.begin({ day, seed: nightSeedNow, tutorial: tutorial && !progression.st.tutorialDone, event: params.event || null });
-    if (tutorial && !progression.st.tutorialDone) ui.coach(coachLines(), 18); else ui.coach(null);
+    if (!resuming) { const nm = branches.nightName(day), cal = progression.calendar(day); ui.nightCard(`Noite ${day}${nm ? ' · ' + nm : ''}`, `${cal.dia} · semana ${cal.week} · ${cal.weekName}`); }
+    void wasExtra;
+    weather.begin({ day, seed: nightSeedNow, week: progression.weekOf(day), tutorial: tutorial && !progression.st.tutorialDone, force: dbg.weather || wxParam(), age: dbg.moon ?? null });
+    if (tutorial && !progression.st.tutorialDone) ui.coach(coachLines(), 18); else ui.coach([weather.opening()], 7);   // (the night's moon and weather, one line)
     if (params.sol) entity.force(params.sol, 2);
     if (dbg.sanity !== undefined && dbg.once) { sanity.reset(dbg.sanity, nightSeedNow); dbg.once = false; }
   }
@@ -602,7 +631,7 @@ export async function createGame({ root, render, input, params }) {
   document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !ui.modalOpen) openPause(); });
 
   // ------------------------------------------------------------------ the day off and the endings
-  const calText = () => { const c = progression.calendar(); return `SEMANA ${c.week} · ${c.dia} · DIA ${c.calDay}/28`; };
+  const calText = () => { const c = progression.calendar(); return extraNow ? `SEMANA ${c.week} · DOMINGO EXTRA · DIA ${c.calDay + 1}/28` : `SEMANA ${c.week} · ${c.dia} · DIA ${c.calDay}/28`; };
   let dayoff = null, dayoffTried = false;
   // what the day off gets as `audio`: the same calls as audio/index.js, forwarded to it once the context exists
   const audioFacade = {
@@ -621,6 +650,26 @@ export async function createGame({ root, render, input, params }) {
       try { const m = await import('./systems/dayoff.js'); dayoff = m.createDayOff(bus, { r: render, input, ui, audio: audioFacade, data, rng: mulberry32(baseSeed * 31 + 7) }); }
       catch (e) { console.warn('the day off is not there:', e.message); dayoff = false; }
     }
+  }
+  /** The extra Sunday (R4): the station shut, only the Sun's sign lit, no customers and no shift (the script `branches/domingo.js` is the whole night). */
+  async function enterExtra() {
+    audioSys.init();
+    const st = progression.st;
+    state = 'play'; modalCount = 0; extraNow = true;
+    shift.abort(); entity.reset(); customers.clear(); customers.enable(false); chores.clear(); tasks.clear(); events.reset(); branches.reset(); cash.reset(); office.reset(); coffee.reset(); mirror.reset();
+    ui.closeModal(); ui.hideHud(false); ui.toggleSheet(false); ui.coach(null);
+    input.setMode('play', render.canvas); input.lock();
+    audioSys.startAmbient();
+    progression.startNight(st.day, nightSeedNow);
+    sanity.reset(Math.max(0, st.sanidade), nightSeedNow);
+    inventory.slots.splice(0, 4, 'lanterna', 'pilha', 'pilha', null); inventory.flash.charge = inventory.flash.max; inventory.flash.on = false; inventory.clearCarry();
+    const br = world.posto.breakers; for (const a of br.areas) br.setOn(a, a === 'placa');
+    const sp = world.anchor('spawn'); player.place(sp.pos, Math.atan2(-sp.dir.x, -sp.dir.z));
+    time.setCap(240); time.setRate(2); time.start(0);
+    narrative.openExtra();
+    ui.setCalendar(calText()); ui.setClock(time.text()); ui.setPrep(''); ui.showInventory();
+    ui.nightCard(`Domingo · ${branches.extraName()}`, `semana 1 · turno extra · dia ${progression.calendar().calDay + 1}`);
+    extraRun = await branches.runNow('branches/domingo.js', { end: () => campaign.endExtra() });
   }
   function leaveDayOff(quiet) {
     if (dayoff) { try { (dayoff.stop || dayoff.dispose || dayoff.leave)?.call(dayoff); } catch (e) { console.warn('day off stop', e.message); } }
@@ -751,8 +800,9 @@ export async function createGame({ root, render, input, params }) {
     if (state === 'play' && tick % 20 === 0) { ui.setClock(time.text()); ui.setPrep(prep.text() || closing.text()); }
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
     if (state === 'ending' || state === 'cutscene') return;
-    if (state === 'title') { titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
-    if ((ui.modalOpen && !cameras.watching) || state !== 'play') { world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
+    if (state === 'title') { weather.stop(); titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
+    if (state === 'dayoff') weather.stop();
+    if ((ui.modalOpen && !cameras.watching) || state !== 'play') { weather.calm(); world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     fx = sanity.fx(simT);
     if (medication.active('cor')) fx.filter = `saturate(0.3) contrast(0.9)${fx.filter ? ' ' + fx.filter : ''}`;
     fx.black = Math.max(entity.black, 0);
@@ -775,6 +825,8 @@ export async function createGame({ root, render, input, params }) {
     customers.update(dt, simT);
     narrative.update(dt);
     if (time.minutes >= 0) events.update(dt, simT);      // (the preparation before 00:00 has no scare events)
+    if (time.minutes >= 0 && !extraNow) branches.update(dt, simT);
+    if (extraRun && extraRun.update(dt, simT)) { extraRun.dispose?.(); extraRun = null; }
     prep.update(dt);
     cameras.update(dt, simT);
     const a = world.areaAt(player.st.x, 1, player.st.z);
@@ -785,6 +837,7 @@ export async function createGame({ root, render, input, params }) {
     if (entity.done) { campaign.attacked(); return; }   // the Sun reached the player: ending 4
     shift.update(dt); campaign.update(dt);
     world.update(simT, dt, wx());
+    weather.update(dt);
     lighting.update(dt, simT);
     audioSys.update();
     ui.setFx({ vignette: fx.vignette, aimX: fx.aimX, aimY: fx.aimY, filter: fx.filter, lid: fx.lid, black: fx.black });
@@ -983,10 +1036,11 @@ export async function createGame({ root, render, input, params }) {
   }
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
-    bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, cameras, shift, save, ui, audioSys, data,
+    bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, branches, cameras, shift, save, ui, audioSys, data,
     opts, goals, prep, closing, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
     saveNow, exportCard, importCard, snapshot, get restoreNotes() { return restoreNotes; },
-    get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; },
+    get extraRun() { return extraRun; }, get extraNow() { return extraNow; },
+    get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; }, get weather() { return weather; },
   };
   return api;
 }

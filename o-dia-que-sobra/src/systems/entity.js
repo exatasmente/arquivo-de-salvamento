@@ -181,11 +181,11 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
       if (flashHit || d < 8 || S.t > 28) { fade(); return; }
       if (S.t % 4 < dt) SOL('sol_presenca', pos, 0.6);
       ent.root.rotation.y = Math.atan2(player.st.x - pos.x, player.st.z - pos.z);
-      if (ctx.sanity < 40 && progression.st.week >= 3 && ctx.danger >= 3 && !playerLit() || S.forceApproach || (S.hunt && S.t > huntCfg().watch && ctx.danger >= 2)) go('aproximacao');
+      if (ctx.sanity < 40 + progression.ties.solShift().approach && progression.st.week >= 3 && ctx.danger >= 3 && !playerLit() || S.forceApproach || (S.hunt && S.t > huntCfg().watch && ctx.danger >= 2)) go('aproximacao');
       return;
     }
     if (S.state === 'aproximacao') {
-      if (ctx.sanity < 20 || (S.darkT > 60 && progression.st.week >= 3) || (S.hunt && d < 14 && S.t > 3 && ctx.danger >= 2)) { startChase(); return; }
+      if (ctx.sanity < 20 + progression.ties.solShift().chase || (S.darkT > 60 && progression.st.week >= 3) || (S.hunt && d < 14 && S.t > 3 && ctx.danger >= 2)) { startChase(); return; }
       if (S.hunt ? ctx.danger < 2 : (ctx.danger < 3 || playerLit() && !S.forceApproach)) { if (S.t > 4) { fade(); return; } }
       if (vis) { say('olhando'); } else if (d > 3) { say('andar'); walk(player.st.x, player.st.z, 1.5, dt); if ((simT * 2 | 0) !== (S.lastStep | 0) && (S.lastStep = simT)) SOL('sol_passos', pos, 0.8); }
       if (d < 6 && S.t % 5 < dt) SOL('sol_respira', pos, 0.7);

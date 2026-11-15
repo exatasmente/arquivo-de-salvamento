@@ -174,7 +174,8 @@ function installBot(cfg) {
     // a menu: a choice that lets things go on (accept, allow, continue, next night)
     const cells = $$('#modal li[data-cell]');
     // a torn note or an old coin costs more taken than refused (a person learns it): ask for another way to pay
-    const pick = (/RASGADA|ANTIGA/.test(title) ? cells.find((x) => /PEDIR/.test(x.textContent)) : null) || cells.find((x) => /ACEITAR|DEIXAR|CONTINUAR|PRÓXIMA|IR PARA CASA/.test(x.textContent)) || cells[0];
+    // the extra Sunday of the story is refused (the balance run goes on to the day off; the Sunday has its own check)
+    const pick = (/RASGADA|ANTIGA/.test(title) ? cells.find((x) => /PEDIR/.test(x.textContent)) : /TURNO EXTRA NO DOMINGO/.test(title) ? cells.find((x) => /RECUSAR/.test(x.textContent)) : null) || cells.find((x) => /ACEITAR|DEIXAR|CONTINUAR|PRÓXIMA|IR PARA CASA/.test(x.textContent)) || cells[0];
     if (!pick) { step(2); return true; }
     say(`menu "${title}" -> ${pick.textContent.trim()}`);
     clickCell(pick); step(3);
@@ -402,7 +403,7 @@ async function openPage(browser, base, kind, query) {
   const errs = [];
   page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });      // (the tests block service workers so that a route can see every request)
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${mobile ? '&touch' : ''}`);
+  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}${mobile ? '&touch' : ''}`);   // (the checks play a dry night unless they ask for a weather: `wx=`)
   return { page, errs, ctx };
 }
 const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}f6d-${name}.png` }); };
@@ -1332,6 +1333,112 @@ async function scareCheck(browser, base, kind, tag) {
   ok(errs.length === 0, `${tag}: console clean (plan) (${errs.slice(0, 3).join(' | ')})`);
 }
 
+/** The sky and the weather: the dates and the phases of the nights, the draw of the weather by week, the rain, the storm (thunder late, the breaker, the flash and its "reduce flashes" version, the scare), the line on the opening and on the clipboard. */
+async function weatherCheck(browser, base, kind, tag) {
+  // ---- the astronomy and the draw (pure: no page)
+  const sky = await import(`file://${path.join(ROOT, 'o-dia-que-sobra/src/systems/sky.js')}`), wx = await import(`file://${path.join(ROOT, 'o-dia-que-sobra/src/systems/weather.js')}`);
+  if (kind === 'desktop') {
+    ok(sky.dateOf(1).text === '05/11/2001' && sky.dateOf(24).text === '01/12/2001' && sky.dateOf(24).short.startsWith('sáb') && sky.dateOf(7).text === '12/11/2001', `${tag}: the nights have the dates of 2001 (night 1 ${sky.dateOf(1).short}, 7 ${sky.dateOf(7).short}, 24 ${sky.dateOf(24).short})`);
+    const lit = (n) => sky.moonAt(n, 3).lit;
+    ok(lit(24) > 0.98 && sky.moonAt(24, 3).name === 'Lua cheia' && lit(11) < 0.03 && !sky.moonAt(11, 3).visible && lit(17) > 0.35 && lit(17) < 0.55 && lit(5) < lit(2), `${tag}: the phases follow the dates (full on night 24: ${lit(24).toFixed(2)}; new on night 11: ${lit(11).toFixed(2)}; first quarter on 17: ${lit(17).toFixed(2)})`);
+    const w17 = sky.moonWindows(24), w24 = sky.moonWindows(5);
+    ok(w17.length === 1 && w17[0].from <= -0.5 && w17[0].to > 5 && w24[0].from > 1 && sky.moonAt(24, 0).alt > 0.6, `${tag}: the full moon is up all night and high; the waning one rises at ${w24[0].from} h on night 5 (${JSON.stringify(w17)} ${JSON.stringify(w24)})`);
+    const cnt = {}; for (let week = 1; week <= 4; week++) { cnt[week] = [0, 0, 0, 0, 0]; for (let seed = 1; seed <= 400; seed++) for (let n = 0; n < 6; n++) cnt[week][wx.KINDS.indexOf(wx.planNight({ day: (week - 1) * 6 + 1 + n + (week === 1 && n === 0 ? 1 : 0), seed, week }).kind)]++; }
+    const tot = (w) => cnt[w].reduce((a, b) => a + b, 0), pct = (w, i) => cnt[w][i] / tot(w);
+    ok(pct(1, 0) > 0.55 && pct(4, 0) > 0.4 && pct(1, 4) === 0 && pct(2, 4) < 0.05 && pct(3, 4) > pct(2, 4) && pct(4, 4) >= pct(3, 4) && pct(4, 4) < 0.15 && pct(4, 3) > pct(1, 3), `${tag}: the draw: mostly clear, no storm in week 1, storms commoner in 3 and 4 (clear ${[1, 2, 3, 4].map((w) => Math.round(pct(w, 0) * 100)).join('/')}%, storm ${[1, 2, 3, 4].map((w) => Math.round(pct(w, 4) * 100)).join('/')}%)`);
+    const a = JSON.stringify(wx.planNight({ day: 14, seed: 700, week: 3, force: 'temporal' })), b = JSON.stringify(wx.planNight({ day: 14, seed: 700, week: 3, force: 'temporal' }));
+    const st = wx.planNight({ day: 14, seed: 700, week: 3, force: 'temporal' }).strikes;
+    ok(a === b && st.length >= 6 && st.every((x, i) => i === 0 || x.at - st[i - 1].at >= 1 - 1e-9), `${tag}: a storm's plan is the same for the same seed, ${st.length} bolts, never closer than a game minute (1.5 s)`);
+  }
+  // ---- on the page: rain, sound, flow, bolts
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:17&manual&silent&skiptutorial&nointro&wx=temporal');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const r1 = await ev(() => {
+    const G = window.__odq.game, W = G.weather; const flows = []; G.bus.on('weather:flow', (k) => flows.push(+k.toFixed(2)));
+    G.time.setCap(361); G.time.skip(75 - G.time.minutes); G.customers.clear(); G.customers.enable(false);
+    G.player.st.x = 8; G.player.st.z = -20; G.player.st.yaw = Math.PI; G.player.st.pitch = 0.05;
+    for (let i = 0; i < 60; i++) G.step(1 / 60);
+    const rain = G.world.r.scene.getObjectByName('rain'), log = G.audioSys.audio.log;
+    G.ui.toggleSheet(true); window.__odq.advance(3);
+    const sheet = document.getElementById('sheet').textContent;
+    return { kind: W.kind, rain: rain.visible, wet: W.env().wet, fog: [W.env().fogNear, W.env().fogFar], flows, loops: ['loop:chuva', 'loop:chuva_cobertura', 'loop:chuva_loja'].map((n) => log.includes(n)), sheet: /sex 23\/11/.test(sheet) && /Quarto crescente/.test(sheet) && /temporal/.test(sheet), coach: document.getElementById('coach').textContent };
+  });
+  ok(r1.kind === 'temporal' && r1.rain && r1.wet === 1 && r1.fog[0] < 8 && r1.fog[1] < 30, `${tag}: a storm night: rain falls, the ground is wet, the fog is closer (${JSON.stringify(r1.fog)})`);
+  ok(r1.loops.every(Boolean), `${tag}: the rain's three loops (open, canopy, roof) were asked for`);
+  ok(r1.flows.length && r1.flows.at(-1) < 0.7, `${tag}: the flow of customers drops with the storm (weather:flow ${r1.flows.join(',')})`);
+  ok(r1.sheet, `${tag}: the clipboard says the date, the moon and the weather`);
+  await ev(() => window.__odq.game.ui.toggleSheet(false));
+  // the thunder is late by the distance of the bolt; the flash is blue-grey, never white, and never more than three a second
+  const r2 = await ev(() => {
+    const G = window.__odq.game, W = G.weather, log = G.audioSys.audio.log, out = {};
+    G.opts.reduceFlash = false; const n0 = log.filter((x) => x === 'trovao').length;
+    W.strikeNow(1.0, { double: true });
+    let edges = 0, prev = 0, max = 0, lamp = 1; const secs = [];
+    for (let i = 0; i < 360; i++) {
+      G.step(1 / 60); const f = W.env().flash; max = Math.max(max, f); lamp = Math.min(lamp, W.env().lampK);
+      if (f > 0.15 && prev <= 0.15) { edges++; secs.push(Math.floor(i / 60)); } prev = f;
+      if (i === 30) out.earlyThunder = log.filter((x) => x === 'trovao').length - n0;
+      if (i === 359) out.lateThunder = log.filter((x) => x === 'trovao').length - n0;
+    }
+    const bg = G.world.r.scene.background;
+    return { ...out, edges, max, lamp, perSec: Math.max(...[0, 1, 2, 3, 4, 5].map((s) => secs.filter((q) => q === s).length)), bg: [bg.r, bg.g, bg.b].map((v) => +v.toFixed(2)) };
+  });
+  ok(r2.earlyThunder === 0 && r2.lateThunder === 1, `${tag}: the thunder comes after the flash (1.0 km: 0.5 s after: ${r2.earlyThunder}; 6 s after: ${r2.lateThunder})`);
+  ok(r2.edges === 2 && r2.max > 0.3 && r2.max <= 0.85 && r2.perSec <= 3 && r2.lamp < 0.9, `${tag}: a double bolt = ${r2.edges} flashes, at most ${r2.perSec} a second, never white (peak ${r2.max.toFixed(2)}), the lamps dip (${r2.lamp.toFixed(2)})`);
+  // "reduce flashes": no flash, a short darkening, the thunder stays
+  const r3 = await ev(() => {
+    const G = window.__odq.game, W = G.weather, log = G.audioSys.audio.log; G.opts.reduceFlash = true;
+    const n0 = log.filter((x) => x === 'trovao').length; W.strikeNow(0.6, { double: true });
+    let maxFlash = 0, maxDark = 0, cut = 0, bolt = false;
+    for (let i = 0; i < 300; i++) { G.step(1 / 60); const e = W.env(); maxFlash = Math.max(maxFlash, e.flash); maxDark = Math.max(maxDark, e.dark); cut = Math.max(cut, G.events.state.cut || 0); bolt = bolt || G.world.r.scene.getObjectByName('bolt')?.visible; }
+    G.opts.reduceFlash = false;
+    return { maxFlash, maxDark, cut, bolt, thunder: log.filter((x) => x === 'trovao').length - n0 };
+  });
+  ok(r3.maxFlash === 0 && r3.maxDark > 0.1 && r3.cut > 0.1 && !r3.bolt && r3.thunder === 1, `${tag}: with "reduce flashes" there is no flash and no bolt in the sky, a darkening instead (${r3.maxDark.toFixed(2)}), and the thunder stays`);
+  // a breaker falls on a bolt that is marked to trip it, and the clipboard asks for it back
+  const r4 = await ev(() => {
+    const G = window.__odq.game, W = G.weather; const before = G.chores.breakersDown().length;
+    W.strikeNow(0.7, { trip: true }); for (let i = 0; i < 10; i++) G.step(1 / 60);
+    const down = G.chores.breakersDown(), task = G.tasks.list.some((t) => t.kind === 'disjuntor' && !t.done);
+    return { before, down, task };
+  });
+  ok(r4.before === 0 && r4.down.length === 1 && r4.task, `${tag}: a bolt can drop a breaker (${r4.down.join(',')}) and puts "religar o disjuntor" on the clipboard`);
+  // the scare: weeks 3 and 4, low sanity, outside, a bolt close by: a figure for one flash; never with a steady mind, never with "reduce flashes"
+  const fig = await ev(() => {
+    const G = window.__odq.game, W = G.weather, out = {};
+    const run = (mode, sanityV, armed, week) => {
+      G.opts.reduceFlash = mode === 'soft'; G.progression.st.week = week;
+      W.restore({ v: 1, plan: { ...W.plan, scareArmed: armed, strikes: [] }, idx: 0, trips: 0, scared: false }, 0);
+      G.sanity.reset(sanityV, 5); G.player.st.x = 4; G.player.st.z = -17; G.player.st.yaw = Math.PI / 2; G.player.st.pitch = 0.05; G.time.set(120);   // (looking west: the car park)
+      const s0 = G.sanity.value; let visible = 0, cut = 0;
+      W.strikeNow(0.7, { delay: 0.2 });
+      for (let i = 0; i < 45; i++) { G.step(1 / 60); if (W.figureVisible) visible++; cut = Math.max(cut, G.events.state.cut || 0); }
+      return { visible, after: W.figureVisible ? 1 : 0, dSanity: +(G.sanity.value - s0).toFixed(1), cut };
+    };
+    out.low = run('hard', 30, true, 3); out.steady = run('hard', 80, true, 3); out.week2 = run('hard', 30, true, 2); out.unarmed = run('hard', 30, false, 3); out.soft = run('soft', 30, true, 3);
+    G.opts.reduceFlash = false; G.progression.st.week = 3;
+    return out;
+  });
+  ok(fig.low.visible > 0 && fig.low.visible <= 9 && fig.low.after === 0 && fig.low.dSanity < 0, `${tag}: the scare: a figure shows for about one flash (${fig.low.visible} frames) and is gone, it costs ${fig.low.dSanity} sanity`);
+  ok(fig.steady.visible === 0 && fig.week2.visible === 0 && fig.unarmed.visible === 0, `${tag}: no scare with a steady mind, in week 2, or on a night that did not draw it`);
+  ok(fig.soft.visible === 0 && fig.soft.cut > 0.1, `${tag}: with "reduce flashes" the scare is a dark cut with no figure (cut ${fig.soft.cut})`);
+  ok(errs.length === 0, `${tag}: console clean (weather) (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+  // ---- the moon on the page: up and high on night 24, down on night 11 (new), and no moon or rain on a dry night of the tutorial
+  const m1 = await openPage(browser, base, kind, 'debug=day:24&manual&silent&skiptutorial&nointro&wx=limpo');
+  await m1.page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  const full = await m1.page.evaluate(() => { const G = window.__odq.game; G.time.setCap(361); G.time.skip(60 - G.time.minutes); for (let i = 0; i < 20; i++) G.step(1 / 60); const sc = G.world.r.scene, m = sc.getObjectByName('moon'), e = G.weather.env(); return { vis: m.visible, key: e.moonLight, rain: sc.getObjectByName('rain').visible, wet: sc.getObjectByName('wet-ground').visible, flow: e.rain }; });
+  ok(full.vis && full.key > 0.5 && !full.rain && !full.wet, `${tag}: night 17, clear: the full moon is up and gives a weak key light (${full.key.toFixed(2)}), no rain, dry ground`);
+  ok(errs.length === 0 && m1.errs.length === 0, `${tag}: console clean (moon) (${m1.errs.slice(0, 2).join(' | ')})`);
+  await m1.ctx.close();
+  const m2 = await openPage(browser, base, kind, 'debug=day:11&manual&silent&skiptutorial&nointro&wx=limpo');
+  await m2.page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  const nova = await m2.page.evaluate(() => { const G = window.__odq.game; G.time.setCap(361); G.time.skip(60 - G.time.minutes); for (let i = 0; i < 20; i++) G.step(1 / 60); return { vis: G.world.r.scene.getObjectByName('moon').visible, key: G.weather.env().moonLight }; });
+  ok(!nova.vis && nova.key === 0, `${tag}: night 11 is new moon: no disc and no moonlight`);
+  await m2.ctx.close();
+}
+
 /** The peak of the scare's sound, measured after the chain (offline render): under -3 dBFS. */
 async function soundPeak(browser, base) {
   const ctx = await browser.newContext(); const page = await ctx.newPage(); const errs = [];
@@ -1339,11 +1446,11 @@ async function soundPeak(browser, base) {
   await page.goto(`${base}/o-dia-que-sobra/tools/audio-preview.html`); await page.waitForFunction(() => window.ready, null, { timeout: 60000 });
   const peaks = await page.evaluate(async () => {
     const out = {};
-    for (const n of ['susto_golpe']) {
-      const r = await window.renderSound('play', n, {}, 1.5, 22050, {});
+    for (const [n, o, len] of [['susto_golpe', {}, 1.5], ['trovao', { dist: 0.3 }, 9], ['trovao', { dist: 1 }, 9], ['trovao', { dist: 5 }, 12]]) {
+      const r = await window.renderSound('play', n, o, len, 22050, {});
       const f32 = (b64) => { const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); return new Float32Array(u.buffer); };
       let pk = 0; for (const ch of r.ch) for (const v of f32(ch)) pk = Math.max(pk, Math.abs(v));
-      out[n] = { peak: +(20 * Math.log10(pk || 1e-9)).toFixed(1), dur: +Number(r.ret).toFixed(2) };
+      out[n + (o.dist ? ` ${o.dist} km` : '')] = { peak: +(20 * Math.log10(pk || 1e-9)).toFixed(1), dur: +Number(r.ret).toFixed(2) };
     }
     return out;
   });
@@ -1954,6 +2061,7 @@ async function fullCheck(browser, base, kind, full) {
   await carCheck(browser, base, kind, tag);
   await reasonCheck(browser, base, kind, tag);
   await dawnCheck(browser, base, kind, tag);
+  await weatherCheck(browser, base, kind, tag);
   await lastNightCheck(browser, base, kind, tag);
   await soundPeak(browser, base);
   await strangeCheck(browser, base, kind, tag);
@@ -1986,6 +2094,7 @@ try {
   else if (ARGS[0] === '--closing') { await closingCheck(browser, base, 'desktop', 'desktop'); await closingCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--cars') { await carCheck(browser, base, 'desktop', 'desktop'); await carCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--dawn') { await dawnCheck(browser, base, 'desktop', 'desktop'); await dawnCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--weather') { await soundPeak(browser, base); await weatherCheck(browser, base, 'desktop', 'desktop'); await weatherCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--reasons') { await reasonCheck(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--last') { await lastNightCheck(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--strange') { await strangeCheck(browser, base, 'desktop', 'desktop'); }

@@ -224,3 +224,11 @@ body.touch #top { width: min(560px, calc(100% - 20px - 56px)); }
 @keyframes attract-blink { 50% { opacity: 0; } }
 #attract .saved { margin: 4px 0 0; font-size: 13px; color: #c9a24a; letter-spacing: 2px; text-shadow: 1px 1px 0 #000; }
 @media (prefers-reduced-motion: reduce) { #attract .press { animation: none; } }
+
+/* the name of the night on opening it */
+#ncard { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); width: min(560px, 92%); text-align: center; pointer-events: none; transition: opacity 1.1s; text-shadow: 2px 2px 0 #000; }
+#ncard.out { opacity: 0; }
+#ncard b { display: block; font-size: calc(26px * var(--ts, 1)); letter-spacing: 3px; color: #e8dfc4; }
+#ncard span { display: block; margin-top: 6px; font-size: calc(13px * var(--ts, 1)); letter-spacing: 2px; color: #b09a5a; }
+body.touch #ncard b { font-size: calc(20px * var(--ts, 1)); letter-spacing: 2px; }
+#sheet ul.acontece li { padding: 1px 0; color: #cfc6a8; }

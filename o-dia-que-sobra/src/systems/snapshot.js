@@ -26,6 +26,7 @@ export const EXACTNESS_NOTES = [
   'The way a walking customer was following (the list of waypoints) is planned again from where it stands, to the same goal, with the same nav: the path is the same, only the index along it is derived again.',
   'The speech bubble a customer was saying and the sounds in the air are not kept; a customer in a state that greets (placing the items) says its greeting again.',
   'Cars or customers of events (the empty car, the dark car) are not saved: their event is what brings them back.',
+  'A story branch script that is running (a street dweller who is talking, the forged note being found) starts again from its beginning; what was already chosen (the choices, the three hidden measures, the flags) is in the run and comes back exact. The street dweller asleep on the pavement is put back. The extra Sunday does not save in the middle.',
   'The change tray, the pump panel and any dialogue are modals: the pause cannot open while one is open, so nothing is ever saved inside one.',
 ];
 
@@ -39,6 +40,7 @@ const prim = (o) => { const out = {}; for (const [k, v] of Object.entries(o || {
 // ---------------------------------------------------------------------------------------------- what can be saved now
 /** Null when the moment can be saved, otherwise the reason (for the pause menu). */
 export function whyNotNow(S) {
+  if (S.extra) return 'O turno extra do domingo não salva no meio: ele recomeça se você voltar.';
   if (!S.progression.st.tutorialDone) return 'Termine o tutorial antes de salvar.';
   if (!S.shift.open) return 'A noite já fechou.';
   if (S.cash.closed) return 'O caixa já foi fechado: a noite termina e salva sozinha.';
@@ -78,6 +80,8 @@ export function captureNight(S) {
     prep: { punched: prep.punched }, call: narrative.callState(),
     office: { registered: clone(office.registered), incidents: clone(office.incidents) },
     events: { ...events.snapshotState(), active: events.active || null },
+    branches: S.branches ? S.branches.snapshotState() : null,
+    weather: S.weather ? S.weather.state() : null,
     recurring: [...(customers.nightRecurring || [])],
     customers: customers.describeAll(),
     sun,
@@ -120,6 +124,7 @@ export function debugBlock(S) {
     tarefasFeitas: tasks.list.filter((t) => t.done).length,
     sol: { estado: e.state, x: Math.round(e.ent.root.position.x * 10) / 10, z: Math.round(e.ent.root.position.z * 10) / 10, visivel: e.ent.root.visible, distancia: Math.round(Math.hypot(e.ent.root.position.x - p.x, e.ent.root.position.z - p.z) * 10) / 10, alvo: e.S.target || null, tempo: Math.round((e.S.t || 0) * 10) / 10 },
     evento: events.active || null, planoDeEventos: events.plan,
+    historia: { escolhas: st.escolhas.map((e) => `${e.b}:${e.k}@${e.d}`), medidas: JSON.parse(JSON.stringify(st.ties)), metaPct: { ...st.metaPct } },
   };
 }
 
@@ -218,6 +223,8 @@ export function restoreNight(S, snap) {
   office.registered.length = 0; office.registered.push(...(snap.office?.registered || []));
   office.incidents.length = 0; office.incidents.push(...(snap.office?.incidents || []));
   events.restoreState(snap.events || {}, m);
+  if (S.branches && snap.branches) S.branches.restoreState(snap.branches, m);
+  if (S.weather && snap.weather) S.weather.restore(snap.weather, m);
   customers.dropRecurringBefore(m);
   for (const n of snap.recurring || []) if (!customers.nightRecurring.includes(n)) customers.nightRecurring.push(n);
   prep.setPunched(snap.prep?.punched);

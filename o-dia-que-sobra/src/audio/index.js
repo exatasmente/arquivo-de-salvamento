@@ -26,6 +26,7 @@ import { EXTRA_ONESHOTS, EXTRA_LOOPS } from './extra.js';
 import { playBabble, babbleTimeline } from './babble.js';
 import { FASE6_ONESHOTS, FASE6_LOOPS, FASE6_NAMES } from './fase6.js';
 import { SUSTO_ONESHOTS, SUSTO_NAMES } from './susto.js';
+import { WEATHER_ONESHOTS, WEATHER_LOOPS, WEATHER_NAMES } from './weather.js';
 
 const LEAD = 1.2;          // live events are built this far ahead
 const MAX_HRTF = 6;        // HRTF panners are costly: past this, new one-shots use equal-power
@@ -38,9 +39,9 @@ const WET = { luz_oscila: 0.5, passos_cascalho: 0.6, relogio_volta: 0.5, sol_jin
 const TRIM_DB = { fluorescente: -13, rodovia: -15, insetos: -5, vento: -15, geladeira: -19, motor_carro: -11, bomba_corre: -8, chuva: -2,
   sol_presenca: -24, sol_passos: -9, sol_respira: 8, sol_sorriso: -2, apagao: -6, coracao: -5, respiracao: 4, babble: -6, telefone_toca: -6 };
 const trim = (n) => 10 ** ((TRIM_DB[n] ?? 0) / 20);
-const LOOPS = { ...BASE_LOOPS, ...EXTRA_LOOPS, ...FASE6_LOOPS };
+const LOOPS = { ...BASE_LOOPS, ...EXTRA_LOOPS, ...FASE6_LOOPS, ...WEATHER_LOOPS };
 const LOOP_NAMES = Object.keys(LOOPS);
-const ONE = { ...ONESHOTS, ...SOL_ONESHOTS, ...EXTRA_ONESHOTS, ...FASE6_ONESHOTS, ...SUSTO_ONESHOTS };
+const ONE = { ...ONESHOTS, ...SOL_ONESHOTS, ...EXTRA_ONESHOTS, ...FASE6_ONESHOTS, ...SUSTO_ONESHOTS, ...WEATHER_ONESHOTS };
 // Phase 3 levels (dB), from the offline measurements.
 Object.assign(TRIM_DB, { telefone_mudo: -8, sono_pesado: -14, sino_fantasma: -2, motor_sem_som: -3, bomba4_liga: -3 });
 // Sounds that setHallucination never touches: the player's own body and hands, the interface, the voices.
@@ -49,7 +50,9 @@ const HALLU_SKIP = new Set(['susto_golpe', 'babble', 'respiracao', 'coracao', 't
 // plastic sounds come up to the level of the hand sounds, the tape under a message stays under the voice.
 Object.assign(TRIM_DB, { rua_noite: -11, casa_tom: -8, farmacia_ar: -9, cracha_pega: 3, sacola: 6, papel_folha: 5, vara_pega: 2, adesivo_cola: 2, secretaria_fita: -4 });
 const hasHalluSkip = (n) => HALLU_SKIP.has(n) || n.startsWith('passo_') || n.startsWith('ui_');
-export { FASE6_NAMES, SUSTO_NAMES };
+// The weather (thunder, the rain on the canopy and on the shop's roof): the levels are the ones measured offline.
+Object.assign(TRIM_DB, { trovao: -2, chuva_cobertura: -5, chuva_loja: -7, goteira: 4 });
+export { FASE6_NAMES, SUSTO_NAMES, WEATHER_NAMES };
 export const NAMES = [...new Set([...Object.keys(ONE), ...LOOP_NAMES])];
 export const LOOP_ONLY = LOOP_NAMES.filter((n) => !ONE[n]);
 

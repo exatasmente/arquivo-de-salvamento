@@ -4,6 +4,8 @@
 // (six a week; the calendar day adds one day off per week, so night 24 is followed by the 28th day), the points of the
 // closed nights add up to the week's score, the sixth night closes the week (goal met or missed, the salary), two missed
 // goals are the dismissal, and the wallet is paid and charged here (`money:pay`, `money:spend`, from the day off).
+import { freshTies, cleanTies, createTies } from './ties.js';
+
 export function createProgression(bus, { rules }) {
   const fresh = () => ({
     abastecimentos: 0, vendas: 0, atendimentos: 0, tarefas: 0, naoFeitas: 0, erros: 0, reclamacoes: 0, divergencia: 0,
@@ -15,7 +17,10 @@ export function createProgression(bus, { rules }) {
     // the campaign
     misses: 0, weekPts: 0, weekLog: [], collapse: { total: 0, byWeek: {} }, sanBase: rules.sanidade.inicio, sanidade: rules.sanidade.inicio,
     fase: 'noite', atraso: 0, fim: 0, billsPaid: [], paidSum: 0, pilhasExtra: 0,
+    // the story branches (systems/branches.js, systems/ties.js): the hidden measures, the choices made, the goal changes by week
+    ties: freshTies(), escolhas: [], metaPct: {},
   };
+  const ties = createTies(st, bus);
   const C = rules.campanha;
   const P = rules.pontos;
   function points(n) { st.night.pontos += n; bus.emit('perf:change', st.night); }
@@ -36,7 +41,7 @@ export function createProgression(bus, { rules }) {
     bus.emit('money:change', { wallet: st.wallet });
   });
   return {
-    st,
+    st, ties,
     get night() { return st.night; },
     startNight(day, seed) { st.day = day; st.week = weekOf(day); st.night = fresh(); st.seed = seed; st.occurrences = []; },
     fromRun(run) {
@@ -48,6 +53,7 @@ export function createProgression(bus, { rules }) {
         collapse: run.collapse ? { total: run.collapse.total || 0, byWeek: { ...(run.collapse.byWeek || {}) } } : { total: 0, byWeek: {} },
         sanBase: run.sanBase ?? rules.sanidade.inicio, sanidade: run.sanidade ?? rules.sanidade.inicio,
         fase: run.fase || 'noite', atraso: run.atraso || 0, fim: run.fim || 0, billsPaid: [], pilhasExtra: run.pilhasExtra || 0,
+        ties: cleanTies(run.ties), escolhas: Array.isArray(run.escolhas) ? run.escolhas.map((e) => ({ ...e })) : [], metaPct: { ...(run.metaPct || {}) },
       });
     },
     toRun() {
@@ -58,11 +64,16 @@ export function createProgression(bus, { rules }) {
         misses: st.misses, weekPts: st.weekPts, weekLog: st.weekLog.map((w) => ({ ...w })),
         collapse: { total: st.collapse.total, byWeek: { ...st.collapse.byWeek } },
         sanBase: st.sanBase, sanidade: st.sanidade, fase: st.fase, atraso: st.atraso, fim: st.fim, pilhasExtra: st.pilhasExtra,
+        ties: JSON.parse(JSON.stringify(st.ties)), escolhas: st.escolhas.map((e) => ({ ...e })), metaPct: { ...st.metaPct },
       };
     },
     // ---------------------------------------------------------------- the campaign
     weekOf,
-    weekRules: (w = st.week) => rules.semanas[String(Math.min(4, Math.max(1, w)))],
+    /** The week's rules; the goal carries the change the manager's trust (and a refused extra shift) asked for. */
+    weekRules(w = st.week) {
+      const base = rules.semanas[String(Math.min(4, Math.max(1, w)))], p = st.metaPct[String(w)] || 0;
+      return p ? { ...base, meta: Math.round(base.meta * (1 + Math.max(-0.1, Math.min(0.1, p)))) } : base;
+    },
     /** Where the night is on the calendar: week, night of the week (1..6), the calendar day (1..28) and the weekday label. */
     calendar(day = st.day) {
       const week = weekOf(day), noite = ((day - 1) % C.noitesPorSemana) + 1;
@@ -72,11 +83,16 @@ export function createProgression(bus, { rules }) {
     closeNight(pts) { st.weekPts += pts; },
     /** The sixth night closes the week: the goal, the salary (cut when the goal was missed), the count of missed goals. */
     closeWeek() {
-      const w = st.week, r = rules.semanas[String(Math.min(4, w))], pts = st.weekPts, bateu = pts >= r.meta;
+      const w = st.week, r = this.weekRules(w), pts = st.weekPts, bateu = pts >= r.meta;
       if (!bateu) st.misses++;
-      const salario = bateu ? r.salario : Math.round(r.salario * C.salarioMetaPerdida);
+      let salario = bateu ? r.salario : Math.round(r.salario * C.salarioMetaPerdida);
+      // a cut that a branch left behind (the manager found the adjusted count): half the pay of that week
+      const corte = this.hasFlag('r3:corte') && w === 2;
+      if (corte) { salario = Math.round(salario / 2); this.unflag('r3:corte'); }
+      // the manager's trust sets the next week's goal: -5% when he trusts, +5% when he doubts
+      if (w < C.semanas) { const step = ties.metaStep(); if (step) st.metaPct[String(w + 1)] = Math.round(((st.metaPct[String(w + 1)] || 0) + step) * 100) / 100; }
       st.wallet = Math.round((st.wallet + salario) * 100) / 100;
-      const res = { week: w, pts, meta: r.meta, bateu, salario, cheio: r.salario, misses: st.misses, demitido: st.misses >= C.metasPerdidasDemissao, ultima: w >= C.semanas };
+      const res = { week: w, pts, meta: r.meta, bateu, corte, salario, cheio: r.salario, misses: st.misses, demitido: st.misses >= C.metasPerdidasDemissao, ultima: w >= C.semanas };
       st.weekLog.push({ week: w, pts, meta: r.meta, bateu, salario });
       st.weekPts = 0; bus.emit('money:change', { wallet: st.wallet });
       return res;
@@ -88,7 +104,8 @@ export function createProgression(bus, { rules }) {
     },
     newRun() {
       Object.assign(st, { day: 1, week: 1, wallet: rules.carteiraInicial, tutorialDone: false, flags: [], eventsSeen: [], recurringSeen: [], occurrences: [], doses: {}, frasco: null, cafe: { streak: 0, last: 0 },
-        misses: 0, weekPts: 0, weekLog: [], collapse: { total: 0, byWeek: {} }, sanBase: rules.sanidade.inicio, sanidade: rules.sanidade.inicio, fase: 'noite', atraso: 0, fim: 0, billsPaid: [], pilhasExtra: 0 });
+        misses: 0, weekPts: 0, weekLog: [], collapse: { total: 0, byWeek: {} }, sanBase: rules.sanidade.inicio, sanidade: rules.sanidade.inicio, fase: 'noite', atraso: 0, fim: 0, billsPaid: [], pilhasExtra: 0,
+        ties: freshTies(), escolhas: [], metaPct: {} });
     },
     ok(kind) {
       if (kind === 'abastecimento') { st.night.abastecimentos++; points(P.abastecimento); }

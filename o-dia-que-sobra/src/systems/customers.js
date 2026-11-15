@@ -40,7 +40,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   let counter = 0, simNow = 0;
   let rng = mulberry32(1);
   let timer = 30, enabled = false;
+  let flow = 1;                       // the weather's multiplier of the flow of customers (1 = dry, less when it rains)
+  bus.on('weather:flow', (k) => { flow = Math.max(0.3, Math.min(1, Number(k) || 1)); });
   const nightRecurring = [];
+  const hooks = {};                    // what the story branches plug in (game.js): `scene(scene, c)` answers the option taken at a branch scene
   const pickOf = (arr) => arr[Math.floor(rng() * arr.length)];
   const say = (c, lines) => ui.say(c.name, Array.isArray(lines) ? pickOf(lines) : lines, { seed: c.seed });
   const pick = (k) => cfg.falas[k];
@@ -179,7 +182,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       aim: () => (c.state === 'arriving' || c.state === 'leaving' || c.away ? null : { c: car.root.position.clone().setY(1.1), r: V.tipo === 'caminhao' ? 2.8 : 1.5 }),
       enabled: () => !['arriving', 'leaving'].includes(c.state) && !(c.fueling) && !c.away,
       label: () => {
-        if (c.cents > 0 && !c.paying) return { text: `Receber ${money(Math.round(c.cents) + c.extra)}` };
+        if (c.cents > 0 && !c.paying) return { text: c.fiado ? 'Anotar no fiado' : `Receber ${money(Math.round(c.cents) + c.extra)}` };
         if (!c.ordered) return { text: 'Falar com o cliente' };
         return { text: 'Ouvir o pedido de novo' };
       },
@@ -310,6 +313,13 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       const lines = c.lines.map((l) => (l.q === 'pensamento' ? `(${l.t})` : l.t));
       await ui.dialogue(c.name, lines, c.seed);
       c.sceneSeen = true;
+      // a scene that opens a branch of the story (data: `ramo`): the choice is made here, and the customer goes on (or goes away) by it
+      if (c.scene?.ramo && !c.ramoDone && hooks.scene) {
+        c.ramoDone = true;
+        const k = await hooks.scene(c.scene, c);
+        if (k === 'fiar') c.fiado = true;
+        else if (k === 'recusar') { c.talking = false; c.state = 'leaving'; c.leaveAfter = 0.8; c.done = true; c.noService = true; bus.emit('customer:done', c, 0); return; }
+      }
     } else say2(c, c.text);
     if (c.oferta && !c.offerAsked) await askOffer(c);
     c.talking = false;
@@ -565,7 +575,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (c.nota === 'moeda-antiga' && !c.tornDecided) {
       const ch = await decideCoin(c);
       c.tornDecided = true; c.tornAccepted = ch === 'aceitar';
-      if (c.tornAccepted) { say(c, reactions(c, 'gentileza')); progression.flag('item:moeda-antiga'); bus.emit('sanity:add', -3, 'moeda-antiga'); bus.emit('sfx', 'moeda_antiga', {}); bus.emit('hint', 'A moeda fica com você. O caixa não vai bater por ela.'); }
+      if (c.tornAccepted) { say(c, reactions(c, 'gentileza')); progression.flag('item:moeda-antiga'); progression.ties.add('sol', 1); bus.emit('sanity:add', progression.hasFlag('r1:recusar') ? -5 : -3, 'moeda-antiga'); bus.emit('sfx', 'moeda_antiga', {}); bus.emit('hint', 'A moeda fica com você. O caixa não vai bater por ela.'); }
       else { say(c, reactions(c, 'erro')); c.state = 'leaving'; c.done = true; c.leaveAfter = 0.6; bus.emit('customer:done', c, 0); return null; }
     }
     if (c.nota === 'rasgada' && !c.tornDecided) {
@@ -588,7 +598,14 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     cash.give(res.pieces); cash.ring(total);
   }
   function tipFor(c, errors) {
-    if (errors || !c.tipRange) return;
+    if (errors || c.fiado) return;
+    // the ties: a regular who is fond of the attendant tips more often (systems/ties.js)
+    const tb = c.rec ? progression.ties.tip(c.rec.id) : null;
+    if (tb && rng() < tb.chance) {
+      const cents = Math.round(tb.min + rng() * (tb.max - tb.min));
+      progression.pay(cents / 100); bus.emit('hint', `Gorjeta: ${money(cents)}`); return;
+    }
+    if (!c.tipRange) return;
     const [a, b] = c.tipRange; if (!b) return;
     const cents = Math.round(a + rng() * (b - a));
     if (cents > 0) { progression.pay(cents / 100); bus.emit('hint', `Gorjeta: ${money(cents)}`); }
@@ -608,7 +625,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   async function charge(c) {
     if (c.paying || c.fueling) return;
     c.paying = true;
-    const got = await collect(c, Math.round(c.cents) + c.extra);
+    // a fuelling written down (the story's R1): no money changes hands, the register has no sale, the faults count as always
+    const got = c.fiado ? { res: { sum: c.bill - (Math.round(c.cents) + c.extra), pieces: [] }, torn: false } : await collect(c, Math.round(c.cents) + c.extra);
     c.paying = false;
     if (!got) return;
     const cr = inventory.carry;
@@ -623,11 +641,12 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const diff = given - Math.round(correct);
     let errors = 0;
     const T = c.value, C = owed;
-    book(c, C, res, torn);
+    if (!c.fiado) book(c, C, res, torn);
     if (c.wrong) { progression.error('combustivel', c.id); progression.complaint('combustivel'); errorLine(c, 'combustivel_errado', 'combustivel-errado'); errors++; }
     if (c.typed !== T) { progression.error('valor-digitado', c.id); errorLine(c, c.typed < T ? 'faltou' : 'passou', c.typed < T ? 'valor-curto' : 'valor-passado'); errors++; }
     if (c.nozzleIn) { progression.error('bico-esquecido', c.id); progression.complaint('bico'); errorLine(c, 'bico', 'bico-esquecido'); errors++; forgetNozzle(c); }
     if (diff !== 0) { progression.error('troco', c.id); errorLine(c, diff < 0 ? 'troco_curto' : 'troco_longo', diff < 0 ? 'troco-curto' : 'troco-longo'); errors++; if (diff < 0) progression.complaint('troco'); }
+    if (!errors && c.rec) progression.ties.add('laco', 0.5, c.rec.id);
     if (!errors) { progression.ok('abastecimento'); thanks(c, 0); bus.emit('sfx', 'caixa_gaveta', {}); offerTip(c); tipFor(c, 0); }
     c.state = 'leaving'; c.done = true;
     bus.emit('step', errors ? 'fuel.paid-with-errors' : 'fuel.paid', c);
@@ -1158,6 +1177,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (cd.evento && !progression.hasSeen(cd.evento)) return false;
     if (cd.semEvento && (progression.hasSeen(cd.semEvento) || (cd.semEvento === 'telefone' && time.minutes >= 350))) return false;
     if (cd.flag && !progression.hasFlag(cd.flag)) return false;
+    if (cd.semFlag && progression.hasFlag(cd.semFlag)) return false;
     if (cd.cafeSeguidas && (progression.st.cafe?.streak || 0) < cd.cafeSeguidas) return false;
     return true;
   }
@@ -1273,7 +1293,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (enabled) {
       timer -= dt;
       if (timer <= 0 && list.filter((c) => !c.done && c.kind !== 'empty' && !c.noService).length < 3) {
-        timer = rng.range(...cfg.chegada.intervalo);
+        timer = rng.range(...cfg.chegada.intervalo) / flow;     // (rain thins the arrivals: weather.js says by how much)
         arrive();
       }
     }
@@ -1566,6 +1586,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     clear() { for (const c of [...list]) remove(c); ui.setTotal(null); followQ.length = 0; recQueue = []; taken.clear(); chores?.setBathroomBusy(false); for (const [i, it] of world.interactables.entries()) { void i; if (it.kind === 'bico' && it.object3D) it.object3D.visible = true; } },
     /** "Save now" restore: the recurring people whose hour has passed already came (systems/snapshot.js). */
     dropRecurringBefore(m) { recQueue = recQueue.filter((q) => q.at > m); },
+    hooks,
     describeAll, restoreAll, restoreCarry,
     watcher: () => list.find((c) => c.rec?.id === 'homem0333' && c.state === 'watch' && !c.done) || null,
     activeCount: () => list.filter((c) => !c.done).length,
