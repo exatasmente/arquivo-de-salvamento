@@ -53,16 +53,26 @@ export function createStage(r, { seed = 1, blocks = null, cast = null, reduceFla
   if (!camera.parent) r.scene.add(camera); // the arms ride on the camera: it must be in the scene
   const owned = new Set();
 
+  const keys = {};              // the variant each instance was built for (a cutscene that the story changes is built again when its variant changes)
   const ctx = {
-    r, THREE, seed, blocks, cast, reduceFlash,
+    r, THREE, seed, blocks, cast, reduceFlash, variant: null, variantKey: 'null',
     world() { if (!world) { world = createWorld(r, { seed }); r.scene.add(world.group); owned.add(world.group); } return world; },
     hands() { return hands ??= heitorArms(r); },
   };
 
+  /** The parameters the game passes to a cutscene that the story changes (the endings): { ... } or null for the plain one (the film mode). */
+  function setVariant(v) { ctx.variant = v ?? null; ctx.variantKey = JSON.stringify(ctx.variant); }
   function inst(name) {
-    if (insts[name]) return insts[name];
+    if (insts[name] && keys[name] === ctx.variantKey) return insts[name];
+    if (insts[name]) {                // built for another variant: it goes, and is made again
+      const old = insts[name];
+      if (current === name) { hide(name); current = null; }
+      if (old.group) { r.scene.remove(old.group); owned.delete(old.group); }
+      delete insts[name];
+    }
     const def = CUTSCENES[name];
     if (!def) throw new Error(`unknown cutscene: ${name}`);
+    keys[name] = ctx.variantKey;
     const i = insts[name] = def.build(ctx);
     if (i.group && !i.group.parent) { r.scene.add(i.group); owned.add(i.group); }
     i.show?.(false); if (!i.show && i.group) i.group.visible = false;
@@ -133,7 +143,7 @@ export function createStage(r, { seed = 1, blocks = null, cast = null, reduceFla
   function draw() { r.renderer.render(r.scene, camera); }
   function dispose() { leave(); }
 
-  return { ctx, inst, show, frame, draw, enter, leave, dispose, get current() { return current; } };
+  return { ctx, inst, show, frame, draw, enter, leave, dispose, setVariant, get current() { return current; } };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -160,7 +170,8 @@ const HOLD = 1.0;          // seconds to hold to skip
 const SKIP_GRACE = 0.5;    // a key held from the previous screen does not count
 
 /**
- * Plays a cutscene. opts: { onEnd(info), skippable = true, render, audio, root, seed, blocks, reduceFlash }.
+ * Plays a cutscene. opts: { onEnd(info), skippable = true, render, audio, root, seed, blocks, cast, reduceFlash, variant }.
+ * `variant`: what the story changes in a cutscene (the endings read it: who comes with the manager, how he greets, where the sign faces); none = the plain one.
  * Skip: hold Esc, the Start button of the pad or the "PULAR" button for one second.
  */
 export function playCutscene(nome, opts = {}) {
@@ -174,9 +185,10 @@ export function playCutscene(nome, opts = {}) {
   const skippable = opts.skippable !== false;
   ensureCss();
   const reduce = c.reduceFlash ?? reduceFlashOpt();
-  if (cfg.stageFor !== render) { cfg.stage = createStage(render, { seed: c.seed ?? 1, blocks: c.blocks ?? null, reduceFlash: reduce }); cfg.stageFor = render; }
+  if (cfg.stageFor !== render) { cfg.stage = createStage(render, { seed: c.seed ?? 1, blocks: c.blocks ?? null, cast: c.cast ?? null, reduceFlash: reduce }); cfg.stageFor = render; }
   const stage = cfg.stage;
   stage.ctx.blocks = c.blocks ?? null; stage.ctx.reduceFlash = reduce;
+  stage.setVariant(c.variant);
   stage.inst(nome); // build before the clock starts (the first frame must not stall)
   stage.leave();
 

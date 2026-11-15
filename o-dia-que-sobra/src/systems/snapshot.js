@@ -27,6 +27,7 @@ export const EXACTNESS_NOTES = [
   'The speech bubble a customer was saying and the sounds in the air are not kept; a customer in a state that greets (placing the items) says its greeting again.',
   'Cars or customers of events (the empty car, the dark car) are not saved: their event is what brings them back.',
   'A story branch script that is running (a street dweller who is talking, the forged note being found) starts again from its beginning; what was already chosen (the choices, the three hidden measures, the flags) is in the run and comes back exact. The street dweller asleep on the pavement is put back. The extra Sunday does not save in the middle.',
+  'The woman who waits in the shop (R6) comes in again from the door and her hour is counted again from there (the Sun\'s truce already given is kept, in the machine\'s own state); the bag, the tape, the photograph and the car in the back stall (R6 to R10) are props that come back in their places, and the one that was not looked at yet is laid down again when it is not looked at.',
   'The change tray, the pump panel and any dialogue are modals: the pause cannot open while one is open, so nothing is ever saved inside one.',
 ];
 

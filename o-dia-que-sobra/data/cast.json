@@ -50,6 +50,7 @@
         { "semana": 2, "dia": 2, "cena": "cida-4" },
         { "semana": 2, "dia": 5, "cena": "cida-5" },
         { "semana": 3, "dia": 2, "cena": "cida-6" },
+        { "semana": 3, "dia": 5, "cena": "cida-bolsa" },
         { "semana": 4, "dia": 1, "cena": "cida-7" },
         { "semana": 4, "dia": 5, "cena": "cida-8" }
       ]
@@ -128,6 +129,51 @@
         { "semana": 4, "dia": 1, "cena": "homem-8" },
         { "semana": 4, "dia": 2, "cena": "homem-9" },
         { "semana": 4, "dia": 3, "cena": "homem-10" }
+      ]
+    },
+    {
+      "id": "casal",
+      "cenasMin": 1,
+      "nome": "Moça da festa",
+      "idade": 29,
+      "categoria": "recorrente",
+      "veiculo": { "tipo": "carro", "estilo": "sedan", "cor": "#4a4c54", "combustivel": "etanol", "vidro": "normal", "motorista": true },
+      "horario": "01:30",
+      "janela": ["01:20", "01:50"],
+      "bomba": 2,
+      "paciencia": 150,
+      "traco": "Volta de uma festa com o namorado no banco ao lado. Só aparece na noite 10, e é a briga que decide o que o posto faz por eles (ramo R6).",
+      "aparencia": { "seed": 93, "pessoas": [ { "roupa": "festa-ela", "acessorios": ["bolsa"] }, { "roupa": "festa-ele" } ] },
+      "pedido": { "modo": "bomba", "combustivel": "etanol", "valor": [20, 30] },
+      "pagamento": { "notas": [50], "nota": "normal", "gorjeta": [0, 0] },
+      "noites": [
+        { "semana": 2, "dia": 4, "cena": "casal-1" }
+      ]
+    },
+    {
+      "id": "caminhoneiro",
+      "cenasMin": 5,
+      "nome": "Motorista de caminhão",
+      "idade": 46,
+      "categoria": "recorrente",
+      "veiculo": { "tipo": "caminhao", "estilo": "perua", "cor": "#8a8e8a", "combustivel": "diesel", "vidro": "normal", "motorista": true },
+      "horario": "02:30",
+      "janela": ["02:20", "03:00"],
+      "bomba": 3,
+      "paciencia": 200,
+      "traco": "Roda de madrugada, para no diesel e pede um café forte. Na noite 15 oferece um galão sem nota (ramo R8); quem aceitou nunca mais o vê parar.",
+      "aparencia": { "seed": 61, "roupa": "caminhoneiro", "acessorios": ["bone"] },
+      "pedido": {
+        "modo": "bomba", "combustivel": "diesel", "valor": [100, 140],
+        "oferta": { "itens": ["cafe"], "chance": 1, "fala": "Patrão, põe um café forte aí pra mim? Pago junto.", "sim": "Isso, patrão. Salva a estrada.", "nao": "Sem problema. Só o diesel, então.", "paciencia": 90, "gorjeta": { "parte": [100, 300], "tudo": [300, 700] } }
+      },
+      "pagamento": { "notas": [100, 50], "nota": "normal", "gorjeta": [0, 200] },
+      "noites": [
+        { "semana": 2, "dia": 2, "cena": "cam-1" },
+        { "semana": 3, "dia": 3, "cena": "cam-2" },
+        { "semana": 3, "dia": 6, "cena": "cam-3" },
+        { "semana": 4, "dia": 3, "cena": "cam-4" },
+        { "semana": 4, "dia": 5, "cena": "cam-5" }
       ]
     }
   ],

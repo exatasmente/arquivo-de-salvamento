@@ -98,7 +98,8 @@ export function createCampaign(bus, { progression, sanity, entity, ui, save, sec
     atDayOff = true; st.paidSum = 0; st.billsPaid = [];
     const contas = r.contas.map((c) => ({ ...c })), porId = Object.fromEntries(contas.map((c) => [c.id, c.valor]));
     await hooks.enterDayOff();
-    bus.emit('dayoff:start', { week, day: progression.calendar(week * C.noitesPorSemana).calDay + 1, wallet: st.wallet, contas, contasPorId: porId, sanidade: st.sanidade });
+    const irma = progression.hasFlag('r5:mandou') ? 'mandou' : progression.hasFlag('r5:metade') ? 'metade' : progression.hasFlag('r5:nao') ? 'nao' : null;   // R5: the sister's bill, answered at the week 2 day off
+    bus.emit('dayoff:start', { week, day: progression.calendar(week * C.noitesPorSemana).calDay + 1, wallet: st.wallet, contas, contasPorId: porId, sanidade: st.sanidade, irma });
   }
   bus.on('dayoff:end', (e = {}) => {
     if (!atDayOff) return;

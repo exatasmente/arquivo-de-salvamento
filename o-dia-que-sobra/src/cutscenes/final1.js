@@ -1,9 +1,13 @@
 // Ending 1, "final1" (O Dia que Sobra): the dawn of the 28th day. The manager arrives by car with the new calendar
 // and hands it over; Heitor goes home on foot along the shoulder, the rod of his father in his hand; he stops and
 // looks back: the sign of the Sun, unlit, with its back to the highway. First person, 44 s. Two boxes, no more.
+// The game passes `variant` (what the story did): { chegam: ['rafael', 'cida', 'morador'], saudacao: 'caloroso' | 'frio', placa: 'frente' }. Without it (the film mode)
+// this is the plain ending, as it always was; with it the camera and the times stay and only these change: who is by the pumps at dawn, how the manager greets,
+// and whether the sign has turned its smile to the highway.
 import { bob, footfalls, ramp, smooth, lerp, dialogue, BABBLE_SEEDS } from './common.js';
 import { pumpCar, camPoint, toCam } from './stagecraft.js';
-import { aimTrack, aimAt, lookFrom, fadeInOut, dawn, buildManager, makeVara, makeCalendarPage, placeInCam, EYE, PI } from './finais-kit.js';
+import { aimTrack, aimAt, lookFrom, fadeInOut, dawn, buildManager, buildRafael, buildCida, buildMorador, makeVara, makeCalendarPage, placeInCam, EYE, PI } from './finais-kit.js';
+import { buildMoto } from '../models/moto.js';
 
 const D = 44;
 const views = {
@@ -13,12 +17,21 @@ const views = {
   placa: [36, 44, 'Ele para e se vira: a placa do Sol, apagada, de costas para a rodovia'],
 };
 
-const SAY = dialogue([
-  { t: 12.4, who: 'Gerente', text: 'Calendário novo. Agora descansa.', seed: BABBLE_SEEDS.gerente, hold: 1.4 },
+const GREET = { neutro: 'Calendário novo. Agora descansa.', caloroso: 'Bom dia, Heitor. Calendário novo. Agora descansa.', frio: 'Calendário novo.' };
+const sayFor = (V) => dialogue([
+  { t: 12.4, who: 'Gerente', text: GREET[V.saudacao], seed: BABBLE_SEEDS.gerente, hold: 1.4 },
   { t: 37.6, who: '', text: 'Um dia só meu.', seed: BABBLE_SEEDS.heitor, hold: 2.4 },
 ]);
+/** What the game says the story did, as a clean set (anything unknown is the plain ending). */
+export const variantOf = (v) => ({
+  chegam: ['rafael', 'cida', 'morador'].filter((k) => (v?.chegam ?? []).includes(k)),
+  saudacao: v?.saudacao === 'caloroso' || v?.saudacao === 'frio' ? v.saudacao : 'neutro',
+  placa: v?.placa === 'frente' ? 'frente' : 'costas',
+});
+let SAY = sayFor(variantOf(null)), EXTRA = [];      // (the lines and the sounds of the instance that was built last)
 
 // the manager: from the car at pump 1 to the front of Heitor
+const MOTO = [6.6, -2.6], RAF = [6.9, -1.0], CIDA = [10.4, -3.4], MOR = [1.9, -1.4];   // the motorbike and Rafael, Dona Cida beside her car at pump 2, the street dweller on the pavement
 const E1 = [9.0, EYE, 1.0];                                  // where Heitor stands, under the front of the canopy
 const WALK = [[7.0, 4.3, -3.6], [11.6, 8.5, -0.55]];         // [t, x, z]
 const mgrAt = (t) => { const u = Math.min(1, Math.max(0, (t - WALK[0][0]) / (WALK[1][0] - WALK[0][0]))); return [lerp(WALK[0][1], WALK[1][1], u), lerp(WALK[0][2], WALK[1][2], u), u]; };
@@ -45,7 +58,7 @@ const walking = (t) => (t >= 22 && t < 35.6 ? 1 : 0);
 export default {
   name: 'final1', duration: D, views,
   anchors: { calendario: 'O calendário novo nas mãos do gerente', vara: 'A vara de pesca do pai, na mão de Heitor', placa: 'A placa do Sol, de costas para a rodovia' },
-  sfx: [
+  fixedSfx: [
     { t: 0, name: 'vento', opts: { dur: 22, gain: 0.55 } },
     { t: 0, name: 'amanhecer', opts: { dur: D } },
     { t: 0, name: 'insetos', opts: { dur: 22, gain: 0.35 } },
@@ -56,8 +69,8 @@ export default {
     { t: 22, name: 'vento', opts: { dur: 22, gain: 0.7 } },
     { t: 22, name: 'insetos', opts: { dur: 14, gain: 0.3 } },
     ...footfalls(22.2, 35.4, 1.9, { gain: 0.5 }, 'passo_asfalto'),
-    ...SAY.sfx,
   ],
+  get sfx() { return [...this.fixedSfx, ...SAY.sfx, ...EXTRA]; },
   build(ctx) {
     const { r } = ctx, T = r.THREE;
     const hands = ctx.hands(), W = ctx.world();
@@ -67,6 +80,21 @@ export default {
     const mgr = buildManager(r); g.add(mgr.root);
     const cal = makeCalendarPage(r, { firstCol: 0, days: 28, rows: 4, seed: 28, sun: 0.1 }); g.add(cal);
     const vara = makeVara(r); g.add(vara);
+    // what the story brought to the dawn (nothing in the plain ending)
+    const V = variantOf(ctx.variant);
+    SAY = sayFor(V); EXTRA = [];
+    const X = {};
+    if (V.chegam.includes('rafael')) {
+      X.moto = buildMoto(r, { seed: 17, color: '#5a5a48' }); X.moto.setRider?.(false); X.moto.setLights?.(false); g.add(X.moto.root);
+      X.rafael = buildRafael(r, ctx); X.rafael.root.visible = false; g.add(X.rafael.root);
+      EXTRA.push({ t: 2.2, name: 'motor_carro', opts: { dur: 3.6, gain: 0.45, pos: [2, 1, -4.2] } });
+    }
+    if (V.chegam.includes('cida')) {
+      X.taxi = pumpCar(r, W, 2, { tPark: 7.4, seed: 5, fuel: 'etanol', driver: false, lights: false, style: 'sedan', color: '#d8d4c8' }); g.add(X.taxi.car.root);
+      X.cida = buildCida(r, ctx); X.cida.root.visible = false; g.add(X.cida.root);
+      EXTRA.push({ t: 3.4, name: 'motor_carro', opts: { dur: 4.2, gain: 0.5, pos: [8, 1, -4.8] } }, { t: 7.6, name: 'porta_fecha', opts: { pos: [8, 1, -4.8], gain: 0.6 } });
+    }
+    if (V.chegam.includes('morador')) { X.morador = buildMorador(r, ctx); X.morador.root.rotation.order = 'YXZ'; g.add(X.morador.root); }
     return {
       group: g, hands: true, arms: hands.arms,
       anchors: { calendario: () => [8.3, 1.2, -0.3], vara: () => [-30, 1.2, -24.1], placa: () => SIGN },
@@ -83,6 +111,26 @@ export default {
         const myaw = u < 1 ? Math.atan2(WALK[1][1] - WALK[0][1], WALK[1][2] - WALK[0][2]) : Math.atan2(E1[0] - mx, E1[2] - mz);
         mgr.root.position.set(mx, 0, mz); mgr.root.rotation.y = u < 1 ? myaw : myaw;
         mgr.update(t, u > 0 && u < 1 ? { andando: 1, fase: t * 6.8 } : { pose: 'parado', falando: SAY.at(t) !== null, olhar: 0 });
+        // the ones who came with him
+        const faceCam = (x, z) => Math.atan2(E1[0] - x, E1[2] - z);
+        if (X.moto) {
+          const mu = smooth(ramp(t, 2.2, 6.0)), mx = lerp(-6.0, MOTO[0], mu);
+          X.moto.root.visible = !road && t >= 2.2; X.moto.root.position.set(mx, 0, MOTO[1]); X.moto.root.rotation.y = lerp(PI / 2, PI / 2 + 0.5, smooth(ramp(t, 5.4, 6.4)));
+          X.moto.update?.(t);
+          X.rafael.root.visible = !road && t >= 6.4; X.rafael.root.position.set(RAF[0], 0, RAF[1]); X.rafael.root.rotation.y = faceCam(RAF[0], RAF[1]);
+          X.rafael.update(t, { pose: 'parado', falando: false });
+        }
+        if (X.taxi) {
+          X.taxi.pose(t);
+          X.cida.root.visible = !road && t >= 8.2; X.cida.root.position.set(CIDA[0], 0, CIDA[1]); X.cida.root.rotation.y = faceCam(CIDA[0], CIDA[1]);
+          X.cida.update(t, { pose: 'parado', falando: false });
+        }
+        if (X.morador) {
+          const rise = smooth(ramp(t, 3.4, 7.0)), m = X.morador.root;
+          m.visible = !road; m.position.set(MOR[0], lerp(0.16, 0, rise), MOR[1]);
+          m.rotation.set(lerp(-PI / 2, 0, rise), lerp(0.4, faceCam(MOR[0], MOR[1]), rise), 0);
+          X.morador.update(t, { pose: 'parado', falando: false });
+        }
         // the new calendar: in his hand, then in ours (13.0 to 14.8), then held low
         const give = smooth(ramp(t, 13.0, 14.8));
         const fwd = new T.Vector3(Math.sin(myaw), 0, Math.cos(myaw));
@@ -106,7 +154,9 @@ export default {
         const k = smooth(ramp(t, 0, 2.5)) * 0.8 + 0.2;
         return {
           eye, look, roll: b[2], fade: Math.min(1, fade), dialog: SAY.at(t),
-          world: { ambient: 0x9c98a4, state: { hora: 5.9 }, fog: [18, 125], sign: { on: false, smile: 0, ray: -1 }, off: ['placa'] },
+          world: V.placa === 'frente' && t >= 36.2
+            ? { ambient: 0x9c98a4, state: { hora: 5.9 }, fog: [18, 125], sign: { on: true, smile: 0.62 * smooth(ramp(t, 36.4, 41.5)), ray: -1 } }   // the sign has turned its smile to the highway
+            : { ambient: 0x9c98a4, state: { hora: 5.9 }, fog: [18, 125], sign: { on: false, smile: 0, ray: -1 }, off: ['placa'] },
           late() { dawn(r, k); },
         };
         void ambient; void lookFrom;

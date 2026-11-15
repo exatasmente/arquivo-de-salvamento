@@ -9,7 +9,8 @@
 //     `roteiro`  a script that starts inside its window (`horario`) when nothing else is going on.
 //   The first moment of a branch (`noite` of the record) is a script too, or it is brought by another system: the customers (R1, the scene of
 //   Rafael), the manager's call (R4) and the closing of the till (R3's choice).
-// A choice is `choose(id, option)`; it applies the `efeitos` of the option: conf, sol, laco, carteira, sanidade, flags, tiraFlags, metaPct, relato, ocorrencia.
+// A choice is `choose(id, option)`; it applies the `efeitos` of the option: conf, sol, laco, carteira, sanidade, flags, tiraFlags, metaPct, relato,
+// ocorrencia (true: the forged note; or { tipo, nome }: an occurrence registered in the office), diz (a line of Heitor's).
 // Nothing here reads a real clock; the plan of a night comes from the data and the run, never from a draw.
 import { createKit } from './events/kit.js';
 
@@ -26,6 +27,8 @@ export async function createBranches(bus, ctx) {
   let plan = [], active = null, ran = new Set(), clock = 0, lastEnd = -99;
   const props = [];   // what a script leaves in the world after it is over (the street dweller asleep on the pavement): { path, update(dt, simT) -> true to go, dispose(), data }
   let whistled = false;
+  // a scene of a regular that brings a consequence when it is over (data: `dispara: { ramo, evento, se }`, e.g. Dona Cida getting her bag back)
+  bus.on('customer:done', (c) => { const d = c?.scene?.dispara; if (d && (!d.se || progression.hasFlag(d.se))) event(d.ramo, d.evento); });
 
   const R = (c) => `R$ ${Math.abs(c)}`;
   function dropProps() { for (const p of props.splice(0)) p.prop.dispose?.(); }
@@ -49,8 +52,10 @@ export async function createBranches(bus, ctx) {
     for (const f of ef.tiraFlags || []) progression.unflag(f);
     for (const [w, p] of Object.entries(ef.metaPct || {})) st.metaPct[w] = Math.round(((st.metaPct[w] || 0) + p) * 100) / 100;
     if (ef.relato) progression.flag('fala:' + ef.relato);
+    if (ef.diz) ui.say('Heitor', ef.diz, { seed: 61, ms: 4200 });
     if (ef.ocorrencia) {
-      ctx.office?.registered.push({ tipo: 'nota-falsa', nome: 'Nota falsa no caixa', hora: time.text(), at: time.minutes, valida: true });
+      const o = ef.ocorrencia === true ? { tipo: 'nota-falsa', nome: 'Nota falsa no caixa' } : ef.ocorrencia;
+      ctx.office?.registered.push({ tipo: o.tipo, nome: o.nome, hora: time.text(), at: time.minutes, valida: true });
       progression.occurrence(true);
     }
   }
@@ -99,6 +104,7 @@ export async function createBranches(bus, ctx) {
   const stepOn = (s, day) => NIGHTS(s.noite).includes(day) && (!s.se || progression.hasFlag(s.se)) && (!s.sem || !progression.hasFlag(s.sem));
   function beginNight(day) {
     dropProps(); plan = []; ran = new Set(); active = null; clock = 0; lastEnd = -99; whistled = false; if (events) events.state.hold = false;
+    ctx.lighting?.setDark(progression.hasFlag('r10:abriu') && day >= 21 ? 0.78 : 1);   // R10, opened: the last nights begin darker
     const tonight = day;
     for (const b of records) {
       const steps = [...(b.roteiro ? [{ id: b.id, noite: b.noite, roteiro: b.roteiro, horario: b.horario }] : []), ...(b.passos || [])];

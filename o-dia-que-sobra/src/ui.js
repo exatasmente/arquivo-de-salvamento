@@ -87,7 +87,13 @@ export function createUI(root, api) {
     return null;
   }
   function setObjective(t) { if (!t) { el.obj.hidden = true; return; } el.obj.hidden = false; if (el.obj.textContent !== t) el.obj.textContent = t; }
-  function setTotal(t) { if (!t) { el.total.hidden = true; return; } el.total.hidden = false; el.total.textContent = 'LEITOR  ' + t; }
+  /** The scanner's total. A string is the products alone; `{ lines, total }` is a bill with the fuel on it (one line per part, then the sum). */
+  function setTotal(t) {
+    if (!t) { el.total.hidden = true; return; }
+    el.total.hidden = false;
+    if (typeof t === 'string') { el.total.textContent = 'LEITOR  ' + t; return; }
+    el.total.innerHTML = t.lines.map(([k, v]) => `<div>${esc(k)}: ${esc(v)}</div>`).join('') + `<div>LEITOR  ${esc(t.total)}</div>`;
+  }
   // the top-left of the HUD: the clock (always there, big) and the calendar line under it; the marked goal under both
   const calB = el.cal.querySelector('b'), calS = el.cal.querySelector('span');
   let calT = null, clkT = null;
@@ -217,7 +223,7 @@ export function createUI(root, api) {
   // ------------------------------------------------------------------ change tray
   // stock: what the drawer really has, by value (cents). A value the drawer ran out of cannot be handed back.
   const S = (t) => esc(api.scramble(t));
-  function openChange({ total, paid, hint, who, stock }) {
+  function openChange({ total, paid, hint, who, stock, lines }) {
     return new Promise((resolve) => {
       const notes = [200, 500, 1000, 2000, 5000, 10000], coins = [1, 5, 10, 25, 50, 100];
       let given = [], r = 0, c = 0;
@@ -230,7 +236,7 @@ export function createUI(root, api) {
         el.modal.innerHTML = `<div class="screen"><div class="box tray"${shaky()}>
           <h1>TROCO</h1>
           <p class="who">${esc(who || 'Cliente')}</p>
-          <div class="sums"><span>Total <b class="tr">${S(money(total))}</b></span><span>Recebido <b class="tr">${S(money(paid))}</b></span>${hint ? `<span class="hint">Troco a dar <b class="tr">${S(money(correct))}</b></span>` : ''}</div>
+          <div class="sums">${(lines || []).map(([k, v]) => `<span>${esc(k)} <b class="tr">${S(v)}</b></span>`).join('')}<span>Total <b class="tr">${S(money(total))}</b></span><span>Recebido <b class="tr">${S(money(paid))}</b></span>${hint ? `<span class="hint">Troco a dar <b class="tr">${S(money(correct))}</b></span>` : ''}</div>
           <div class="tray">Entregue <b class="tr">${S(money(sum()))}</b><div class="pile">${given.map((v) => `<i class="${v >= 200 ? 'n' : 'm'}">${lab(v)}</i>`).join('')}</div></div>
           <div class="row" data-r="0">${notes.map((v, i) => btn(v, i, 0, 'n')).join('')}</div>
           <div class="row" data-r="1">${coins.map((v, i) => btn(v, i, 1, 'm')).join('')}</div>

@@ -524,11 +524,90 @@ async function folga(browser, base) {
   await ctx.close();
 }
 
+/** The story branches of the second part (R5 to R10): what was chosen, the three hidden measures, the flags, the things left in the world (the bag on the counter, the tape on the monitor, the photograph, the car in the back stall), the truce of the Sun and the dark of the last nights come back exact. */
+async function ramos(browser, base) {
+  const tag = 'ramos';
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, serviceWorkers: 'block', acceptDownloads: true });
+  const errs = [];
+  let page = await open(ctx, base, 'debug=day:22&manual&silent&skiptutorial&nointro&seed=1', errs);
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await page.evaluate(toMidnight);
+  await page.evaluate(async () => {
+    const G = window.__odq.game, B = G.branches;
+    G.progression.st.escolhas.length = 0;
+    for (const [id, k] of [['r1', 'fiar'], ['r2', 'deixar'], ['r6', 'calou'], ['r7', 'guardar'], ['r8', 'registrar'], ['r9', 'ficar'], ['r10', 'abrir']]) B.choose(id, k);
+    G.progression.flag('r10:abriu');
+    await B.runNow('branches/r9-guardada.js'); await B.runNow('branches/r7-fita-volta.js'); await B.runNow('branches/r9-foto.js'); await B.runNow('branches/r6-vaga.js');
+    G.entity.truce(G.time.minutes + 45);
+    G.lighting.setDark(0.78);
+    for (let i = 0; i < 30; i++) G.step(1 / 60);
+  });
+  const READ = () => {
+    const G = window.__odq.game, st = G.progression.st;
+    return { escolhas: st.escolhas.map((e) => `${e.b}:${e.k}@${e.d}`), ties: JSON.parse(JSON.stringify(st.ties)), flags: [...st.flags].sort(), metaPct: { ...st.metaPct }, wallet: st.wallet, log: G.branches.log(), props: G.branches.snapshotState().props.map((p) => p.path).sort(), targets: [...G.interaction.targets.keys()].filter((k) => /-r[0-9]+$/.test(k)).sort(), truce: G.entity.S.truceUntil, dark: G.lighting.dark, ran: G.branches.snapshotState().ran.slice().sort() };
+  };
+  await page.evaluate(`window.__read = ${READ.toString()}`);
+  const before = await page.evaluate(() => window.__read());
+  ok(before.escolhas.length >= 7 && before.props.length === 4 && before.truce > 0 && before.dark < 1, `${tag}: before: ${before.escolhas.length} choices, ${before.props.length} props (${before.props.join(', ')}), truce ${before.truce}, dark ${before.dark}`);
+  await page.evaluate(() => window.__odq.game.openPause()); await clickText(page, 'SALVAR AGORA');
+  const stored = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), CARD));
+  ok(Array.isArray(stored.run?.escolhas) && stored.run.escolhas.length >= 7 && stored.run.ties && typeof stored.run.ties.conf === 'number', `${tag}: the card keeps the choices (${stored.run?.escolhas?.length}) and the measures`);
+  ok(!/resposta|senha|password/i.test(JSON.stringify(stored)), `${tag}: no answer text in the card`);
+  await page.close();
+  page = await open(ctx, base, 'debug=load&manual&silent&nointro&seed=1', errs);
+  await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
+  await clickText(page, 'CONTINUAR');
+  await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 30000 });
+  await page.evaluate(PRELOCK);
+  await page.evaluate(() => { const G = window.__odq.game; for (let i = 0; i < 90; i++) G.step(1 / 60); });
+  await page.evaluate(`window.__read = ${READ.toString()}`);
+  const after = await page.evaluate(() => window.__read());
+  const d = diff({ ...before, targets: 0 }, { ...after, targets: 0 });
+  ok(d.length === 0, `${tag}: choices, measures, flags, props, the truce and the dark are back, value by value${d.length ? '\n         ' + d.slice(0, 15).join('\n         ') : ''}`);
+  ok(after.targets.includes('foto-r9') || after.targets.includes('fita-volta-r7') || before.targets.every((t) => after.targets.includes(t)), `${tag}: the things to examine are back (${after.targets.join(', ')})`);
+  ok(errs.length === 0, `${tag}: console clean${errs.length ? '\n' + errs.slice(0, 6).join('\n') : ''}`);
+  await ctx.close();
+}
+
+/** R5 at home: the sister's bill answered in the week 2 day off, then saved: the money, the choice and the message heard come back, and the answer is not asked twice. */
+async function ramosFolga(browser, base) {
+  const tag = 'ramos-folga';
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, serviceWorkers: 'block', acceptDownloads: true });
+  const errs = [];
+  let page = await open(ctx, base, 'debug=dayoff:2&manual&silent&nointro&seed=1', errs);
+  await page.waitForFunction(() => window.__odq?.game?.state === 'dayoff' && window.__odq.game.dayoff?.active, null, { timeout: 90000 });
+  await page.evaluate(PRELOCK);
+  await page.evaluate(() => { const G = window.__odq.game; G.progression.st.wallet = 300; G.bus.emit('money:change', { wallet: 300 }); for (let i = 0; i < 120; i++) G.step(1 / 60); });
+  await page.evaluate(() => { const G = window.__odq.game; G.dayoff.interaction.targets.get('telefone').tap(); G.step(1 / 60); });
+  for (let i = 0; i < 12 && !(await rows(page)).some((r) => /^MANDAR R\$ 120/.test(r)); i++) { await page.keyboard.press('Enter'); await page.evaluate(() => window.__odq.advance(3)); }   // (the three messages, one key each)
+  const menu = await rows(page);
+  ok(menu.some((r) => /^MANDAR R\$ 120/.test(r)) && menu.some((r) => /^NÃO MANDAR/.test(r)), `${tag}: the sister asks, with a choice (${menu.join(' / ')})`);
+  await shot(page, `ramos-folga-menu-irma`);
+  await clickText(page, 'MANDAR METADE');
+  const read = () => page.evaluate(() => { const G = window.__odq.game, s = G.dayoff.snapshotState(), st = G.progression.st; return { wallet: s.wallet, heard: s.heard, flags: st.flags.filter((f) => /^r5/.test(f)), escolhas: st.escolhas.map((e) => `${e.b}:${e.k}`), paidSum: st.paidSum, billsPaid: [...st.billsPaid] }; });
+  const before = await read();
+  ok(before.wallet === 240 && before.flags.includes('r5:metade') && before.paidSum === 0 && before.billsPaid.length === 0, `${tag}: R$ 60 left the wallet (${before.wallet}) and no bill was counted as paid (${before.paidSum}) ${JSON.stringify(before)}`);
+  await page.evaluate(() => window.__odq.game.bus.emit('dayoff:pause')); await clickText(page, 'SALVAR AGORA');
+  await page.close();
+  page = await open(ctx, base, 'debug=load&manual&silent&nointro&seed=1', errs);
+  await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
+  await clickText(page, 'CONTINUAR');
+  await page.waitForFunction(() => window.__odq.game.state === 'dayoff' && window.__odq.game.dayoff?.active, null, { timeout: 30000 });
+  await page.evaluate(PRELOCK); await page.waitForTimeout(600);
+  const after = await read();
+  const d = diff(before, after);
+  ok(d.length === 0, `${tag}: the money, the choice and the messages heard are back${d.length ? '\n         ' + d.slice(0, 10).join('\n         ') : ''}`);
+  const again = await page.evaluate(() => { const G = window.__odq.game; G.dayoff.interaction.targets.get('telefone').tap(); G.step(1 / 60); return { modal: G.ui.modalOpen }; });
+  ok(!again.modal, `${tag}: nothing is asked twice (the phone has no new message)`);
+  ok(errs.length === 0, `${tag}: console clean${errs.length ? '\n' + errs.slice(0, 6).join('\n') : ''}`);
+  await ctx.close();
+}
+
 const srv = await serve();
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
-  const which = process.argv[2];      // desktop | mobile | phases | exact | sun | folga | chores | weather (nothing: all of them)
+  const which = process.argv[2];      // desktop | mobile | phases | exact | sun | folga | chores | weather | ramos | ramos-folga (nothing: all of them)
   const want = (k) => !which || which === k || (which === 'desktop' && k !== 'mobile');
   if (want('desktop') && which !== 'phases' && which !== 'exact' && which !== 'sun' && which !== 'folga' && which !== 'chores' && which !== 'weather') await scenario(browser, base, 'desktop');
   if (!which || which === 'mobile') await scenario(browser, base, 'mobile');
@@ -538,6 +617,8 @@ try {
   if (want('folga')) await folga(browser, base);
   if (want('chores')) await chores(browser, base);
   if (want('weather')) await weather(browser, base);
+  if (want('ramos')) await ramos(browser, base);
+  if (want('ramos-folga')) await ramosFolga(browser, base);
 } finally { await browser.close(); srv.close(); }
 if (failures.length) { console.error('\nSNAPSHOT TEST FAILED:\n - ' + failures.join('\n - ')); process.exit(1); }
 console.log('\nsnapshot test passed');

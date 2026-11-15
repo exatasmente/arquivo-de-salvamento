@@ -1820,6 +1820,33 @@ async function carCheck(browser, base, kind, tag) {
   });
   ok(b.spawned && b.sawAway && b.carMoved, `${tag}: the driver of a car that fuels and buys leaves it while it fuels, and the car parks in a stall (${b.tl.join(' > ')})`);
   ok(b.sold > b.fuelCents && b.sold - b.fuelCents > 0 && b.abast === 1 && b.vendas === 1 && b.errors === 0 && b.gone, `${tag}: the counter charged the fuel (R$ ${b.fuelCents / 100}) and the products together (R$ ${b.sold / 100} in all), one fuelling and one sale counted, nothing left over`);
+  // ---- the bill shows the fuel: the scanner, the tray and the label count "Bomba N" and "Produtos" together; the right change draws no complaint, the wrong one draws the right one
+  // (a page of its own: the night's clock is short, and the two runs below spend it)
+  const bp = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
+  await bp.page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(bp.page);
+  const bill = async (wrong) => bp.page.evaluate(async (wrong) => {
+    const G = window.__odq.game, B = window.__bot, out = { says: [], hud: [], lines: null, tray: null };
+    G.customers.clear(); G.customers.enable(false);
+    const oc = G.ui.openChange, os = G.ui.say, ot = G.ui.setTotal;
+    G.ui.openChange = (o) => { if (!out.tray) { out.tray = { total: o.total, paid: o.paid }; out.lines = o.lines; } return wrong ? Promise.resolve({ sum: o.paid - o.total - 500, pieces: [] }) : oc(o); };
+    G.ui.say = (...a) => { out.says.push(String(a[1])); return os(...a); };
+    G.ui.setTotal = (t) => { out.hud.push(t && typeof t === 'object' ? t.lines.map((l) => l.join(' ')).join(' | ') + ' | ' + t.total : t); return ot(t); };
+    const tipo = G.data.cast.tipos.find((t) => t.id === 'terno-gasto');
+    let c = null; for (let k = 0; k < 20 && !c; k++) { c = G.customers.spawnCar({ tipo, seed: 77 }); if (!c) B.step(120); } const err0 = G.progression.night.erros;
+    for (let n = 0; n < 6000; n++) { if (!B.decide()) B.step(20); await new Promise((r) => setTimeout(r, 0)); if (!G.customers.list.length) break; }
+    G.ui.openChange = oc; G.ui.say = os; G.ui.setTotal = ot;
+    const F = G.data.customers.falas, E = tipo.reacoes.erro.falas;
+    out.fuel = Math.round(c.cents); out.errors = G.progression.night.erros - err0;
+    out.complained = out.says.filter((t) => [...E, ...F.troco_curto, ...F.troco_longo, ...F.faltou, ...F.passou].includes(t));
+    return out;
+  }, wrong);
+  const rb = await bill(false);
+  ok(rb.errors === 0 && rb.complained.length === 0 && rb.tray && rb.tray.total > rb.fuel && rb.lines && /^Bomba \d/.test(rb.lines[0][0]) && rb.lines[1][0] === 'Produtos' && rb.hud.some((h) => /Bomba \d R\$ 40,00 \| Produtos/.test(String(h))), `${tag}: fuel and shop on one bill, the right change draws no complaint and the tray and the scanner show "Bomba" and "Produtos" (${JSON.stringify(rb)})`);
+  const wb = await bill(true);
+  ok(wb.errors === 1 && wb.complained.length === 1, `${tag}: change that is R$ 5 short on that bill draws exactly one complaint (${JSON.stringify({ errors: wb.errors, complained: wb.complained })})`);
+  ok(bp.errs.length === 0, `${tag}: console clean (the bill) (${bp.errs.slice(0, 3).join(' | ')})`);
+  await bp.ctx.close();
   // ---- fuels only: the pump charges, nobody goes to the shop
   const d = await ev(async () => {
     const G = window.__odq.game, B = window.__bot, out = {};

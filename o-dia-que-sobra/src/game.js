@@ -19,6 +19,7 @@ import { createNarrative } from './systems/narrative.js';
 import { createEvents } from './systems/events.js';
 import { createShift } from './systems/shift.js';
 import { createBranches } from './systems/branches.js';
+import { LACO_IDS } from './systems/ties.js';
 import { createCash } from './systems/cash.js';
 import { createTraffic } from './systems/traffic.js';
 import { createChores } from './systems/chores.js';
@@ -196,7 +197,7 @@ export async function createGame({ root, render, input, params }) {
   } });
   const events = await createEvents(bus, { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity });
   weather = createWeather(bus, { world, render, player, time, progression, sanity, kit, chores, est: () => events.state, audioSys, ui, opts, area: () => lighting.area, lite: Boolean(input.touch?.mobile), lastNight: rules.campanha.ultimaNoite });
-  const branchCtx = { opts, interaction, world, customers, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity, cash, events, ties: progression.ties };
+  const branchCtx = { opts, interaction, world, customers, traffic, progression, sanity, time, ui, player, lighting, data, render, tasks, narrative, inventory, office, medication, mirror, audioSys, cameras, chores, campaign, entity, cash, events, ties: progression.ties };
   const branches = await createBranches(bus, branchCtx);
   // the story branches plug into the manager's call (what they left to say, and the offer of the extra shift) and into the scenes of the regulars
   narrative.hooks.lines = () => {
@@ -697,6 +698,7 @@ export async function createGame({ root, render, input, params }) {
     root_();
   });
   // the manager's message that he says he never left (week 3): the next 05:50 call mentions it
+  bus.on('dayoff:ramo', (e) => { if (!e) return; if (e.k) branches.choose(e.ramo, e.k); if (e.evento) branches.event(e.ramo, e.evento); });   // a story choice made at home (R5)
   bus.on('dayoff:event', (e) => { if (e && e.id === 'secretaria') { progression.flag('secretaria'); progression.relatar('secretaria'); } });
   // without the day off's own file the week still turns: the sleep is counted as done
   bus.on('dayoff:start', (e) => {
@@ -714,6 +716,18 @@ export async function createGame({ root, render, input, params }) {
     if (dayoff === false && !globalThis.__odqDayoffStub) Promise.resolve().then(() => bus.emit('dayoff:end', { sanidade: Math.min(100, e.sanidade + 40) }));
   });
 
+  /**
+   * What the story did, for the cutscene of the ending (src/cutscenes/final1.js to final4.js; the ending 5 does not change).
+   *   ending 1: who comes with the manager (Rafael if the tank was put on credit, Dona Cida if her bag was given back, the street dweller if he was let stay),
+   *             how the manager greets (his trust) and whether the sign has turned to the highway (the Sun's attention high).
+   *   endings 2 to 4: a line from the manager's trust and one from the ties.
+   */
+  function endingVariant(id) {
+    const P = progression, T = P.ties, tier = T.tier(), laco = LACO_IDS.reduce((a, k) => a + Math.max(0, T.laco(k)), 0);
+    if (id === 1) return { chegam: [P.hasFlag('r1:fiar') && 'rafael', P.hasFlag('r9:devolver') && 'cida', P.hasFlag('r2:ficou') && 'morador'].filter(Boolean), saudacao: tier === 'neutro' ? undefined : tier, placa: T.solHigh() ? 'frente' : undefined };
+    if (id >= 2 && id <= 4) return { conf: tier === 'neutro' ? undefined : tier, laco: laco >= 3 };
+    return null;
+  }
   // the endings: the cutscene `final<id>` (src/cutscenes) when there is one, then `ending:done` and the screen of the ending
   bus.on('ending', async ({ id }) => {
     state = 'ending'; time.pause(); shift.abort(); audioSys.stopAmbient(); entity.reset(); lighting.dawnOff();
@@ -726,7 +740,7 @@ export async function createGame({ root, render, input, params }) {
       if (cs.CUTSCENES['final' + id]) {
         const blocks = save.card.blocks();
         cs.configureCutscenes({ render, audio: () => audioSys.audio, seed: baseSeed });
-        cs.playCutscene('final' + id, { render, audio: () => audioSys.audio, seed: baseSeed, blocks, skippable: true, onEnd: done });
+        cs.playCutscene('final' + id, { render, audio: () => audioSys.audio, seed: baseSeed, blocks, cast: data.cast, variant: endingVariant(id), skippable: true, onEnd: done });
         played = true;
       }
     } catch (e) { console.warn('the ending cutscene did not play:', e.message); }
@@ -1038,7 +1052,7 @@ export async function createGame({ root, render, input, params }) {
   const api = {
     bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, branches, cameras, shift, save, ui, audioSys, data,
     opts, goals, prep, closing, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
-    saveNow, exportCard, importCard, snapshot, get restoreNotes() { return restoreNotes; },
+    endingVariant, saveNow, exportCard, importCard, snapshot, get restoreNotes() { return restoreNotes; },
     get extraRun() { return extraRun; }, get extraNow() { return extraNow; },
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; }, get weather() { return weather; },
   };

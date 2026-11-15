@@ -152,6 +152,7 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
       S.cool -= dt;
       if (ctx.sanity === 0 && S.t > 4 && !hidden()) { const p = spawnFar(6, 9); if (p) { place(p); go('perseguicao'); S.target = null; S.seenOnce = false; S.sure = true; say('correr'); } return; }
       if (!S.hunts) planHunts();
+      if (time.minutes < (S.truceUntil || 0)) return;          // a truce (R6: the woman who waits in the shop): it does not come, nor does a hunt begin
       const due = S.hunts.find((h) => !h.done && time.minutes >= h.at && time.minutes < h.at + 90);
       for (const h of S.hunts) if (!h.done && time.minutes >= h.at + 90) h.done = true;       // a hunt that never found the player in a risk area is let go
       if (due && S.cool <= 0 && !hidden() && ctx.danger >= 2) {
@@ -304,8 +305,10 @@ export function createEntity(bus, { world, render, player, sanity, lighting, inv
     S, nr, update, locked, ent, force(state, week) { S.forced = true; S.forceApproach = state !== 'observacao'; const p = spawnFar(state === 'perseguicao' ? 10 : 18, state === 'perseguicao' ? 16 : 26) || { x: player.st.x + 15, z: player.st.z }; ent.setStage(week || 2); place(p); go(state); S.target = state === 'perseguicao' ? { x: player.st.x, z: player.st.z } : null; S.aware = state === 'perseguicao' ? 6 : 0; S.search = 0; S.seenOnce = false; say(state === 'perseguicao' ? 'correr' : 'observar'); },
     /** The Sun reaches the player now (the last night's call answered by going outside): the silent cut and the black, as in any attack. */
     catchNow() { if (S.state === 'ataque') return; if (S.hidden) leaveHide(); ent.setStage(4); attack(); },
+    /** Until this minute of the night the Sun does not appear (R6). */
+    truce(untilMinutes) { S.truceUntil = Math.max(S.truceUntil || 0, untilMinutes); },
     leaveHide, get state() { return S.state; }, get hidden() { return S.hidden; }, get holding() { return S.holding; }, get black() { return S.black; }, get done() { return S.done; }, get shake() { return S.shake; },
-    reset() { S.doorT = 0; S.hunts = null; S.hunt = null; S.aware = 0; S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; lockedRooms.clear(); lockedRooms.clear(); locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
+    reset() { S.doorT = 0; S.hunts = null; S.hunt = null; S.aware = 0; S.state = 'ausente'; S.t = 0; S.cool = 30; S.black = 0; S.done = false; S.hidden = null; player.st.hideYaw = undefined; S.forced = false; S.forceApproach = false; S.sure = false; S.truceUntil = 0; lockedRooms.clear(); lockedRooms.clear(); locked.clear(); nr.goal = null; nr.bang = 0; ent.root.visible = false; heard.length = 0; S.darkT = 0; player.st.frozen = false; player.st.hideYaw = undefined; },
     darkTick(dt, inRiskDark) { S.darkT = inRiskDark ? S.darkT + dt : Math.max(0, S.darkT - dt); },
   };
 }

@@ -48,8 +48,11 @@ export function createInteraction(bus, { world, render, player, aimOffset, ui, h
   }
   function occluded(t, center) {
     for (const c of cols) {
+      if (c.enabled === false) continue;            // (an open door lets the sight through)
       if (c.min[1] > 1.8 || c.max[1] < 0.5) continue;
-      if (center.x > c.min[0] - 0.3 && center.x < c.max[0] + 0.3 && center.z > c.min[2] - 0.3 && center.z < c.max[2] + 0.3 && center.y < c.max[1] + 0.3) continue;
+      // what stands on or against a solid is not hidden by it; a thin one (a wall, a pane) only if the target is inside it, or a board on the far side of a wall would be used through it
+      const m = Math.min(c.max[0] - c.min[0], c.max[2] - c.min[2]) < 0.5 ? 0.02 : 0.3;
+      if (center.x > c.min[0] - m && center.x < c.max[0] + m && center.z > c.min[2] - m && center.z < c.max[2] + m && center.y < c.max[1] + 0.3) continue;
       box.min.set(...c.min); box.max.set(...c.max);
       const th = rayBox(box, t - 0.05);
       if (th >= 0) return true;

@@ -4,8 +4,9 @@
     "RAMOS DA HISTORIA, pt-BR. Um ramo = um acontecimento unico de uma noite, com uma escolha que muda o que vem depois (src/systems/branches.js).",
     "noites: o nome curto de cada noite na abertura (a chave e o numero da noite, 'extra' e o domingo do turno extra). Sem segredo e sem resposta.",
     "ramos[]: { id, nome, noite, roteiro?, horario?, menu { titulo, linhas[] }, escolhas { <id>: { rotulo, linha, efeitos } }, eventos { <id>: { linha, efeitos } }, passos[] }.",
-    "efeitos: { conf, sol, laco { <pessoa>: n }, carteira (reais, pode ser negativa), sanidade, flags [], tiraFlags [], metaPct { <semana>: fracao }, relato <id de falas>, ocorrencia: true }.",
+    "efeitos: { conf, sol, laco { <pessoa>: n }, carteira (reais, pode ser negativa), sanidade, flags [], tiraFlags [], metaPct { <semana>: fracao }, relato <id de falas>, ocorrencia: true | { tipo, nome } (registrada no computador), diz <fala de Heitor> }.",
     "passos[]: o que acontece depois, em outra noite: { id, noite (n ou [n]), se (flag), sem (flag), roteiro + horario (um roteiro em src/systems/branches/), aplica { evento, relato } }.",
+    "Um passo sem `se` espera a escolha na mesma noite: o roteiro confere a flag no `can` e comeca quando ela existir (R6). A folga da semana 2 (R5) e a escolha feita em casa: o texto esta em data/dayoff.pt-BR.json, e a escolha volta ao jogo por `dayoff:ramo`.",
     "falas: o que o gerente diz no telefone das 05:50 quando um ramo deixou algo (efeitos.relato). linha: o que a prancheta diz em 'O que aconteceu' (uma por escolha feita ou por consequencia)."
   ],
   "noites": {
@@ -43,6 +44,18 @@
     "r3-confere": [
       "Revi a gravação da noite quatro. Tinha uma nota ali, e a contagem fechou certinha.",
       "Não estou dizendo que você fez algo. Estou dizendo que eu vi. Metade do pagamento da semana fica comigo."
+    ],
+    "r7-sigilo": [
+      "Aquela fita do escritório. Obrigado por não deixar ela circular.",
+      "Tem coisa aqui que não precisa de plateia."
+    ],
+    "r8-registrou": [
+      "Li a ocorrência sobre o galão do caminhoneiro. Era para eu saber.",
+      "Obrigado por abrir isso em vez de resolver sozinho."
+    ],
+    "r9-gerente": [
+      "Dona Cida deixou a bolsa. Eu guardei no armário, com a foto dentro.",
+      "Essa foto é do posto, de antes de mim. Deixa comigo."
     ]
   },
   "ramos": [
@@ -201,6 +214,263 @@
         }
       },
       "passos": []
+    }
+    ,
+    {
+      "id": "r5",
+      "nome": "A irmã e a conta",
+      "noite": 12,
+      "escolhas": {
+        "mandar": {
+          "rotulo": "MANDAR R$ 120",
+          "linha": "Folga da semana 2: a irmã pediu R$ 120 para uma conta. Você mandou tudo.",
+          "efeitos": { "flags": ["r5:mandou"] }
+        },
+        "metade": {
+          "rotulo": "MANDAR METADE (R$ 60)",
+          "linha": "Folga da semana 2: a irmã pediu R$ 120 para uma conta. Você mandou R$ 60.",
+          "efeitos": { "flags": ["r5:metade"] }
+        },
+        "nao": {
+          "rotulo": "NÃO MANDAR",
+          "linha": "Folga da semana 2: a irmã pediu R$ 120 para uma conta. Você não mandou.",
+          "efeitos": { "flags": ["r5:nao"] }
+        }
+      },
+      "eventos": {
+        "liga": {
+          "linha": "Folga da semana 3: a irmã deixou um recado na secretária, sem pedir nada.",
+          "efeitos": { "flags": ["r5:ligou"] }
+        },
+        "silencio": {
+          "linha": "Folga da semana 3: nenhum recado da irmã na secretária.",
+          "efeitos": { "flags": ["r5:silencio"] }
+        },
+        "calma": {
+          "linha": "Noite 22: a voz da irmã na secretária deu um pouco de calma ao começo da noite.",
+          "efeitos": { "sanidade": 10, "flags": ["r5:calma"] }
+        },
+        "calma-meia": {
+          "linha": "Noite 22: a voz da irmã na secretária ajudou um pouco no começo da noite.",
+          "efeitos": { "sanidade": 5, "flags": ["r5:calma"] }
+        },
+        "errada": {
+          "linha": "Noite 22: a secretária tocou um recado da irmã de uma folga que você não teve.",
+          "efeitos": { "sanidade": -4, "sol": 0.5 }
+        }
+      },
+      "passos": [
+        { "id": "r5-calma", "noite": 22, "se": "r5:mandou", "aplica": { "evento": "calma" } },
+        { "id": "r5-calma-meia", "noite": 22, "se": "r5:metade", "aplica": { "evento": "calma-meia" } },
+        { "id": "r5-recado", "noite": 22, "roteiro": "branches/r5-recado.js", "horario": ["01:00", "02:40"] }
+      ]
+    },
+    {
+      "id": "r6",
+      "nome": "A briga do casal",
+      "noite": 10,
+      "menu": {
+        "titulo": "MOÇA DA FESTA · BOMBA 2",
+        "linhas": ["Ela e o namorado brigaram no carro. Ele não desce e não cala.", "\"Posso esperar aí dentro até ele ir embora?\""]
+      },
+      "escolhas": {
+        "deixar": {
+          "rotulo": "DEIXAR ELA ESPERAR NA LOJA",
+          "linha": "Noite 10: você deixou a moça da festa esperar na loja até o namorado ir embora.",
+          "efeitos": { "flags": ["r6:deixou"] }
+        },
+        "telefone": {
+          "rotulo": "CHAMAR ALGUÉM PELO TELEFONE",
+          "linha": "Noite 10: você ligou para pedir ajuda para o casal que brigava na bomba 2.",
+          "efeitos": { "flags": ["r6:telefone"] }
+        },
+        "calar": {
+          "rotulo": "NÃO SE METER",
+          "linha": "Noite 10: você não se meteu na briga do casal.",
+          "efeitos": { "flags": ["r6:calou"] }
+        }
+      },
+      "eventos": {
+        "companhia": {
+          "linha": "Noite 10: ela ficou uma hora na loja, e nessa hora a figura não apareceu.",
+          "efeitos": { "sanidade": 4 }
+        },
+        "bebado": {
+          "linha": "Noite 10: às quatro o namorado voltou, bêbado, e não queria sair da loja.",
+          "efeitos": {}
+        },
+        "viatura": {
+          "linha": "Noite 10: uma viatura passou pela rodovia sem diminuir. Ninguém voltou.",
+          "efeitos": {}
+        },
+        "vaga": {
+          "linha": "Noite 10: o carro dele ficou a noite toda numa vaga do fundo, sem ninguém dentro.",
+          "efeitos": { "sol": 0.5 }
+        }
+      },
+      "passos": [
+        { "id": "r6-companhia", "noite": 10, "roteiro": "branches/r6-companhia.js", "horario": ["01:30", "03:50"] },
+        { "id": "r6-bebado", "noite": 10, "roteiro": "branches/r6-bebado.js", "horario": ["04:00", "05:00"] },
+        { "id": "r6-viatura", "noite": 10, "roteiro": "branches/r6-viatura.js", "horario": ["01:35", "03:00"] },
+        { "id": "r6-vaga", "noite": 10, "roteiro": "branches/r6-vaga.js", "horario": ["01:40", "03:30"] }
+      ]
+    },
+    {
+      "id": "r7",
+      "nome": "A fita",
+      "noite": 12,
+      "roteiro": "branches/r7-fita.js",
+      "horario": ["02:00", "04:20"],
+      "menu": {
+        "titulo": "UMA FITA VHS",
+        "linhas": ["Uma fita velha, etiquetada à mão: \"NÃO APAGAR\". Estava no gravador do monitor.", "O gravador ainda aceita fita."]
+      },
+      "escolhas": {
+        "ver": {
+          "rotulo": "VER A FITA",
+          "linha": "Noite 12: você viu a fita antiga do gravador do monitor.",
+          "efeitos": { "sanidade": -15, "sol": 1, "flags": ["r7:viu"] }
+        },
+        "apagar": {
+          "rotulo": "APAGAR A FITA",
+          "linha": "Noite 12: você apagou a fita antiga sem ver. O gerente tinha pedido sigilo.",
+          "efeitos": { "conf": 1, "sol": -1, "flags": ["r7:apagou"], "relato": "r7-sigilo" }
+        },
+        "guardar": {
+          "rotulo": "GUARDAR NA GAVETA",
+          "linha": "Noite 12: você guardou a fita antiga numa gaveta, sem ver.",
+          "efeitos": { "flags": ["r7:guardou"] }
+        }
+      },
+      "eventos": {
+        "volta": {
+          "linha": "Noite 13 em diante: a fita aparece em cima do monitor, sozinha, rebobinada.",
+          "efeitos": { "sol": 0.5 }
+        }
+      },
+      "passos": [
+        { "id": "r7-volta", "noite": [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], "se": "r7:guardou", "roteiro": "branches/r7-fita-volta.js", "horario": ["00:20", "01:10"] }
+      ]
+    },
+    {
+      "id": "r8",
+      "nome": "O diesel sem nota",
+      "noite": 15,
+      "menu": {
+        "titulo": "CAMINHONEIRO · DIESEL",
+        "linhas": ["Ele oferece um galão de diesel pela metade do preço, sem nota, para você revender.", "\"Ninguém precisa saber. Ajuda nós dois.\""]
+      },
+      "escolhas": {
+        "aceitar": {
+          "rotulo": "ACEITAR O GALÃO (REVENDER)",
+          "linha": "Noite 15: você aceitou o galão de diesel sem nota do caminhoneiro.",
+          "efeitos": { "flags": ["r8:aceitou"] }
+        },
+        "recusar": {
+          "rotulo": "RECUSAR",
+          "linha": "Noite 15: você recusou o galão de diesel sem nota do caminhoneiro.",
+          "efeitos": { "flags": ["r8:recusou"] }
+        },
+        "registrar": {
+          "rotulo": "REGISTRAR A PROPOSTA NO COMPUTADOR",
+          "linha": "Noite 15: você registrou a proposta do galão sem nota. O caminhoneiro foi embora sem café.",
+          "efeitos": { "conf": 1, "laco": { "caminhoneiro": -3 }, "flags": ["r8:registrou"], "ocorrencia": { "tipo": "galao-sem-nota", "nome": "Galão sem nota oferecido" }, "relato": "r8-registrou" }
+        }
+      },
+      "eventos": {
+        "revenda": {
+          "linha": "Noite 18: você revendeu o galão pela manhã e ficou com R$ 90.",
+          "efeitos": { "carteira": 90, "diz": "(O galão rendeu noventa. Ele não voltou para perguntar.)" }
+        },
+        "camera": {
+          "linha": "Noite 21: na câmera 6, o caminhão do galão parado no estacionamento, sem ninguém. Ao olhar de perto, vazio.",
+          "efeitos": { "sol": 1 }
+        }
+      },
+      "passos": [
+        { "id": "r8-revenda", "noite": 18, "se": "r8:aceitou", "aplica": { "evento": "revenda" } },
+        { "id": "r8-camera", "noite": 21, "se": "r8:aceitou", "roteiro": "branches/r8-camera.js", "horario": ["01:30", "04:10"] }
+      ]
+    },
+    {
+      "id": "r9",
+      "nome": "A bolsa e a foto",
+      "noite": 17,
+      "roteiro": "branches/r9-bolsa.js",
+      "horario": ["01:50", "05:00"],
+      "menu": {
+        "titulo": "A BOLSA DA DONA CIDA",
+        "linhas": ["Ela esqueceu a bolsa no balcão. Dentro, uma foto do posto em 1998: um frentista de costas e a placa acesa.", "O que você faz com ela?"]
+      },
+      "escolhas": {
+        "devolver": {
+          "rotulo": "GUARDAR E DEVOLVER NA PRÓXIMA VISITA",
+          "linha": "Noite 17: você guardou a bolsa da Dona Cida, com a foto, para devolver na próxima visita.",
+          "efeitos": { "laco": { "cida": 1 }, "flags": ["r9:devolver"] }
+        },
+        "ficar": {
+          "rotulo": "FICAR COM A FOTO",
+          "linha": "Noite 17: você ficou com a foto do posto de 1998 que estava na bolsa da Dona Cida.",
+          "efeitos": { "sol": 1, "laco": { "cida": -1 }, "flags": ["r9:ficou"] }
+        },
+        "gerente": {
+          "rotulo": "ENTREGAR AO GERENTE",
+          "linha": "Noite 17: você entregou a bolsa da Dona Cida, com a foto, ao gerente.",
+          "efeitos": { "conf": 1, "flags": ["r9:gerente"], "relato": "r9-gerente" }
+        }
+      },
+      "eventos": {
+        "conta": {
+          "linha": "Noite 19: Dona Cida pegou a bolsa de volta e contou de um rapaz que sumiu na véspera da folga.",
+          "efeitos": { "laco": { "cida": 2 } }
+        },
+        "foto": {
+          "linha": "Noite 18 em diante: a foto do posto muda de lugar, sozinha, a cada noite.",
+          "efeitos": {}
+        }
+      },
+      "passos": [
+        { "id": "r9-guardada", "noite": [18, 19], "se": "r9:devolver", "roteiro": "branches/r9-guardada.js", "horario": ["00:05", "00:40"] },
+        { "id": "r9-guardada-f", "noite": [18, 19], "se": "r9:ficou", "roteiro": "branches/r9-guardada.js", "horario": ["00:05", "00:40"] },
+        { "id": "r9-foto", "noite": [18, 19, 20, 21, 22, 23, 24], "se": "r9:ficou", "roteiro": "branches/r9-foto.js", "horario": ["00:20", "01:10"] }
+      ]
+    },
+    {
+      "id": "r10",
+      "nome": "O envelope de 1998",
+      "noite": 20,
+      "roteiro": "branches/r10-envelope.js",
+      "horario": ["01:50", "04:10"],
+      "menu": {
+        "titulo": "UM ENVELOPE NO BALCÃO",
+        "linhas": ["O Sol de papel está no balcão, encostado num envelope: \"SALÁRIO — 1998\".", "Não tem remetente."]
+      },
+      "escolhas": {
+        "abrir": {
+          "rotulo": "ABRIR O ENVELOPE",
+          "linha": "Noite 20: você abriu o envelope do salário de 1998: trezentos reais em notas antigas.",
+          "efeitos": { "carteira": 300, "sol": 3, "flags": ["r10:abriu"] }
+        },
+        "fechado": {
+          "rotulo": "DEIXAR FECHADO",
+          "linha": "Noite 20: você deixou o envelope do salário de 1998 fechado. O Sol de papel sumiu.",
+          "efeitos": { "flags": ["r10:fechado"] }
+        },
+        "queimar": {
+          "rotulo": "QUEIMAR NO CONTÊINER",
+          "linha": "Noite 20: você queimou o envelope do salário de 1998 no contêiner dos fundos.",
+          "efeitos": { "sol": -2, "sanidade": -5, "flags": ["r10:queimou"] }
+        }
+      },
+      "eventos": {
+        "cheiro": {
+          "linha": "Noite 24: o cheiro de papel queimado voltou, sem nada queimando.",
+          "efeitos": { "sanidade": -2, "diz": "(Papel queimado. De onde? Não tem nada aceso.)" }
+        }
+      },
+      "passos": [
+        { "id": "r10-cheiro", "noite": 24, "se": "r10:queimou", "aplica": { "evento": "cheiro" } }
+      ]
     }
   ]
 }

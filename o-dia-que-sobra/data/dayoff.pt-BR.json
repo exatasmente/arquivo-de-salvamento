@@ -8,6 +8,28 @@
     "segundosPorHora": 50,
     "toca": { "semana": 3, "depois": 9, "dura": 3 }
   },
+  "irma": {
+    "recado": { "hora": "18:40", "texto": "Heitor, sou eu de novo. Apertou aqui: faltam cento e vinte para uma conta. Se puder, manda. Se não, eu me viro." },
+    "valores": { "mandar": 120, "metade": 60 },
+    "menu": {
+      "titulo": "RECADO DA IRMÃ",
+      "linhas": ["Ela precisa de R$ 120 para uma conta. \"Se não puder, eu me viro.\""],
+      "carteira": "Carteira: {carteira}.",
+      "mandar": "MANDAR R$ 120",
+      "metade": "MANDAR METADE (R$ 60)",
+      "nao": "NÃO MANDAR"
+    },
+    "depois": {
+      "mandar": "Você manda o dinheiro pelo aplicativo do banco. Antes de apagar a luz, entra uma mensagem dela: \"obrigada\".",
+      "metade": "Você manda R$ 60. Ela responde: \"Já ajuda. Obrigada, irmão.\"",
+      "nao": "Você vira o aparelho para baixo. O recado fica sem resposta.",
+      "recusa": "Não dá: falta dinheiro para isso."
+    },
+    "semana3": {
+      "mandou": { "hora": "17:55", "texto": "Heitor, sou eu. Só para dizer que deu tudo certo com a conta. Liguei para ouvir você. Liga quando der." },
+      "metade": { "hora": "17:55", "texto": "Heitor, sou eu. Deu para ir levando com o que você mandou. Liguei só para ouvir você." }
+    }
+  },
   "farmacia": {
     "precos": { "remedio": 22, "pilha": 9 },
     "limite": { "remedio": 2, "pilha": 3 }

@@ -10,7 +10,7 @@
 //   data:   the game data; `data.dayoff` is data/dayoff.pt-BR.json (fetched by this module when absent)
 //   rng:    unused, everything here comes from the seed (mulberry32 over `seed`)
 //
-// dayoff.start(info) -> Promise      info: { week, day, wallet, contas: [{ id, valor }], sanidade, seed? }
+// dayoff.start(info) -> Promise      info: { week, day, wallet, contas: [{ id, valor }], sanidade, seed?, irma? }   (irma: the story branch R5, null | 'mandou' | 'metade' | 'nao')
 //   Hides what the render has in the scene, builds (or reuses) the house at `seed` (default week * 31 + day), puts
 //   Heitor in the bedroom and takes over `input`. Values are in reais, like the wallet.
 // dayoff.update(dt, t)   one fixed step. While `dayoff.active` the game calls ONLY update and draw (no player, no
@@ -25,6 +25,7 @@
 //            'money:spend' { valor, item }      (item: 'remedio' | 'pilha')
 //            'inventory:add' { item }           (after the purchase went through)
 //            'dayoff:event' { id: 'secretaria', week }   (the manager's message was played to the end)
+//            'dayoff:ramo' { ramo, k? | evento? }  (a story choice made at home, or what it brought: the game applies it)
 //            'dayoff:pause'                      (Esc in play mode; the game decides)
 //            'sfx' ..., 'loop' ...               (like the night)
 //            'dayoff:end' { sanidade, ganho, pagas: [id], deixadas: [id], recados: [id], compras: { remedio, pilha }, week, day }
@@ -156,7 +157,9 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
       sfx('tecla');
       sfx('secretaria_fita', { pos: [3.95, 0.8, 0.88], opts: { dur: Math.max(2, m.texto.length * 0.06), ...(m.de === 'gerente' ? { estranho: true } : {}) } });
       await ui.dialogue(`${t[m.de]} · ${fill(t.recado, { n, hora: m.hora })}`, [m.texto], m.de === 'gerente' ? 7 : 3 + n);
+      if (m.acao === 'r5') await askSister();                                     // the story branch of the sister's bill (R5): it is answered before the message counts as heard
       heard.add(m.id);
+      if (m.ramoEvento) bus.emit('dayoff:ramo', { ramo: 'r5', evento: m.ramoEvento });
       if (m.evento) {
         sanidade = clamp(sanidade + (T().regras.sanidadeSecretaria || 0), 0, 100);
         bus.emit('dayoff:event', { id: m.evento, week: info.week });
@@ -164,6 +167,24 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     }
     sfx('secretaria_fim', { pos: [3.95, 0.8, 0.88] });
     busy = false;
+  }
+
+  /** R5: the sister asks for money for a bill. The money leaves the wallet here (`money:spend`, which is not a bill), and the choice goes to the game (`dayoff:ramo`). */
+  function askSister() {
+    const t = T().irma;
+    return new Promise((resolve) => {
+      const pick = (k) => {
+        const v = t.valores[k];
+        if (v && !transact('money:spend', { valor: v, item: 'irma' })) { ui.toast(t.depois.recusa); sfx('erro'); return; }
+        ui.closeModal(); sfx(v ? 'nota' : 'ui_voltar');
+        bus.emit('dayoff:ramo', { ramo: 'r5', k });
+        self(t.depois[k]); resolve(k);
+      };
+      ui.menu({
+        title: t.menu.titulo, lines: () => [...t.menu.linhas, fill(t.menu.carteira, { carteira: money(wallet * 100) })],
+        items: ['mandar', 'metade', 'nao'].map((k) => ({ label: () => t.menu[k], act: () => pick(k) })),
+      });
+    });
   }
 
   function openShop() {
@@ -260,6 +281,13 @@ export function createDayOff(bus, { r, input, ui, data, rng } = {}) {
     rand = mulberry32(seed * 977 + 5);
     const wk = clampWeek(info.week);
     recados = (T().recados[wk] || []).map((m, n) => ({ ...m, id: `w${wk}r${n + 1}` }));
+    // R5, the sister's bill (info.irma: null before the choice, then 'mandou' | 'metade' | 'nao'): the message that asks, the one that comes back, or the silence
+    const I = T().irma, irma = info.irma || null;
+    if (I) {
+      if (wk === 2 && !irma) recados.push({ de: 'irma', hora: I.recado.hora, texto: I.recado.texto, acao: 'r5', id: `w2r${recados.length + 1}` });
+      if (wk === 3 && irma === 'nao') { recados = recados.filter((m) => m.de !== 'irma'); bus.emit('dayoff:ramo', { ramo: 'r5', evento: 'silencio' }); }
+      if (wk === 3 && (irma === 'mandou' || irma === 'metade')) { const q = I.semana3[irma], at = recados.findIndex((m) => m.de === 'gerente'); recados.splice(at < 0 ? recados.length : at, 0, { de: 'irma', hora: q.hora, texto: q.texto, ramoEvento: 'liga', id: `w3r${recados.length + 1}` }); }   // (before the manager's, which is always the last)
+    }
     for (const k of Object.keys(doorTarget)) { doorTarget[k] = 0; doorState[k] = 0; doorWait[k] = false; }
     if (!casa || casaSeed !== seed) { casa = buildCasa(r, { seed, darkness: 1 }); casaSeed = seed; }
     hidden = [];

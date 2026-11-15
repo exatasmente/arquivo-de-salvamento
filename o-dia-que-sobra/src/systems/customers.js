@@ -157,7 +157,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const volta = entry?.variante === 'volta' && rec?.pagamentoVolta;
     // a recurring customer may ask, from the car, for something from the shop (pedido.oferta): the player answers, and if it says yes the
     // products are carried to the window and paid with the fuel. Nobody is punished for saying no.
-    const of = rec?.pedido?.oferta;
+    const vSel = rec && scene ? (scene.variantes || []).find((q) => condOk(q.condicao)) : null;
+    const of = vSel?.semOferta ? null : rec?.pedido?.oferta;
     const oferta = of && mulberry32(s * 7 + 3)() < (of.chance ?? 1) ? productList(of.itens || [], rr).map((p) => ({ ...p, got: false, done: false })) : null;
     const extraAll = oferta ? oferta.reduce((a, p) => a + p.cents, 0) : 0;
     const bills = volta ? [value] : billsFor(src?.pagamento || { notas: cfg.carro.pagamento }, value + extraAll, rr);
@@ -175,7 +176,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     world.pumpDisplay(n, 0);
     if (rec) { progression.recurring(rec.id + ':' + scene.id); nightRecurring.push(rec.nome); }
     if (c.cat === 'inconveniente') bus.emit('incident', 'cliente-inconveniente', { id });
-    if ((tipo?.aparencia?.pessoas?.length || 0) > 1) c.passenger = addPassenger(car, tipo.aparencia.pessoas[1], s);
+    if (((tipo || rec)?.aparencia?.pessoas?.length || 0) > 1) c.passenger = addPassenger(car, (tipo || rec).aparencia.pessoas[1], s);
     const T = (t) => { c.targets.push(interaction.register(t)); };
     T({
       id: `cliente${id}`, reach: 4.2, priority: 0,
@@ -318,7 +319,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
         c.ramoDone = true;
         const k = await hooks.scene(c.scene, c);
         if (k === 'fiar') c.fiado = true;
-        else if (k === 'recusar') { c.talking = false; c.state = 'leaving'; c.leaveAfter = 0.8; c.done = true; c.noService = true; bus.emit('customer:done', c, 0); return; }
+        if (c.scene.semMotorista?.includes(k)) c.car?.setDriver?.(false);                 // (a scene may take the driver out of the car: the one who stays behind in the shop)
+        if (c.scene.saiCom?.includes(k)) { c.talking = false; c.state = 'leaving'; c.leaveAfter = 0.8; c.done = true; c.noService = true; bus.emit('customer:done', c, 0); return; }
       }
     } else say2(c, c.text);
     if (c.oferta && !c.offerAsked) await askOffer(c);
@@ -570,7 +572,15 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     });
   }
   /** Common start of a payment: returns { res, torn } or null if nothing was delivered. */
-  async function collect(c, total) {
+  /** The parts of a bill that has the fuel on it, for the screens that show the total: "Bomba N" and "Produtos". Nothing for a bill of products alone. */
+  function billLines(c, shopSum = c.shopTotal) {
+    return c.fuelOf ? [[`Bomba ${c.fuelOf.pump}`, money(c.fuelCents)], ['Produtos', money(shopSum)]] : null;
+  }
+  /** What the scanner shows: the products alone, or the fuel and the products with the sum when the fuel is on the bill. */
+  function scannerTotal(c, shopSum) {
+    return c.fuelOf ? { lines: billLines(c, shopSum), total: money(c.fuelCents + shopSum) } : money(shopSum);
+  }
+  async function collect(c, total, lines = null) {
     if (!cash.opened) { bus.emit('hint', 'O caixa ainda está fechado. Abra a registradora.'); return null; }
     if (c.nota === 'moeda-antiga' && !c.tornDecided) {
       const ch = await decideCoin(c);
@@ -589,7 +599,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     // the bills the customer paid are in the drawer before the change goes out (a torn note is not usable)
     const st = { ...cash.stock };
     c.bills.forEach((b, i) => { if (!(c.tornAccepted && i === 0)) st[b] = (st[b] || 0) + 1; });
-    const res = await ui.openChange({ total, paid: c.bill, hint: c.tutorial, who: c.name, stock: st });
+    const res = await ui.openChange({ total, paid: c.bill, hint: c.tutorial, who: c.name, stock: st, lines });
     if (res === null) return null;
     return { res, torn: c.tornAccepted };
   }
@@ -926,14 +936,16 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (!tutorial && role === 'normal' && !rec && !ids.some((k) => items.atras[k]) && rr() < cfg.atras.chance) ids = [...ids, rr.pick(Object.keys(items.atras))];
     const prods = productList(ids, rr);
     const shopTotal = prods.reduce((a, p) => a + p.cents, 0), fuelCents = fuelOf ? Math.round(fuelOf.typed) : 0;
-    const total = shopTotal + fuelCents;                                  // (the fuel of a car that fuels and shops is on the same bill)
+    const total = shopTotal + fuelCents;                                  // (the fuel of a car that fuels and shops is on the same bill; the notes are picked for it, the bill itself is read at the counter)
     const bills = role === 'normal' && total > 0 ? (pagamento ? [pagamento * 100] : billsFor(src?.pagamento || { notas: [10, 20, 50, 100] }, total, rr)) : [];
     const door = world.anchor('porta-loja-dentro');
     const inside = door.pos.clone().setY(0), entryPt = inside.clone().addScaledVector(door.dir, 3.2);
     const goal = role === 'observa' ? WATCH.clone() : stand;
     const c = {
-      fuelOf, fuelCents, shopTotal,
-      id, kind: 'walk', seed: s, name: ident.name, human: h, state: byCar ? 'driving' : 'entering', stand: goal, entry: entryPt, inside, prods, total, bill: bills.reduce((a, b) => a + b, 0), bills, tutorial,
+      fuelOf, shopTotal,
+      get fuelCents() { return this.fuelOf ? Math.round(this.fuelOf.cents) : 0; },       // read when it is needed: what the pump really gave, not what was known at the door
+      get total() { return this.shopTotal + this.fuelCents; },
+      id, kind: 'walk', seed: s, name: ident.name, human: h, state: byCar ? 'driving' : 'entering', stand: goal, entry: entryPt, inside, prods, bill: bills.reduce((a, b) => a + b, 0), bills, tutorial,
       patience: tutorial ? 1e9 : (src?.paciencia ?? cfg.loja.paciencia), age: 0, scanned: 0, itemObjs: [], targets: [], walkPhase: 0, bag: 0, tipo, rec, scene, noite: entry, role, nota: src?.pagamento?.nota,
       comp, tipRange: src?.pagamento?.gorjeta, cat: src?.categoria || 'comum', noTask: role !== 'normal', noCounter: role === 'banheiro' ? false : role === 'observa', pose: 'parado', tries: 0,
       car, spot, inCar: byCar, owner, agent: { id, pos: h.root.position, r: 0.3, hidden: byCar, doors: (d) => PUBLIC_DOORS.has(d) },
@@ -960,7 +972,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       aim: () => (c.state === 'entering' || c.state === 'leaving' || c.state === 'inside' ? null : { c: h.root.position.clone().setY(1.0), r: 0.5 }),
       enabled: () => ['scanning', 'ready', 'asking', 'watch', 'linger', 'placing'].includes(c.state),
       label: () => {
-        if (c.state === 'ready') return { text: c.fuelCents ? `Cobrar ${money(c.total)} (bomba e loja)` : `Cobrar ${money(c.total)}` };
+        if (c.state === 'ready') return { text: c.fuelOf ? `Cobrar ${money(c.total)} (bomba ${c.fuelOf.pump} ${money(c.fuelCents)} + produtos ${money(c.shopTotal)})` : `Cobrar ${money(c.total)}` };
         if (c.state === 'asking') return { text: 'Falar com o cliente' };
         if (c.state === 'watch') return { text: c.talked ? 'Ouvir de novo' : 'Falar com o cliente' };
         if (c.state === 'linger') return { text: 'Pedir para ele sair (segure)', hold: true };
@@ -1056,7 +1068,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       }));
     });
     c.state = 'scanning';
-    ui.setTotal(money(0));
+    ui.setTotal(scannerTotal(c, 0));
     say(c, c.tipo?.falas?.chegada || cfg.loja.cumprimentos);
     const back = c.prods.filter((p) => p.atras);
     if (back.length) setTimeout(() => {}, 0);
@@ -1082,7 +1094,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
         inventory.clearCarry();
         bus.emit('sfx', 'leitor_bip', { pos: world.at('leitor', 1.0).toArray() });
         const sum = c.prods.filter((q) => q.done).reduce((a, q) => a + q.cents, 0);
-        ui.setTotal(money(sum));
+        ui.setTotal(scannerTotal(c, sum));
         if (c.scanned === c.prods.length) { c.state = 'ready'; bus.emit('step', 'shop.scanned', c); }
       },
     });
@@ -1090,14 +1102,15 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   async function chargeWalker(c) {
     if (c.paying) return; c.paying = true;
     say(c, c.tipo?.falas?.chegada && c.cat === 'inconveniente' ? c.tipo.reacoes?.erro?.falas || pick('cobrar') : pick('cobrar'));
-    const got = await collect(c, c.total);
+    const owed = c.total;                                  // (read now: the fuel the pump gave plus the products)
+    const got = await collect(c, owed, billLines(c));
     c.paying = false;
     if (!got) return;
     const { res, torn } = got;
     const given = res.sum;
-    const correct = c.bill - c.total, diff = given - correct;
+    const correct = c.bill - owed, diff = given - correct;
     let errors = 0;
-    book(c, c.total, res, torn);
+    book(c, owed, res, torn);
     if (diff !== 0) { progression.error('troco', c.id); errorLine(c, diff < 0 ? 'troco_curto' : 'troco_longo', diff < 0 ? 'troco-curto' : 'troco-longo'); errors++; if (diff < 0) progression.complaint('troco'); }
     if (!errors) { progression.ok('venda'); thanks(c, 0); bus.emit('sfx', 'caixa_gaveta', {}); tipFor(c, 0); }
     if (c.fuelOf) {                                 // the fuel on the same bill: its own faults count, its own point is given
@@ -1487,8 +1500,10 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   }
   /** Overlays the saved scalars and objects on a customer that has just been made from the same seed. */
   function lay(c, d) {
-    for (const [k, v] of Object.entries(d.f)) if (!KEEP.has(k)) c[k] = v;
-    for (const [k, v] of Object.entries(d.o || {})) if (!KEEP.has(k)) c[k] = { ...v };
+    // a field that is computed on the customer (a getter, like the fuel on a counter bill) is not written back: it follows the rest
+    const settable = (k) => { const pd = Object.getOwnPropertyDescriptor(c, k); return !pd || 'value' in pd || typeof pd.set === 'function'; };
+    for (const [k, v] of Object.entries(d.f)) if (!KEEP.has(k) && settable(k)) c[k] = v;
+    for (const [k, v] of Object.entries(d.o || {})) if (!KEEP.has(k) && settable(k)) c[k] = { ...v };
     for (const [k, v] of Object.entries(d.v || {})) if (c[k] && c[k].isVector3) c[k].set(v.x, v.y, v.z); else if (k === 'route') c.route = new THREE.Vector3(v.x, v.y, v.z);
     (d.prods || []).forEach((p, i) => { if (c.prods[i]) Object.assign(c.prods[i], p); });
     if (d.oferta && c.oferta) d.oferta.forEach((p, i) => { if (c.oferta[i]) Object.assign(c.oferta[i], p); });
@@ -1539,7 +1554,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       placeItems(c);
       (d.items || []).forEach((vis, i) => { if (c.itemObjs[i]) c.itemObjs[i].visible = vis; });
       c.state = d.f.state; c.scanned = d.f.scanned || 0; if (d.askBack && c.prods[d.askBack.i]) c.askBack = { t: d.askBack.t, p: c.prods[d.askBack.i] }; else delete c.askBack;
-      ui.setTotal(money(c.prods.filter((q) => q.done).reduce((a, q) => a + q.cents, 0)));
+      ui.setTotal(scannerTotal(c, c.prods.filter((q) => q.done).reduce((a, q) => a + q.cents, 0)));
     }
     if (d.f.state === 'route' && c.route) {
       const side = c.bathSide || 'm';

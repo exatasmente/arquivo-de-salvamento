@@ -5,6 +5,7 @@ import { bob, footfalls, ramp, smooth, lerp, dialogue, BABBLE_SEEDS } from './co
 import { makeVest } from './stagecraft.js';
 import { aimTrack, aimAt, fadeInOut, buildManager, buildOldAttendant, placeInCam, EYE, PI } from './finais-kit.js';
 import { camPoint } from './stagecraft.js';
+import { variantOfEnd } from './finais-kit.js';
 
 const D = 38;
 const views = {
@@ -12,10 +13,15 @@ const views = {
   saida: [12, 23, 'Heitor sai: a porta de vidro, o sino, a noite lá fora, e ele se afasta pelo pátio'],
   'olhar-atras': [23, 38, 'Ele olha para trás, pela vidraça: atrás do balcão, de uniforme antigo, alguém que não estava lá'],
 };
-const SAY = dialogue([
+const sayFor = (V) => dialogue([
   { t: 1.4, who: 'Gerente', text: 'Meta é meta.', seed: BABBLE_SEEDS.gerente, hold: 1.0 },
   { t: 4.4, who: 'Gerente', text: 'O colete.', seed: BABBLE_SEEDS.gerente, hold: 1.2 },
+  // the trust: what the manager adds when he has the vest in his hands (after the first two lines, before Heitor turns)
+  ...(V.conf === 'caloroso' ? [{ t: 8.0, who: 'Gerente', text: 'Sinto muito, Heitor.', seed: BABBLE_SEEDS.gerente, hold: 1.4 }] : V.conf === 'frio' ? [{ t: 8.0, who: 'Gerente', text: 'Eu avisei.', seed: BABBLE_SEEDS.gerente, hold: 1.2 }] : []),
+  // the ties: who will miss him (on the way out)
+  ...(V.laco ? [{ t: 18.4, who: '', text: 'Alguém vai perguntar por mim amanhã.', seed: BABBLE_SEEDS.heitor, hold: 2.0 }] : []),
 ]);
+let SAY = sayFor(variantOfEnd(null));
 
 const E0 = [9.0, EYE, 5.0], MGR = [9.8, 6.9];
 const toMgr = aimAt(E0, [MGR[0], 1.4, MGR[1]]);
@@ -37,7 +43,7 @@ const walkIn = (t) => (t >= 12.6 && t < 22.4 ? 1 : 0);
 export default {
   name: 'final2', duration: D, views,
   anchors: { gerente: 'O gerente, de frente, com o colete nas mãos', porta: 'A porta de vidro da loja', balcao: 'O balcão visto de fora, pela vidraça' },
-  sfx: [
+  fixedSfx: [
     { t: 0, name: 'fluorescente', opts: { dur: D, gain: 0.7 } },
     { t: 0, name: 'rodovia', opts: { dur: D, gain: 0.35 } },
     { t: 7.0, name: 'nota', opts: { gain: 0.5 } },
@@ -47,9 +53,10 @@ export default {
     { t: 19.6, name: 'porta_fecha', opts: { pos: [9, 1, 2.2], gain: 0.6 } },
     { t: 25.4, name: 'respiracao', opts: { dur: 8, gain: 0.45 } },
     { t: 29.5, name: 'lampada_estalo', opts: { pos: [11, 3, 6], gain: 0.7 } },
-    ...SAY.sfx,
   ],
+  get sfx() { return [...this.fixedSfx, ...SAY.sfx]; },
   build(ctx) {
+    SAY = sayFor(variantOfEnd(ctx.variant));
     const { r } = ctx, T = r.THREE;
     const hands = ctx.hands(), W = ctx.world();
     const g = new T.Group();

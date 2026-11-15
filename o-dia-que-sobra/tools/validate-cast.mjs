@@ -15,7 +15,7 @@ for (const p of cast.recorrentes) {
   if (h < a || h > b) e(p.id + ' horario fora da janela');
   if (h < 0 || b > 360) e(p.id + ' fora do expediente');
   const seen = new Set(); const mine = p.noites.map((n) => n.cena);
-  if (mine.length < 6 || mine.length > 10) e(`${p.id}: ${mine.length} cenas (6 a 10)`);
+  if (mine.length < (p.cenasMin ?? 6) || mine.length > 10) e(`${p.id}: ${mine.length} cenas (${p.cenasMin ?? 6} a 10)`);
   for (const n of p.noites) {
     if (n.semana < 1 || n.semana > 4 || n.dia < 1 || n.dia > 6) e(`${p.id}: noite invalida ${n.semana}/${n.dia}`);
     const k = n.semana * 10 + n.dia; if (seen.has(k)) e(`${p.id}: noite repetida ${k}`); seen.add(k);

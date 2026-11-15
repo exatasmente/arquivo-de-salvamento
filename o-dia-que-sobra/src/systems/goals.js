@@ -81,6 +81,14 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
     for (const r of rs) for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; out.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, d: Math.hypot(x + Math.cos(a) * r - player.st.x, z + Math.sin(a) * r - player.st.z) }); }
     return out.sort((u, v) => (u.d - v.d));
   }
+  /** The breaker board is used from its front: the anchor's own point (the face side; `dir` is where the player looks) and a few steps round it, the way in front first. */
+  const boardTask = (id) => id === 'fecha-patio' || id === 'fecha-sinal' || id.startsWith('disjuntor-');
+  function boardStands() {
+    const a = world.anchor('quadroForca'); if (!a) return [];
+    const nx = -a.dir.x, nz = -a.dir.z, px = -nz, pz = nx, out = [];
+    for (const d of [0, 0.3, 0.6]) for (const l of [0, 0.4, -0.4]) out.push({ x: a.pos.x + nx * d + px * l, z: a.pos.z + nz * d + pz * l });
+    return out;
+  }
   /** What the player should go to for task `t`, as a point in the world (or null). */
   function whereTask(t) {
     const id = t.id, carry = inventory.carry;
@@ -147,7 +155,7 @@ export function createGoals(bus, { world, render, player, tasks, customers, chor
       const step = c && (c.kind === 'car' || c.kind === 'walk') ? stepOf(c, () => whereTask(t)) : {
         where: () => whereTask(t),
         aim: () => toolOf(t)?.at || null,
-        stand: () => { const k = toolOf(t); return k ? ringAround(k.at.x, k.at.z) : []; },
+        stand: () => { const k = toolOf(t); return k ? ringAround(k.at.x, k.at.z) : boardTask(t.id) ? boardStands() : []; },
       };
       out.push({ key: 't:' + t.id, text: t.text, short: shortText(t.text), ...step });
     }

@@ -8,6 +8,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
   let chosen = new Set();
   const off = new Set();           // ids switched off (power failure, burnt out)
   const dim = new Map();           // id -> multiplier set by an event
+  let nightK = 1;                  // how dark the night begins (the Sun's attention: branches.js, R10): 1 = as usual
   const THREE = render.THREE;
   const spotDir = new THREE.Vector3(0, 0, -1);
   const color = new THREE.Color();
@@ -17,7 +18,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
   // changes; from 04:00 to 06:00 the east horizon glows a little and the trees and the highway show against it. At 06:00 it is still dark: the lights of
   // the station, the sign and the flashlight still matter. `hours()` is the shift's clock in hours, 0 when no night is on (the title, the preparation, the day off).
   const NIGHT = new THREE.Color('#07080d'), DAWN_FOG = new THREE.Color('#161e2c'), DAWN_SKY = new THREE.Color('#121a28'), AMB0 = new THREE.Color(0x3c3f4c), AMB1 = new THREE.Color(0x474f61);
-  const fogC = new THREE.Color(), skyC = new THREE.Color(), ambC = new THREE.Color(), keyC = new THREE.Color(), RAIN_SKY = new THREE.Color('#10141d'), FLASH = new THREE.Color('#6f80ab'), KEY0 = new THREE.Color(0x0a0c14), MOONKEY = new THREE.Color(0x232d48);
+  const fogC = new THREE.Color(), skyC = new THREE.Color(), ambC = new THREE.Color(), keyC = new THREE.Color(), RAIN_SKY = new THREE.Color('#10141d'), FLASH = new THREE.Color('#6f80ab'), KEY0 = new THREE.Color(0x0a0c14), INDOOR = new THREE.Color(0x464954), indoorC = new THREE.Color(), MOONKEY = new THREE.Color(0x232d48);
   const KEYDIR = [-0.3, -1, -0.2];
   const dawnK = (h) => (h <= 0 ? 0 : h < 4 ? 0.04 * h / 4 : 0.04 + 0.96 * ((u) => u * u * (3 - 2 * u))(Math.min(1, (h - 4) / 2)));
   // a dome of glow around the player: strongest low in the east, none overhead; added to the dark sky, under everything (so what stands in front stays dark)
@@ -49,6 +50,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
     }
     // a storm: the line flickers with the bolts (the lamps dip, never go out by it; with "reduce flashes" they dim only a little)
     const wx = weather();
+    if (nightK !== 1) ambC.multiplyScalar(nightK);
     if (wx && wx.lampK < 1) k *= opts.reduceFlash ? Math.max(0.65, wx.lampK) : Math.max(0.2, wx.lampK);
     return k;
   }
@@ -71,7 +73,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
       if (wx.dark > 0.01) { const d = 1 - wx.dark * 0.9; fogC.multiplyScalar(d); skyC.multiplyScalar(d); ambC.multiplyScalar(d); }
       fogNear = wx.fogNear; fogFar = wx.fogFar;
     }
-    render.light({ ambient: indoor && !(wx && wx.flash > 0.01) ? 0x464954 : ambC.getHex(), key: keyHex, keyDir, fog: fogC.getHex(), fogNear, fogFar });
+    render.light({ ambient: indoor && !(wx && wx.flash > 0.01) ? (nightK === 1 ? 0x464954 : indoorC.copy(INDOOR).multiplyScalar(nightK).getHex()) : ambC.getHex(), key: keyHex, keyDir, fog: fogC.getHex(), fogNear, fogFar });
     render.scene.background.copy(skyC);
     dome.visible = k > 0.005; dome.position.set(p.x, 0, p.z); dome.material.color.setScalar(k);
     // score the lights: those that reach the player first, then the closest
@@ -114,6 +116,9 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
     dawnOff() { dome.visible = false; bus.emit('weather:off'); },
     setPower(id, on) { if (on) off.delete(id); else off.add(id); bus.emit('light:power', id, on); },
     isOn: (id) => !off.has(id),
+    /** How dark the nights begin from now on (1 = as usual; the Sun's attention makes it less). */
+    setDark(k) { nightK = Math.max(0.5, Math.min(1, Number(k) || 1)); },
+    get dark() { return nightK; },
     dimLight(id, k) { if (k === null) dim.delete(id); else dim.set(id, k); },
     get area() { return areaId; },
     get chosen() { return [...chosen]; },

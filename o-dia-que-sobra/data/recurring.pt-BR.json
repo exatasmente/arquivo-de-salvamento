@@ -7,6 +7,7 @@
     "falas[].q: 'cliente' (o recorrente), 'pensamento' (Heitor, baixinho, em italico no jogo). t pode ter {valor} e {combustivel}. pose: nome de customer.js a usar enquanto a fala aparece.",
     "gatilho.condicao (todas as chaves opcionais, todas precisam valer): sanidadeMax, sanidadeMin, evento (id de evento que JA ocorreu na noite), semEvento (id que AINDA nao ocorreu), cafeSeguidas (>= n expedientes seguidos em que a pessoa recebeu cafe), flag (flag da narrativa), local.",
     "variantes: a primeira cuja condicao vale substitui 'falas'. Sem nenhuma valendo, vale 'falas'.",
+    "Cenas de ramo da historia (data/branches.pt-BR.json): ramo (o ramo cujo menu abre depois das falas), evento (uma consequencia em vez de menu), saiCom [escolhas] (o cliente vai embora sem servico depois delas), semMotorista [escolhas] (o carro sai sem o motorista), dispara { ramo, evento, se } (uma consequencia quando a cena termina). variantes[].semOferta: sem o pedido de loja (o cafe) naquela noite.",
     "reacoes: lista de falas a sortear pela semente. gentileza dispara por um ato de data/cast.json > gentileza; erro por um id de cast.json > erros; demora quando a paciencia acaba. Efeitos padrao abaixo (a cena pode trazer 'efeito' para trocar).",
     "padroes.efeito: gentileza { afeto: 1, gorjeta: 200 }, erro { afeto: -1, reclamacao: 1 }, demora { afeto: -1, sai: true }.",
     "personagens.<id>.cafe (so do homem das 03:33): 'um', 'dois', 'tres' = a reacao a cada noite seguida de cafe. 'tres' CARREGA A INFORMACAO DO SEGREDO S4 com dois marcadores, {s4.data} e {s4.carro}: o principal os preenche a partir de um dado cifrado ou derivado, nunca daqui. Nada de segredo em texto claro neste arquivo.",
@@ -138,13 +139,14 @@
       }
     },
     {
-      "id": "cida-7", "quem": "cida", "noite": { "semana": 4, "dia": 1 },
+      "id": "cida-7", "quem": "cida", "noite": { "semana": 4, "dia": 1 }, "dispara": { "ramo": "r9", "evento": "conta", "se": "r9:devolver" },
       "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
       "falas": [
         { "q": "cliente", "t": "Última semana! Quase não acredito." },
         { "q": "cliente", "t": "Mas me dá um aperto. Vinte anos, a gente esquece como se folga." },
         { "q": "cliente", "t": "Eu vou deitar e não vou fazer nada. E você?" }
       ],
+      "variantes": [{"condicao": {"flag": "r9:devolver"}, "falas": [{"q": "cliente", "t": "Meu filho, você guardou a minha bolsa! A foto continua dentro?"}, {"q": "cliente", "t": "Era do posto antigo. Tinha um rapaz de costas, de uniforme. Eu nunca soube o nome."}, {"q": "cliente", "t": "Diziam que ele sumiu na véspera da folga. Nunca tinha tirado uma."}]}, {"condicao": {"flag": "r9:gerente"}, "falas": [{"q": "cliente", "t": "O seu Amaro me devolveu a bolsa. Disse que a foto ficou com ele."}, {"q": "cliente", "t": "Última semana! Quase não acredito."}]}, {"condicao": {"flag": "r9:ficou"}, "falas": [{"q": "cliente", "t": "Meu filho, minha bolsa! Obrigada por guardar."}, {"q": "cliente", "t": "Mas a foto de dentro sumiu. Quem sabe foi o vento."}]}],
       "reacoes": {
         "gentileza": ["Pescar? Que bonito. Vai e fica o dia todo.", "Você merece, meu filho."],
         "erro": ["Hoje não, filho. Tá errado.", "Confere. Falta pouco pra folga, não quero erro."],
@@ -166,7 +168,7 @@
       }
     },
     {
-      "id": "rafael-1", "quem": "rafael", "noite": { "semana": 1, "dia": 2 }, "ramo": "r1",
+      "id": "rafael-1", "quem": "rafael", "noite": { "semana": 1, "dia": 2 }, "ramo": "r1", "saiCom": ["recusar"],
       "gatilho": { "hora": "01:20", "janela": ["01:10", "01:50"], "onde": "bomba", "condicao": {} },
       "falas": [
         { "q": "cliente", "t": "E aí, patrão! Vinte de comum, por favor." },
@@ -375,6 +377,7 @@
         { "q": "cliente", "t": "O rapaz da moto volta amanhã.", "pose": "fixo" },
         { "q": "cliente", "t": "Sem capacete." }
       ],
+      "variantes": [{"condicao": {"flag": "r7:viu"}, "falas": [{"q": "cliente", "t": "Você viu a fita.", "pose": "fixo"}, {"q": "cliente", "t": "Ele estava de costas o tempo todo. Ninguém filmou o rosto, de propósito."}]}],
       "reacoes": {
         "gentileza": ["Obrigado por ouvir.", "Obrigado."],
         "erro": ["Não precisa fazer nada.", "Esquece."],
@@ -403,6 +406,7 @@
         { "q": "cliente", "t": "Quantas noites faltam?", "pose": "fixo" },
         { "q": "cliente", "t": "Para você, ou para ele? Eu perdi a conta." }
       ],
+      "variantes": [{"condicao": {"flag": "r7:viu"}, "falas": [{"q": "cliente", "t": "Na fita a placa estava acesa. Aqui ela já não fica sempre.", "pose": "fixo"}, {"q": "cliente", "t": "Quem some não leva o carro. Alguém sempre precisa saber onde ele ficou."}]}],
       "reacoes": {
         "gentileza": ["Obrigado.", "Você é paciente."],
         "erro": ["Não era isso.", "Esquece."],
@@ -431,6 +435,7 @@
         { "q": "cliente", "t": "O relógio vai chegar às seis e voltar.", "pose": "fixo" },
         { "q": "cliente", "t": "Não é defeito." }
       ],
+      "variantes": [{"condicao": {"flag": "r7:viu"}, "falas": [{"q": "cliente", "t": "A fita mostra um lado do dia. O outro lado está num calendário.", "pose": "fixo"}, {"q": "cliente", "t": "Quem olha o calendário vê a folga que não veio."}]}],
       "reacoes": {
         "gentileza": ["Obrigado.", "Fique calmo."],
         "erro": ["Não era isso.", "Esquece."],
@@ -445,12 +450,81 @@
         { "q": "cliente", "t": "Falta uma noite. Eu pergunto a todos se vão.", "pose": "fixo" },
         { "q": "cliente", "t": "Para casa. Se vão para casa." }
       ],
+      "variantes": [{"condicao": {"flag": "r7:viu"}, "falas": [{"q": "cliente", "t": "Você viu a fita e ficou. Poucos ficam.", "pose": "fixo"}, {"q": "cliente", "t": "Me oferece um café três noites seguidas. Eu digo o resto."}]}],
       "reacoes": {
         "gentileza": ["Obrigado.", "Vá com calma."],
         "erro": ["Não era isso.", "Esquece."],
         "demora": ["Eu vou.", "Boa noite."],
         "cafe": ["Você de novo."]
       }
+    },
+    {
+      "id": "casal-1", "quem": "casal", "noite": { "semana": 2, "dia": 4 }, "ramo": "r6", "saiCom": ["deixar","telefone","calar"], "semMotorista": ["deixar"],
+      "gatilho": { "hora": "01:30", "janela": ["01:20", "01:50"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        {"q": "cliente", "t": "Boa noite. Põe vinte de etanol. Ele não paga, então pago eu."},
+        {"q": "cliente", "t": "A gente brigou na festa inteira e ele não cala. Eu não volto para casa com ele."},
+        {"q": "cliente", "t": "Posso esperar aí dentro até ele ir embora? Uma hora, só.", "pose": "pagando"}
+      ],
+      "reacoes": {"gentileza": ["Obrigada por não ter rido de nós.", "Você é gentil."], "erro": ["Moço, confere. Hoje eu não estou para erro.", "Tá errado."], "demora": ["Deixa. Vamos embora.", "Eu me viro."]}
+    },
+    {
+      "id": "cam-1", "quem": "caminhoneiro", "noite": { "semana": 2, "dia": 2 },
+      "gatilho": { "hora": "02:30", "janela": ["02:20", "03:00"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        {"q": "cliente", "t": "Noite, patrão. Diesel até cem. Rodo desde ontem."},
+        {"q": "cliente", "t": "Se tiver um café forte, eu agradeço."}
+      ],
+      "reacoes": {"gentileza": ["O café daqui presta. Eu volto.", "Boa estrada pra você também."], "erro": ["Peraí, confere isso aí, patrão.", "Falta ou sobra, não bate."], "demora": ["Tenho que entregar antes de clarear. Vou indo.", "Não dá pra esperar."]}
+    },
+    {
+      "id": "cam-2", "quem": "caminhoneiro", "noite": { "semana": 3, "dia": 3 }, "ramo": "r8", "saiCom": ["registrar"],
+      "gatilho": { "hora": "02:30", "janela": ["02:20", "03:00"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        {"q": "cliente", "t": "Noite, patrão. Escuta: sobrou um galão de diesel aqui na boleia."},
+        {"q": "cliente", "t": "Sem nota. Passo pela metade do preço e você revende de manhã."},
+        {"q": "cliente", "t": "Ninguém precisa saber. É uma ajuda para os dois."}
+      ],
+      "reacoes": {"gentileza": ["Você pensa antes de falar. Gosto disso.", "Boa estrada pra você também."], "erro": ["Peraí, isso aí não tá certo.", "Confere, patrão."], "demora": ["Não dá tempo. Vou indo.", "Fica pra outra."]}
+    },
+    {
+      "id": "cam-3", "quem": "caminhoneiro", "noite": { "semana": 3, "dia": 6 },
+      "gatilho": { "hora": "02:30", "janela": ["02:20", "03:00"], "onde": "bomba", "condicao": { "semFlag": "r8:aceitou" } },
+      "falas": [
+        {"q": "cliente", "t": "Boa noite, patrão. O de sempre: diesel e um café forte."},
+        {"q": "cliente", "t": "Sem rancor pelo galão. Cada um sabe o seu."}
+      ],
+      "variantes": [{"condicao": {"flag": "r8:registrou"}, "semOferta": true, "falas": [{"q": "cliente", "t": "Diesel. O que for."}, {"q": "cliente", "t": "Café não, obrigado. Você sabe por quê."}]}],
+      "reacoes": {"gentileza": ["Boa estrada pra você também.", "O café daqui presta."], "erro": ["Peraí, confere isso aí.", "Não bate."], "demora": ["Tenho que ir.", "Fica pra outra."]}
+    },
+    {
+      "id": "cam-4", "quem": "caminhoneiro", "noite": { "semana": 4, "dia": 3 },
+      "gatilho": { "hora": "02:30", "janela": ["02:20", "03:00"], "onde": "bomba", "condicao": { "semFlag": "r8:aceitou" } },
+      "falas": [
+        {"q": "cliente", "t": "Falta pouco, patrão? Para mim só falta a estrada."},
+        {"q": "cliente", "t": "Diesel até cem, e o café forte."}
+      ],
+      "variantes": [{"condicao": {"flag": "r8:registrou"}, "semOferta": true, "falas": [{"q": "cliente", "t": "Diesel."}, {"q": "cliente", "t": "Sem conversa hoje, patrão."}]}],
+      "reacoes": {"gentileza": ["Você segura essa noite melhor que eu.", "Boa estrada pra você também."], "erro": ["Peraí, confere.", "Não bate."], "demora": ["Vou indo.", "Fica pra outra."]}
+    },
+    {
+      "id": "cam-5", "quem": "caminhoneiro", "noite": { "semana": 4, "dia": 5 },
+      "gatilho": { "hora": "02:30", "janela": ["02:20", "03:00"], "onde": "bomba", "condicao": { "semFlag": "r8:aceitou" } },
+      "falas": [
+        {"q": "cliente", "t": "Última vez que passo por aqui nesta escala."},
+        {"q": "cliente", "t": "Põe cem de diesel. E o café, se a máquina estiver de bom humor."}
+      ],
+      "variantes": [{"condicao": {"flag": "r8:registrou"}, "semOferta": true, "falas": [{"q": "cliente", "t": "Diesel. Cem."}]}],
+      "reacoes": {"gentileza": ["Foi bom passar por aqui.", "Boa estrada pra você também."], "erro": ["Peraí, confere.", "Não bate."], "demora": ["Vou indo.", "Tchau, patrão."]}
+    },
+    {
+      "id": "cida-bolsa", "quem": "cida", "noite": { "semana": 3, "dia": 5 },
+      "gatilho": { "hora": "02:00", "janela": ["01:50", "02:30"], "onde": "bomba", "condicao": {} },
+      "falas": [
+        {"q": "cliente", "t": "Boa noite, meu filho. Trinta de etanol. Hoje a cabeça tá lá longe."},
+        {"q": "cliente", "t": "Se eu esquecer alguma coisa, você guarda? Sou assim desde menina."}
+      ],
+      "reacoes": {"gentileza": ["Você é muito bom moço.", "Guarda minha cabeça também."], "erro": ["Tô distraída. Confere, meu filho.", "Falta aí."], "demora": ["Vou indo. Tchau, filho.", "Tchau."]}
     }
   ]
 }

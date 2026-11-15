@@ -4,6 +4,7 @@
 // Third person (nobody is Heitor any more): the manager from behind, then the monitor. 30 s. One caption.
 import { ramp, smooth, lerp, dialogue, BABBLE_SEEDS } from './common.js';
 import { aimTrack, aimAt, buildManager, buildNewAttendant, camShooter, fadeInOut, PI } from './finais-kit.js';
+import { variantOfEnd } from './finais-kit.js';
 
 const D = 30;
 const views = {
@@ -12,7 +13,13 @@ const views = {
   camera: [9, 24, 'O monitor inteiro: a câmera sobre as bombas; na bomba 4, um frentista novo, de costas, parado'],
   corte: [24, 30, 'O corte: a imagem some e só fica o preto e o zumbido'],
 };
-const SAY = dialogue([{ t: 3.6, who: '', text: 'Na noite seguinte.', seed: BABBLE_SEEDS.heitor, hold: 1.6 }]);
+const sayFor = (V) => dialogue([
+  { t: 3.6, who: '', text: 'Na noite seguinte.', seed: BABBLE_SEEDS.heitor, hold: 1.6 },
+  // the trust: what the office says of him; the ties: who is still asking (one caption each)
+  ...(V.conf === 'caloroso' ? [{ t: 7.0, who: '', text: 'O gerente ainda guarda o colete dele.', seed: BABBLE_SEEDS.heitor, hold: 1.4 }] : V.conf === 'frio' ? [{ t: 7.0, who: '', text: 'O gerente já riscou o nome da escala.', seed: BABBLE_SEEDS.heitor, hold: 1.4 }] : []),
+  ...(V.laco ? [{ t: 14.0, who: '', text: 'No posto, alguém ainda pergunta por ele.', seed: BABBLE_SEEDS.heitor, hold: 2.0 }] : []),
+]);
+let SAY = sayFor(variantOfEnd(null));
 
 const MGR = [5.5, 16.5];
 const EYE0 = [3.8, 1.62, 14.9];
@@ -28,15 +35,16 @@ const PUMP_EYE = [19.5, 1.7, -5.0], ATT = [20.6, -5.0];
 export default {
   name: 'final4', duration: D, views,
   anchors: { gerente: 'O gerente, de costas, diante do monitor', monitor: 'O monitor do escritório', bomba4: 'A bomba 4, vista pela câmera' },
-  sfx: [
+  fixedSfx: [
     { t: 0, name: 'fluorescente', opts: { dur: D, gain: 0.55 } },
     { t: 0, name: 'rodovia', opts: { dur: D, gain: 0.3 } },
     { t: 7.4, name: 'estatica_camera', opts: { dur: 16.6, gain: 0.5 } },
     { t: 11.0, name: 'lampada_estalo', opts: { pos: [19.5, 3.6, -8], gain: 0.5 } },
     { t: 14.0, name: 'respiracao', opts: { dur: 9, gain: 0.4 } },
-    ...SAY.sfx,
   ],
+  get sfx() { return [...this.fixedSfx, ...SAY.sfx]; },
   build(ctx) {
+    SAY = sayFor(variantOfEnd(ctx.variant));
     const { r } = ctx, T = r.THREE;
     const W = ctx.world();
     const g = new T.Group();

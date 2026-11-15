@@ -4,6 +4,7 @@
 // First person, 38 s. Only the customer's line (the same three times) and one thought.
 import { ramp, smooth, lerp, dialogue, BABBLE_SEEDS } from './common.js';
 import { aimTrack, aimAt, buildDriver, EYE, PI } from './finais-kit.js';
+import { variantOfEnd } from './finais-kit.js';
 
 const D = 38;
 // the rounds: [start, length]; the last one is not closed by a dip
@@ -16,10 +17,14 @@ const views = {
 };
 
 const CL = [1.1 + 0, 11 + 1.1, 19.5 + 1.1];
-const SAY = dialogue([
+const sayFor = (V) => dialogue([
   ...ROUNDS.slice(0, 3).map(([s]) => ({ t: s + 1.1, who: 'Cliente', text: 'Completa, por favor.', seed: BABBLE_SEEDS.cliente, hold: 0.5 })),
+  // the trust (what Heitor thinks of the manager) and the ties (who passes by), one line each, in the second round
+  ...(V.conf === 'caloroso' ? [{ t: 6.2, who: '', text: 'O Seu Amaro confiava que eu fechava o turno.', seed: BABBLE_SEEDS.heitor, hold: 1.6 }] : V.conf === 'frio' ? [{ t: 6.2, who: '', text: 'O Seu Amaro já esperava por isso.', seed: BABBLE_SEEDS.heitor, hold: 1.6 }] : []),
+  ...(V.laco ? [{ t: 14.6, who: '', text: 'A Dona Cida já devia ter passado. Ou já passou?', seed: BABBLE_SEEDS.heitor, hold: 1.4 }] : []),
   { t: 31.4, who: '', text: 'Falta um minuto.', seed: BABBLE_SEEDS.heitor, hold: 2.6 },
 ]);
+let SAY = sayFor(variantOfEnd(null));
 
 const E = [13.0, EYE, 9.5], CLOCK = [9.6, 2.4, 11.87], CUST = [13.0, 7.35];
 const toCust = { yaw: PI, pitch: -0.1 };
@@ -48,7 +53,7 @@ const horaOf = (t) => {
 export default {
   name: 'final3', duration: D, views,
   anchors: { relogio: 'O relógio de parede da loja', balcao: 'O balcão, com o cliente do outro lado', caixa: 'O caixa' },
-  sfx: [
+  fixedSfx: [
     { t: 0, name: 'fluorescente', opts: { dur: D, gain: 0.7 } },
     { t: 0, name: 'rodovia', opts: { dur: D, gain: 0.3 } },
     ...ROUNDS.flatMap(([s, L], i) => {
@@ -62,9 +67,10 @@ export default {
       return out;
     }),
     { t: 29.0, name: 'respiracao', opts: { dur: 8, gain: 0.45 } },
-    ...SAY.sfx,
   ],
+  get sfx() { return [...this.fixedSfx, ...SAY.sfx]; },
   build(ctx) {
+    SAY = sayFor(variantOfEnd(ctx.variant));
     const { r } = ctx;
     const hands = ctx.hands(), W = ctx.world();
     const g = new r.THREE.Group();

@@ -57,6 +57,11 @@ export const buildNewAttendant = (r) => buildCustomer(r, {
   categoria: 'comum', roupa: 'camiseta', seed: 71, id: 'frentista-novo',
   look: { female: false, skirt: false, shirt: '#86652a', pants: '#2e3c4e', hairStyle: 'short', hair: '#5a4a3a', skin: '#d2a884', height: 1.78, build: 'mid' },
 }, { seed: 71 });
+// The ones the story may bring to the dawn of the ending 1 (final1.js reads `variant.chegam`): Rafael with his motorbike (R1: the tank on credit), Dona Cida
+// (R9: the bag given back), the street dweller waking on the pavement (R2: he was let stay). Looks as in data/cast.json (read from it when the stage has it).
+export const buildRafael = (r, ctx) => buildCustomer(r, castSpec(ctx.cast, 'rafael', { categoria: 'recorrente', roupa: 'entregador', seed: 17, look: { build: 'lean', hairStyle: 'short', hair: '#241a14', beard: 'none', height: 1.74, shirt: '#5a5a48', pants: '#262a30' }, acessorios: ['capacete-mao', 'mochila-entrega'] }), { seed: 17 });
+export const buildCida = (r, ctx) => buildCustomer(r, castSpec(ctx.cast, 'cida', { categoria: 'recorrente', roupa: 'taxista-dona', seed: 12, look: { female: true, build: 'mid', height: 1.6, hair: '#b9b6b0', hairStyle: 'short', skin: '#e6c29b', shirt: '#3d5a4a', pants: '#3a3a4a' }, acessorios: ['oculos', 'bolsa'] }), { seed: 12 });
+export const buildMorador = (r, ctx) => buildCustomer(r, castSpec(ctx.cast, 'morador-de-rua', { categoria: 'recorrente', roupa: 'morador', seed: 88, manias: ['cansado'] }), { seed: 88 });
 export const buildDriver = (r, ctx) => buildCustomer(r, castSpec(ctx.cast, 'caminhoneiro', { categoria: 'comum', roupa: 'caminhoneiro' }), { seed: 61 });
 
 /** Heading of a body (yaw 0 faces +z) from a point to another. */
@@ -207,3 +212,8 @@ export function camShooter(r, W, hide, W_ = 160, H_ = 120) {
     return cvs;
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// What the story changes in the endings 2, 3 and 4 (the game passes `variant`: { conf: 'caloroso' | 'frio', laco: true }): one line of each kind, no more.
+// Without it (the film mode) the endings are as they always were.
+export const variantOfEnd = (v) => ({ conf: v?.conf === 'caloroso' || v?.conf === 'frio' ? v.conf : 'neutro', laco: Boolean(v?.laco) });
