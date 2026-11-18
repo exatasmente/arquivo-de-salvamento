@@ -491,7 +491,7 @@ hints();
 if (boot.on) { row.visible = false; document.getElementById('boot')?.classList.add('lit'); } else endBoot();
 requestAnimationFrame(frame);
 
-// ---- offline: the service worker keeps the site and both games after the first visit ----
+// ---- offline: the service worker keeps the site and the games after the first visit ----
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* the page still works online */ }); });
 }

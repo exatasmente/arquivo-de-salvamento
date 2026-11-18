@@ -48,6 +48,27 @@ export const GAMES = [
       ['Telas', 'https://youtube.com/shorts/BtKkVvfoWeo'],
     ],
   },
+  {
+    id: 'sinal-de-vida',
+    block: 3,
+    title: 'SINAL DE VIDA',
+    url: 'sinal-de-vida/',
+    cover: 'assets/sinal-de-vida.jpg',
+    hook: 'Um rádio numa estação de metrô, e lá em cima as máquinas escutam.',
+    desc: 'Jonas mantém o rádio ligado às dez da noite. Quem fala demais é ouvido. Em desenvolvimento: a primeira noite já se joga.',
+    tags: 'NOITE 1 · EM DESENVOLVIMENTO',
+    card: 'sinal-de-vida.card.v2',
+    saved(d) {
+      if (d.run) return 'SALVO · PARTIDA EM ANDAMENTO';
+      const n = (d.endings || []).length;
+      return n > 0 ? `${n} DE 4 FINAIS VISTOS` : null;
+    },
+    videos: [
+      ['A estação dorme', 'https://youtube.com/shorts/cv6Kowe02Ig'],
+      ['Jonas chama no rádio', 'https://youtube.com/shorts/szHmtbsqcXE'],
+      ['Jonas ainda escuta o rádio', 'https://youtube.com/shorts/v-pOqowWFSY'],
+    ],
+  },
 ];
 
 export const CHANNEL = [

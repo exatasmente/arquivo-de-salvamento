@@ -1,0 +1,9 @@
+{
+  "name": "sinal-de-vida",
+  "private": true,
+  "type": "module",
+  "description": "Sinal de Vida: site estático, sem etapa de build. Só os testes têm script.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

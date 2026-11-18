@@ -1,0 +1,44 @@
+{
+  "noite-1": {
+    "numero": 1,
+    "titulo": "Chiado",
+    "cenas": [
+      "n1-cidade",
+      "n1-bomba",
+      "n1-chamada",
+      "n1-saida",
+      "n1-radio",
+      "n1-corte"
+    ]
+  },
+  "noite-2": {
+    "numero": 2,
+    "titulo": "A antena",
+    "cenas": [
+      "n2-abertura",
+      "n2-estacao",
+      "n2-radio",
+      "n2-saida",
+      "n2-fim"
+    ]
+  },
+  "noite-3": {
+    "numero": 3,
+    "titulo": "A represa",
+    "cenas": [
+      "n3-abertura",
+      "n3-estacao",
+      "n3-saida",
+      "n3-decisao",
+      "n3-final"
+    ]
+  },
+  "demo": {
+    "numero": 0,
+    "titulo": "Demonstração",
+    "cenas": [
+      "demo-1",
+      "demo-2"
+    ]
+  }
+}

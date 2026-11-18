@@ -1,0 +1,9 @@
+{
+  "title": "radio-teste: as falas do Jonas",
+  "lines": [
+    { "id": "01", "who": "jonas", "text": "Alguém escutando? Aqui é da estação. Câmbio." },
+    { "id": "03", "who": "jonas", "text": "Quem é? Diz o seu nome." },
+    { "id": "05", "who": "jonas", "text": "Eu sei. Só preciso saber se tem alguém na represa. Uma mulher. Lia. Ela tinha um rádio igual a este." },
+    { "id": "07", "who": "jonas", "text": "Não. Ela disse pra eu ligar quando pudesse." }
+  ]
+}

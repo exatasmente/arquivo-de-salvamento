@@ -1,0 +1,5 @@
+{
+  "_": "The two points of the recordings that the game cuts at. Measured on the mp3 (ffmpeg silencedetect); measure again when the line is re-recorded. In seconds from the start of the file.",
+  "05": { "mark": 3.15, "_": "Jonas, line 05: the end of the word 'represa' (the last word of the second sentence). Letting go before it counts as silence." },
+  "08": { "cutFrom": 2.15, "_": "The operator, line 08: the start of 'Tem um cão…' (the second sentence). The branch that did not tell plays the file from here." }
+}

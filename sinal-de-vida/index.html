@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Sinal de Vida</title>
+<meta name="theme-color" content="#05060a">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+</head>
+<body>
+<div id="app"><canvas id="c"></canvas><div id="hint">Clique para jogar · WASD anda · E usa · Espaço reage · Esc abre o menu</div></div>
+<script type="module" src="./src/main.js"></script>
+<script>
+  // the site's service worker keeps the games for offline play, also when this page is the first one opened (only inside the site, where ../sw.js exists)
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && /\/sinal-de-vida\//.test(location.pathname) && !/[?&](film|editor)(=|&|$)/.test(location.search)) addEventListener('load', function () { navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(function () {}); });
+</script>
+</body>
+</html>

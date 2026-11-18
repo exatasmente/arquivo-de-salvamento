@@ -15,8 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SW = path.join(ROOT, 'sw.js');
-const KEEP = [/^index\.html$/, /^manifest\.webmanifest$/, /^console\//, /^icons\//, /^assets\//, /^rinha\//, /^o-dia-que-sobra\//];
-const SKIP = [/\/tools\//, /\.md$/, /\.(mp4|webm|wav)$/i, /(^|\/)LICENSE$/, /\.d\.ts$/];
+const KEEP = [/^index\.html$/, /^manifest\.webmanifest$/, /^console\//, /^icons\//, /^assets\//, /^rinha\//, /^o-dia-que-sobra\//, /^sinal-de-vida\//];
+const SKIP = [/\/tools\//, /\/test\//, /\.md$/, /\.(mp4|webm|wav)$/i, /(^|\/)LICENSE$/, /\.d\.ts$/];
 
 const staged = execFileSync('git', ['ls-files', '-s'], { cwd: ROOT, encoding: 'utf8' })
   .split('\n').filter(Boolean)

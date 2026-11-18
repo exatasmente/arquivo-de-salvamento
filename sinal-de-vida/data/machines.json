@@ -1,0 +1,50 @@
+{
+  "_nota": "Numeros da furtividade (fase 2). Distancias em metros, tempos em segundos do jogo, velocidades em m/s. O jogador anda 2,6, corre 4,8 e agachado anda 1,35.",
+  "noise": {
+    "_nota": "loud de 0 a 1; o raio de escuta do cao e loud x dog.hearRadius. Parado nao faz barulho.",
+    "step":  { "walk": 0.22, "crouch": 0.04, "run": 0.75 },
+    "voice": { "stand": 0.75, "crouch": 0.6 },
+    "hide":  0.12,
+    "fall":  1.0,
+    "door":  0.35,
+    "craft": 0.3,
+    "isca":  0.55,
+    "emp":   1.0,
+    "default": 0.2
+  },
+  "dog": {
+    "hearRadius": 24,
+    "heatRadius": 3.2,
+    "heatCrouchK": 0.5,
+    "hiddenHeatRadius": 0.6,
+    "speed": { "calm": 1.1, "suspicious": 2.4, "search": 1.6, "chase": 4.0, "return": 1.4 },
+    "turnRate": 5.5,
+    "waypointPause": 1.4,
+    "reactDelay": 0.5,
+    "arriveRadius": 1.0,
+    "searchTime": 8,
+    "searchRadius": 3.5,
+    "searchLegs": 4,
+    "loseTime": 3.5,
+    "loseRadius": 8,
+    "catchRadius": 0.9,
+    "downPause": 3,
+    "downCooldown": 10,
+    "decoyHold": 7,
+    "stuckTime": 1.6,
+    "progressTime": 3,
+    "radius": 0.45
+  },
+  "sensor": {
+    "calm": "#6b4d12",
+    "suspicious": "#e8a42a",
+    "search": "#e8a42a",
+    "searchOff": "#3a2a08",
+    "chase": "#ffffff",
+    "down": "#e8a42a",
+    "blinkHz": 1
+  },
+  "gear": {
+    "isca": { "throwSpeed": 9.5, "gravity": 9.8, "maxRange": 18, "clicks": 6, "clickEvery": 1.0, "clickLoud": 0.55, "landLoud": 0.45 }
+  }
+}

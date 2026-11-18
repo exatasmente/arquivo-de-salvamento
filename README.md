@@ -10,6 +10,7 @@ vídeo.
 |---|---|---|
 | `rinha/` | **Rinha**: as criaturas que a gente capturava para lutar agora capturam a gente | [exatasmente.github.io/arquivo-de-salvamento/rinha/](https://exatasmente.github.io/arquivo-de-salvamento/rinha/) |
 | `o-dia-que-sobra/` | **O Dia que Sobra**: quatro semanas de turno da madrugada num posto de gasolina, e algo no posto que não quer que a folga chegue | [exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/](https://exatasmente.github.io/arquivo-de-salvamento/o-dia-que-sobra/) |
+| `sinal-de-vida/` | **Sinal de Vida** (em desenvolvimento): um rádio numa estação de metrô, e lá em cima as máquinas escutam | [exatasmente.github.io/arquivo-de-salvamento/sinal-de-vida/](https://exatasmente.github.io/arquivo-de-salvamento/sinal-de-vida/) |
 
 ## O menu e o app
 
@@ -21,6 +22,16 @@ Dentro de um jogo, a pausa tem a volta para ele.
 O site se instala como app (no celular, "Adicionar à tela inicial"; no computador, "Instalar app"
 no navegador). Depois da primeira visita, o menu e os jogos abrem sem internet. Só o vídeo de
 abertura do Rinha precisa de rede; sem ela, o jogo conta a mesma história com as cenas do jogo.
+
+## Sinal de Vida
+
+Em desenvolvimento. Jonas cuida do rádio de uma estação de metrô abandonada. Às dez da noite ele chama
+as outras bases; lá em cima, os cães da frota escutam, e quem fala demais é ouvido. A primeira noite já
+se joga: a estação, o cabo cortado na avenida, o cão em rota e a primeira resposta no rádio.
+
+O jogo roda no navegador, no computador ou no celular, sem instalar nada. Teclado e mouse, controle ou
+toque. O progresso fica salvo no cartão de memória do próprio navegador. Mais sobre o jogo em
+[`sinal-de-vida/README.md`](sinal-de-vida/README.md).
 
 ## O Dia que Sobra
 

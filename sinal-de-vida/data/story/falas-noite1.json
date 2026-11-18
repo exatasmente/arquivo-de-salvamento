@@ -1,0 +1,359 @@
+{
+  "_": "Night 1 voice lines (phase B). 'text' is the subtitle; 'say' (when present) is the spoken version with pauses, emphasis and mid-line tags; 'tag' is the ElevenLabs v4 delivery tag sent before it, never shown. Recorded with the neighbouring lines of the same scene as previous_text/next_text for continuity. Audio in assets/audio/n1/<id>.mp3; lines marked 'existing' were recorded before and are copied.",
+  "voices": {
+    "jonas": "uNRH6oYhKWLYyXKl4HVH",
+    "neide": "CS2gH5fPqUCmkVNpHsy4",
+    "tania": "xMGbstDe7gGBMg3DqxOc",
+    "lia": "0t7A9YvHlaUjp3Mon3X1",
+    "operadora": "cyD08lEy76q03ER1jZ7y"
+  },
+  "lines": [
+    {
+      "id": "b01",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[warm, unhurried, practical voice of an older woman]",
+      "text": "Jonas? A caixa do morro diz que a sua bomba parou. Encosta no cano. Se não ronca, é o filtro.",
+      "say": "Jonas? A caixa do morro diz que a sua bomba parou... Encosta no cano. Se não ronca, é o filtro."
+    },
+    {
+      "id": "b02",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[patient, explaining step by step]",
+      "text": "Acende a lanterna. O filtro fica embaixo da bomba, na tampa redonda."
+    },
+    {
+      "id": "b03",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[patient, a little firmer]",
+      "text": "Gira a tampa devagar. Segura firme, que ela emperra.",
+      "say": "Gira a tampa devagar. Segura firme... que ela emperra."
+    },
+    {
+      "id": "b04",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[knowing, slightly amused]",
+      "text": "Entupido de lodo, não é? Não joga a tampa fora. Procura na oficina um pano e uma lata.",
+      "say": "Entupido de lodo, não é? [practical] Não joga a tampa fora. Procura na oficina um pano e uma lata."
+    },
+    {
+      "id": "b05",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[gentle, guiding]",
+      "text": "Olha no bolso o que você tem na mão."
+    },
+    {
+      "id": "b06",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[approving, calm]",
+      "text": "Isso. O pano dobrado em quatro dentro da lata furada. Encaixa e fecha.",
+      "say": "Isso. O pano dobrado em quatro, dentro da lata furada. Encaixa... e fecha."
+    },
+    {
+      "id": "b07",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[pleased, warm]",
+      "text": "Liga. Ouviu? É a água subindo. Às dez, no rádio grande. Não se atrasa.",
+      "say": "Liga. Ouviu? É a água subindo. [firm, motherly] Às dez, no rádio grande. Não se atrasa."
+    },
+    {
+      "id": "b-dica",
+      "scene": "n1-bomba",
+      "who": "neide",
+      "tag": "[mildly scolding, affectionate]",
+      "text": "Não é aí, menino. Embaixo da bomba."
+    },
+    {
+      "id": "c01",
+      "scene": "n1-chamada",
+      "who": "neide",
+      "tag": "[warm, steady, routine radio check-in]",
+      "text": "Rede, boa noite. Morro na escuta. Jonas, a água voltou?",
+      "say": "Rede, boa noite. Morro na escuta. [curious] Jonas, a água voltou?"
+    },
+    {
+      "id": "c-j1a",
+      "scene": "n1-chamada",
+      "who": "jonas",
+      "tag": "[quiet, close to the microphone, tired]",
+      "text": "Voltou."
+    },
+    {
+      "id": "c-j1b",
+      "scene": "n1-chamada",
+      "who": "jonas",
+      "tag": "[quiet, close to the microphone, a little proud]",
+      "text": "Voltou. O filtro é de pano, aguenta uns dias."
+    },
+    {
+      "id": "c01b",
+      "scene": "n1-chamada",
+      "who": "neide",
+      "tag": "[mildly scolding, a little worried]",
+      "text": "Jonas? Responde, menino."
+    },
+    {
+      "id": "c02",
+      "scene": "n1-chamada",
+      "who": "neide",
+      "tag": "[satisfied, short]",
+      "text": "Bom."
+    },
+    {
+      "id": "c03",
+      "scene": "n1-chamada",
+      "who": "tania",
+      "tag": "[brisk, focused, slightly out of breath]",
+      "text": "Quadra na escuta. Jonas, o cabo dos seus painéis está cortado, na avenida, perto da caçamba. Por isso a bateria não carregou.",
+      "say": "Quadra na escuta. Jonas, o cabo dos seus painéis está cortado. Na avenida, perto da caçamba. Por isso a bateria não carregou."
+    },
+    {
+      "id": "c04",
+      "scene": "n1-chamada",
+      "who": "tania",
+      "tag": "[tense, lowering her voice]",
+      "text": "E tem um cão farejando o cabo, descendo para o seu poço. Você vai sair hoje?",
+      "say": "E tem um cão farejando o cabo... descendo para o seu poço. [direct] Você vai sair hoje?"
+    },
+    {
+      "id": "c-j2a",
+      "scene": "n1-chamada",
+      "who": "jonas",
+      "tag": "[quiet, determined]",
+      "text": "Vou agora."
+    },
+    {
+      "id": "c-j2b",
+      "scene": "n1-chamada",
+      "who": "jonas",
+      "tag": "[quiet, reluctant]",
+      "text": "Espero ele passar."
+    },
+    {
+      "id": "c04b",
+      "scene": "n1-chamada",
+      "who": "tania",
+      "tag": "[impatient, sharp]",
+      "text": "Jonas. Sai ou não sai?"
+    },
+    {
+      "id": "c05a",
+      "scene": "n1-chamada",
+      "who": "tania",
+      "tag": "[quick, decisive]",
+      "text": "Então puxa para dentro o cabo da grade, que ele perde o rastro. Eu fico de olho."
+    },
+    {
+      "id": "c05b",
+      "scene": "n1-chamada",
+      "who": "tania",
+      "tag": "[low, serious warning]",
+      "text": "Então fica quieto. Ele vai até a sua grade antes de ir embora."
+    },
+    {
+      "id": "c06",
+      "scene": "n1-chamada",
+      "who": "neide",
+      "tag": "[calm, solemn, a familiar sign-off]",
+      "text": "Escutamos. Respondemos."
+    },
+    {
+      "id": "s01",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[whispering, close to the radio, alert]",
+      "text": "Estou te vendo. Tem um cão parado na esquina, virado para lá."
+    },
+    {
+      "id": "s02",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[urgent whisper, tense]",
+      "text": "Ele se mexeu. Vem pela calçada. Esconde.",
+      "say": "Ele se mexeu. Vem pela calçada. Esconde!"
+    },
+    {
+      "id": "s03",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[whispering, relieved]",
+      "text": "Passou. Pode ir."
+    },
+    {
+      "id": "s04",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[whispering, cautious, uneasy]",
+      "text": "A ponta do cabo está do lado da caçamba. Tem outro cão lá, caído. Não se mexe.",
+      "say": "A ponta do cabo está do lado da caçamba. Tem outro cão lá, caído... Não se mexe."
+    },
+    {
+      "id": "s05",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[whispering, quick idea]",
+      "text": "Joga alguma coisa longe, que ele vai atrás."
+    },
+    {
+      "id": "s06",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[urgent whisper, alarmed]",
+      "text": "Emenda logo. Ele está voltando.",
+      "say": "Emenda logo! Ele está voltando."
+    },
+    {
+      "id": "s07",
+      "scene": "n1-saida",
+      "who": "tania",
+      "tag": "[whispering, relieved, steady]",
+      "text": "Feito. Volta pela grade, devagar."
+    },
+    {
+      "id": "r-lia",
+      "scene": "n1-radio",
+      "who": "lia",
+      "tag": "[tender, tired, a little hopeful, a recorded message]",
+      "text": "Estamos na represa. Liga quando puder."
+    },
+    {
+      "id": "r-represa",
+      "scene": "n1-radio",
+      "who": "lia",
+      "tag": "[flat, weary, a message recorded and left playing on a loop]",
+      "text": "A linha desceu e não voltou. Se você está ouvindo isto, já sabe a senha. É a única regra da rede.",
+      "_note": "voice of the dam recording is not in the design; recorded with Lia's voice and with the alternative below, for the person to choose",
+      "say": "A linha desceu... e não voltou. Se você está ouvindo isto, já sabe a senha. É a única regra da rede."
+    },
+    {
+      "id": "r-represa-alt",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[flat, weary, a message recorded and left playing on a loop]",
+      "text": "A linha desceu e não voltou. Se você está ouvindo isto, já sabe a senha. É a única regra da rede.",
+      "say": "A linha desceu... e não voltou. Se você está ouvindo isto, já sabe a senha. É a única regra da rede."
+    },
+    {
+      "id": "01",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "existing": "01-jonas.mp3",
+      "text": "Alguém escutando? Aqui é da estação. Câmbio."
+    },
+    {
+      "id": "02",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[low, steady voice, cautious]",
+      "text": "Estamos ouvindo."
+    },
+    {
+      "id": "03",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "existing": "03-jonas.mp3",
+      "text": "Quem é? Diz o seu nome."
+    },
+    {
+      "id": "02b",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[low, steady, approving the silence]",
+      "text": "Fica quieto, então. Melhor. Eles também escutam.",
+      "say": "Fica quieto, então. Melhor... Eles também escutam."
+    },
+    {
+      "id": "04",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[low, steady voice, restrained urgency]",
+      "text": "Você está falando há tempo demais. Eles também escutam."
+    },
+    {
+      "id": "04b",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[low, probing]",
+      "text": "Você procura alguém?"
+    },
+    {
+      "id": "05",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "existing": "05-jonas.mp3",
+      "text": "Eu sei. Só preciso saber se tem alguém na represa. Uma mulher. Lia. Ela tinha um rádio igual a este."
+    },
+    {
+      "id": "j-nc",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "tag": "[quiet, guarded, close to the microphone]",
+      "text": "Procuro suprimentos. Remédio, peças."
+    },
+    {
+      "id": "06",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[hesitant, reluctant, gentle]",
+      "text": "Na represa ninguém responde desde a cheia.",
+      "say": "Na represa... ninguém responde desde a cheia."
+    },
+    {
+      "id": "06b",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[quiet, careful, sharing something she should not]",
+      "text": "A antena deles caiu na água, junto da torre da comporta."
+    },
+    {
+      "id": "nc",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[dry, guarded]",
+      "text": "Remédio todo mundo procura. Ninguém fala disso no rádio."
+    },
+    {
+      "id": "07",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "existing": "07-jonas.mp3",
+      "text": "Não. Ela disse pra eu ligar quando pudesse."
+    },
+    {
+      "id": "j-tem",
+      "scene": "n1-radio",
+      "who": "jonas",
+      "tag": "[quiet, worried, close to the microphone]",
+      "text": "Ainda tem alguém aí?"
+    },
+    {
+      "id": "tem",
+      "scene": "n1-radio",
+      "who": "operadora",
+      "tag": "[low, guarded, a little ominous]",
+      "text": "Tem. Por pouco tempo.",
+      "say": "Tem. Por pouco tempo."
+    },
+    {
+      "id": "08",
+      "scene": "n1-corte",
+      "who": "operadora",
+      "tag": "[sudden alarm, hushed but sharp]",
+      "text": "Então desliga. Agora. Tem um cão parado em cima da sua grade.",
+      "say": "Então desliga. Agora! [tense whisper] Tem um cão parado em cima da sua grade."
+    },
+    {
+      "id": "op-fim",
+      "scene": "n1-corte",
+      "who": "operadora",
+      "tag": "[calm, solemn, a familiar sign-off]",
+      "text": "Escutamos. Respondemos."
+    }
+  ]
+}

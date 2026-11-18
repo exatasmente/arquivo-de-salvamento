@@ -1,0 +1,176 @@
+{
+  "fps": 30,
+  "lag": 0,
+  "smooth": {
+    "face": [
+      1,
+      2,
+      1
+    ],
+    "gaze": [
+      1,
+      2,
+      3,
+      2,
+      1
+    ],
+    "head": [
+      1,
+      2,
+      3,
+      2,
+      1
+    ]
+  },
+  "sources": {
+    "webcam": {
+      "channels": {
+        "jaw_open": {
+          "gain": 1.5
+        },
+        "blink": {
+          "gain": 1.2
+        },
+        "eye_wide": {
+          "gain": 1.6
+        },
+        "squint": {
+          "gain": 1.5
+        },
+        "brow_worry": {
+          "gain": 1.4
+        },
+        "brow_up": {
+          "gain": 1.6
+        },
+        "brow_down": {
+          "gain": 1.6
+        },
+        "smile": {
+          "gain": 1.5
+        },
+        "frown": {
+          "gain": 1.8
+        },
+        "mouth_narrow": {
+          "gain": 1.6
+        },
+        "cheek": {
+          "gain": 1.5
+        },
+        "lips_close": {
+          "gain": 1.6
+        },
+        "lips_funnel": {
+          "gain": 1.6
+        },
+        "upper_lip_up": {
+          "gain": 1.6
+        },
+        "lower_lip_down": {
+          "gain": 1.6
+        },
+        "lips_press": {
+          "gain": 1.6
+        },
+        "mouth_left": {
+          "gain": 1.6
+        },
+        "mouth_right": {
+          "gain": 1.6
+        }
+      },
+      "gaze": {
+        "gain": 1.4,
+        "xSign": 1,
+        "ySign": 1
+      },
+      "head": {
+        "gain": 1,
+        "yawSign": 1,
+        "pitchSign": 1,
+        "rollSign": 1,
+        "limit": {
+          "yaw": 0.6,
+          "pitch": 0.4,
+          "roll": 0.35
+        }
+      }
+    },
+    "livelink": {
+      "lag": 0,
+      "channels": {
+        "jaw_open": {
+          "gain": 1
+        },
+        "blink": {
+          "gain": 1
+        },
+        "eye_wide": {
+          "gain": 1
+        },
+        "squint": {
+          "gain": 1
+        },
+        "brow_worry": {
+          "gain": 1
+        },
+        "brow_up": {
+          "gain": 1
+        },
+        "brow_down": {
+          "gain": 1
+        },
+        "smile": {
+          "gain": 1
+        },
+        "frown": {
+          "gain": 1
+        },
+        "mouth_narrow": {
+          "gain": 1
+        },
+        "cheek": {
+          "gain": 1
+        },
+        "lips_close": {
+          "gain": 1
+        },
+        "lips_funnel": {
+          "gain": 1
+        },
+        "upper_lip_up": {
+          "gain": 1
+        },
+        "lower_lip_down": {
+          "gain": 1
+        },
+        "lips_press": {
+          "gain": 1
+        },
+        "mouth_left": {
+          "gain": 1
+        },
+        "mouth_right": {
+          "gain": 1
+        }
+      },
+      "gaze": {
+        "gain": 1,
+        "xSign": 1,
+        "ySign": 1
+      },
+      "head": {
+        "gain": 1,
+        "yawSign": 1,
+        "pitchSign": 1,
+        "rollSign": 1,
+        "limit": {
+          "yaw": 0.6,
+          "pitch": 0.4,
+          "roll": 0.35
+        }
+      }
+    }
+  }
+}

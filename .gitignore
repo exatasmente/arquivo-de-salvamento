@@ -8,3 +8,5 @@ Thumbs.db
 # offline render output and local captures
 out/
 captures/
+__pycache__/
+*.pyc

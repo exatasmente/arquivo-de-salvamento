@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão do diretor — Sinal de Vida</title>
+<script type="importmap">{ "imports": { "three": "/game/vendor/three/three.module.js" } }</script>
+<style>
+  :root { --bg: #0b0c0f; --panel: #1d2026; --ink: #e8e6e0; --dim: #8b909a; --accent: #e0a24a; --ok: #6fbf73; --bad: #d9534f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  #bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: var(--panel); flex-wrap: wrap; }
+  #shotName { font-weight: 600; margin-right: auto; } #live { font-size: 12px; } #live.on { color: var(--ok); } #live.off { color: var(--bad); }
+  select, button { background: #2c3038; color: var(--ink); border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; } button.on { background: var(--accent); color: #1a1a1a; }
+  #stageWrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+  #stage { position: relative; aspect-ratio: 16 / 9; width: min(100%, calc((100vh - 52px) * 16 / 9)); max-height: 100%; background: #05070a; }
+  #stage:fullscreen { width: min(100vw, 100vh * 16 / 9); }
+  canvas { width: 100%; height: 100%; display: block; }
+  #cap { position: absolute; left: 0; right: 0; bottom: 6%; text-align: center; padding: 0 8%; font: 600 clamp(14px, 2.2vw, 26px)/1.3 system-ui, sans-serif; text-shadow: 0 2px 6px #000, 0 0 2px #000; pointer-events: none; }
+  .safe { position: absolute; border: 1px dashed #ffffff90; pointer-events: none; display: none; } #safeA { inset: 3.5%; } #safeT { inset: 5%; border-color: #e0a24a99; }
+  #stage.safe-on .safe { display: block; }
+  #err { color: var(--bad); padding: 8px 12px; display: none; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <span id="shotName">Carregando o cenário...</span>
+  <span id="live" class="off">sem dados ao vivo</span>
+  <label>Plano <select id="shot"></select></label>
+  <button id="safe">Moldura de segurança</button>
+  <button id="full">Tela cheia</button>
+</div>
+<div id="err"></div>
+<div id="stageWrap"><div id="stage"><canvas id="c"></canvas><div class="safe" id="safeA"></div><div class="safe" id="safeT"></div><div id="cap"></div></div></div>
+<script type="module" src="/director.js"></script>
+</body>
+</html>

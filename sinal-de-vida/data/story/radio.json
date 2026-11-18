@@ -1,0 +1,8 @@
+{
+  "channels": [
+    { "id": "rede", "n": "21", "name": "A rede", "known": true },
+    { "id": "operadora", "n": "63", "name": "Torre", "known": true },
+    { "id": "represa", "n": "47", "name": "Represa", "known": false },
+    { "id": "manutencao", "n": "88", "name": "Manutenção da frota", "known": true, "keys": true }
+  ]
+}

@@ -1,0 +1,468 @@
+{
+ "n1-cena5": {
+  "titulo": "Noite 1, cena 5: a primeira resposta",
+  "canal": "operadora",
+  "maxSilences": 2,
+  "start": "chamar",
+  "onDrop": {
+   "outcome": "dropped",
+   "set": {
+    "chamadaAcabou": true
+   }
+  },
+  "nodes": {
+   "chamar": {
+    "kind": "ask",
+    "turn": "T0",
+    "who": "jonas",
+    "patience": null,
+    "responses": [
+     {
+      "text": "Alguém escutando? Aqui é da estação. Câmbio.",
+      "voice": "01",
+      "next": "02"
+     }
+    ]
+   },
+   "02": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "02",
+    "voice": "02",
+    "text": "Estamos ouvindo.",
+    "next": "T1"
+   },
+   "T1": {
+    "kind": "ask",
+    "turn": "T1",
+    "who": "operadora",
+    "patience": 12,
+    "responses": [
+     {
+      "text": "Quem é? Diz o seu nome.",
+      "voice": "03",
+      "next": "04"
+     }
+    ],
+    "silence": {
+     "next": "02b"
+    }
+   },
+   "04": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "04",
+    "voice": "04",
+    "text": "Você está falando há tempo demais. Eles também escutam.",
+    "next": "T2"
+   },
+   "02b": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "02b",
+    "voice": "02b",
+    "text": "Fica quieto, então. Melhor. Eles também escutam.",
+    "next": "T2"
+   },
+   "T2": {
+    "kind": "ask",
+    "turn": "T2",
+    "who": "operadora",
+    "patience": 12,
+    "read": "decisao2",
+    "responses": [
+     {
+      "text": "Eu sei. Só preciso saber se tem alguém na represa. Uma mulher. Lia. Ela tinha um rádio igual a este.",
+      "voice": "05",
+      "markFrom": "05",
+      "heard": 10,
+      "gives": {
+       "contou": true
+      },
+      "next": "06"
+     },
+     {
+      "text": "Procuro suprimentos. Remédio, peças.",
+      "voice": "j-nc",
+      "fx": {
+       "set": {
+        "contou": false
+       }
+      },
+      "next": "nc"
+     }
+    ],
+    "silence": {
+     "next": "04b"
+    }
+   },
+   "04b": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "04b",
+    "voice": "04b",
+    "text": "Você procura alguém?",
+    "next": "T2"
+   },
+   "06": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "06",
+    "voice": "06",
+    "text": "Na represa ninguém responde desde a cheia.",
+    "next": "06b"
+   },
+   "06b": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "06b",
+    "voice": "06b",
+    "text": "A antena deles caiu na água, junto da torre da comporta.",
+    "next": "T3c",
+    "fx": {
+     "set": {
+      "soubeComporta": true
+     }
+    }
+   },
+   "nc": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "nc",
+    "voice": "nc",
+    "text": "Remédio todo mundo procura. Ninguém fala disso no rádio.",
+    "next": "T3n"
+   },
+   "T3c": {
+    "kind": "ask",
+    "turn": "T3",
+    "who": "operadora",
+    "patience": 12,
+    "responses": [
+     {
+      "text": "Não. Ela disse pra eu ligar quando pudesse.",
+      "voice": "07",
+      "next": "fim"
+     }
+    ],
+    "silence": {
+     "end": "ended"
+    }
+   },
+   "T3n": {
+    "kind": "ask",
+    "turn": "T3",
+    "who": "operadora",
+    "patience": 12,
+    "responses": [
+     {
+      "text": "Ainda tem alguém aí?",
+      "voice": "j-tem",
+      "next": "tem"
+     }
+    ],
+    "silence": {
+     "end": "ended"
+    }
+   },
+   "tem": {
+    "kind": "line",
+    "who": "operadora",
+    "id": "tem",
+    "voice": "tem",
+    "text": "Tem. Por pouco tempo.",
+    "next": "fim"
+   },
+   "fim": {
+    "kind": "end",
+    "outcome": "ok"
+   }
+  }
+ },
+ "n1-chamada": {
+  "titulo": "Noite 1, cena 3: a chamada das 22h",
+  "canal": "rede",
+  "maxSilences": 2,
+  "start": "c01",
+  "onDrop": {
+   "outcome": "dropped",
+   "set": {
+    "saiAgora": false
+   },
+   "next": "c06"
+  },
+  "nodes": {
+   "c01": {
+    "kind": "line",
+    "who": "neide",
+    "id": "c01",
+    "voice": "c01",
+    "text": "Rede, boa noite. Morro na escuta. Jonas, a água voltou?",
+    "next": "Q1"
+   },
+   "Q1": {
+    "kind": "ask",
+    "turn": "T1",
+    "who": "neide",
+    "trust": "neide",
+    "patience": 10,
+    "responses": [
+     {
+      "text": "Voltou.",
+      "voice": "c-j1a",
+      "next": "c02"
+     },
+     {
+      "text": "Voltou. O filtro é de pano, aguenta uns dias.",
+      "voice": "c-j1b",
+      "next": "c02"
+     }
+    ],
+    "silence": {
+     "next": "c01b"
+    }
+   },
+   "c01b": {
+    "kind": "line",
+    "who": "neide",
+    "id": "c01b",
+    "voice": "c01b",
+    "text": "Jonas? Responde, menino.",
+    "next": "c03"
+   },
+   "c02": {
+    "kind": "line",
+    "who": "neide",
+    "id": "c02",
+    "voice": "c02",
+    "text": "Bom.",
+    "next": "c03"
+   },
+   "c03": {
+    "kind": "line",
+    "who": "tania",
+    "id": "c03",
+    "voice": "c03",
+    "text": "Quadra na escuta. Jonas, o cabo dos seus painéis está cortado, na avenida, perto da caçamba. Por isso a bateria não carregou.",
+    "next": "c04"
+   },
+   "c04": {
+    "kind": "line",
+    "who": "tania",
+    "id": "c04",
+    "voice": "c04",
+    "text": "E tem um cão farejando o cabo, descendo para o seu poço. Você vai sair hoje?",
+    "next": "Q2"
+   },
+   "Q2": {
+    "kind": "ask",
+    "turn": "T2",
+    "who": "tania",
+    "trust": "tania",
+    "patience": 10,
+    "responses": [
+     {
+      "text": "Vou agora.",
+      "voice": "c-j2a",
+      "fx": {
+       "set": {
+        "saiAgora": true
+       }
+      },
+      "next": "c05a"
+     },
+     {
+      "text": "Espero ele passar.",
+      "voice": "c-j2b",
+      "fx": {
+       "set": {
+        "saiAgora": false
+       }
+      },
+      "next": "c05b"
+     }
+    ],
+    "silence": {
+     "next": "c04b"
+    }
+   },
+   "c04b": {
+    "kind": "line",
+    "who": "tania",
+    "id": "c04b",
+    "voice": "c04b",
+    "text": "Jonas. Sai ou não sai?",
+    "next": "Q2"
+   },
+   "c05a": {
+    "kind": "line",
+    "who": "tania",
+    "id": "c05a",
+    "voice": "c05a",
+    "text": "Então puxa para dentro o cabo da grade, que ele perde o rastro. Eu fico de olho.",
+    "next": "c06"
+   },
+   "c05b": {
+    "kind": "line",
+    "who": "tania",
+    "id": "c05b",
+    "voice": "c05b",
+    "text": "Então fica quieto. Ele vai até a sua grade antes de ir embora.",
+    "next": "c06"
+   },
+   "c06": {
+    "kind": "line",
+    "who": "neide",
+    "id": "c06",
+    "voice": "c06",
+    "text": "Escutamos. Respondemos.",
+    "next": "fim"
+   },
+   "fim": {
+    "kind": "end",
+    "outcome": "ok"
+   }
+  }
+ },
+ "n1-recado": {
+  "titulo": "Noite 1, cena 5: o recado de Lia",
+  "canal": "rede",
+  "maxSilences": 2,
+  "start": "r",
+  "nodes": {
+   "r": {
+    "kind": "line",
+    "who": "lia",
+    "id": "r-lia",
+    "voice": "r-lia",
+    "text": "Estamos na represa. Liga quando puder.",
+    "next": "fim"
+   },
+   "fim": {
+    "kind": "end",
+    "outcome": "ok"
+   }
+  }
+ },
+ "n1-represa": {
+  "titulo": "Noite 1, cena 5: a gravação da represa",
+  "canal": "represa",
+  "maxSilences": 2,
+  "start": "r",
+  "nodes": {
+   "r": {
+    "kind": "line",
+    "who": "lia",
+    "id": "r-represa",
+    "voice": "r-represa",
+    "text": "A linha desceu e não voltou. Se você está ouvindo isto, já sabe a senha. É a única regra da rede.",
+    "next": "fim"
+   },
+   "fim": {
+    "kind": "end",
+    "outcome": "ok"
+   }
+  }
+ },
+ "demo": {
+  "titulo": "Demonstração: uma chamada de mentira, só texto",
+  "canal": "rede",
+  "maxSilences": 2,
+  "start": "oi",
+  "nodes": {
+   "oi": {
+    "kind": "line",
+    "who": "neide",
+    "id": "d1",
+    "text": "Jonas? Está na escuta? A água voltou?",
+    "dur": 3,
+    "next": "T1"
+   },
+   "T1": {
+    "kind": "ask",
+    "turn": "T1",
+    "who": "neide",
+    "trust": "neide",
+    "patience": 10,
+    "responses": [
+     {
+      "text": "Voltou.",
+      "dur": 1.4,
+      "next": "d2"
+     },
+     {
+      "text": "Voltou, mas o filtro está no fim. Troco amanhã.",
+      "dur": 5.2,
+      "next": "d2"
+     }
+    ],
+    "silence": {
+     "next": "d1b"
+    }
+   },
+   "d1b": {
+    "kind": "line",
+    "who": "neide",
+    "id": "d1b",
+    "text": "Jonas? Responde, menino.",
+    "dur": 2,
+    "next": "T2"
+   },
+   "d2": {
+    "kind": "line",
+    "who": "neide",
+    "id": "d2",
+    "text": "Bom. E você vai sair hoje?",
+    "dur": 2.4,
+    "next": "T2"
+   },
+   "T2": {
+    "kind": "ask",
+    "turn": "T2",
+    "who": "neide",
+    "trust": "neide",
+    "patience": 10,
+    "responses": [
+     {
+      "text": "Vou, pelo cabo.",
+      "dur": 1.8,
+      "next": "fim"
+     },
+     {
+      "text": "Vou à farmácia da avenida buscar remédio.",
+      "dur": 5.5,
+      "mark": 3.4,
+      "heard": 10,
+      "gives": {
+       "contouFarmacia": true
+      },
+      "next": "fim"
+     }
+    ],
+    "silence": {
+     "next": "d2b"
+    }
+   },
+   "d2b": {
+    "kind": "line",
+    "who": "neide",
+    "id": "d2b",
+    "text": "Vai ou não vai?",
+    "dur": 1.6,
+    "next": "T2"
+   },
+   "fim": {
+    "kind": "line",
+    "who": "neide",
+    "id": "d3",
+    "text": "Escutamos. Respondemos.",
+    "dur": 2.2,
+    "next": "acabou"
+   },
+   "acabou": {
+    "kind": "end",
+    "outcome": "ok"
+   }
+  }
+ }
+}
