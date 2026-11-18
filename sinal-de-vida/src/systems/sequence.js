@@ -12,12 +12,14 @@
 //   dir    one press, left or right (`want`), while the dog is in the air; the other way, or nothing, and the dog knocks him down.
 //   mash   hammer Use (or alternate left and right, or Reagir) until the bar is full; it falls slowly. Missing it: noise.
 //   press  one press of Use (or Reagir) before the window closes. Missing it: noise (the splice closes anyway).
+//   pick   the choice with a time (the dog stunned): left or right (`branches.quiet` / `branches.loud`); the choice replaces the steps that follow with the
+//          ones of that branch. Nothing pressed in time: the dog recovers and gets him. The steps of a branch may carry `fatal` (missing them is that too).
 // A step: { kind, window, need?, first?, want?, after? }. `window` is in seconds; `first` doubles it (the lesson); the option "mais tempo" (quick: 'long')
 // doubles it too; "desligada" (quick: 'off') makes every step a hit by itself (it still plays, shorter, and says so: auto). `after` is a pause after
 // the step, for the picture (the dog landing, Jonas getting up).
 // Events: { type: 'seq-start' }, { type: 'step-start', i, kind, want }, { type: 'step', i, kind, hit, auto, why }, { type: 'seq-end', outcome, misses }
-// outcome: 'done' (the splice is closed) or 'knocked' (the dog got him: the scene starts again).
-export const SEQ = { missEscuta: 8, mashFall: 1.1, holdFall: 0.8, autoTime: { hold: null, dir: null, mash: 1.2, press: 0.6 } };
+// outcome: 'done' (the splice is closed), 'knocked' (the dodge was missed) or 'bitten' (the dog recovered and got him): in both the dog attacks and the game is over.
+export const SEQ = { missEscuta: 8, pickAuto: 'quiet', mashFall: 1.1, holdFall: 0.8, autoTime: { hold: null, dir: null, mash: 1.2, press: 0.6, pick: 0.8 } };
 
 export function createSequence({ steps, options = {}, emit = () => {} }) {
   let s = null;
@@ -28,7 +30,7 @@ export function createSequence({ steps, options = {}, emit = () => {} }) {
     return {
       active: !s.over, over: s.over, i: s.i, kind: st?.kind, want: st?.want, first: Boolean(st?.first), auto: s.auto, gap: s.gap, t: s.t, el: s.el, total: s.win,
       u: cur ? Math.max(0, 1 - s.el / s.win) : 0, progress: s.prog, log: s.log.map((x) => ({ ...x })), outcome: s.outcome, overAt: s.overAt ?? null, misses: s.misses, count: s.steps.length,
-      press: s.pressAt, dodge: s.dodge,
+      press: s.pressAt, dodge: s.dodge, choice: s.choice, fatal: Boolean(st?.fatal || st?.kind === 'pick'), noQuiet: Boolean(st?.noQuiet),
     };
   };
   function begin(i) {
@@ -37,19 +39,31 @@ export function createSequence({ steps, options = {}, emit = () => {} }) {
     if (s.auto && SEQ.autoTime[st.kind]) s.win = Math.min(s.win, SEQ.autoTime[st.kind] * (st.first ? 2 : 1));
     emit({ type: 'step-start', i, kind: st.kind, want: st.want ?? null, first: Boolean(st.first), auto: s.auto });
   }
-  function finish(hit, why) {
+  function finish(hit, why, pick = null) {
     const st = s.steps[s.i];
     if (st.kind === 'dir' && hit && s.auto && !s.dodge) s.dodge = { side: st.want < 0 ? 'left' : 'right', at: s.win * 0.45 };       // (by itself: he dodges the right way half way through)
-    s.log.push({ i: s.i, kind: st.kind, hit, at: s.t, why: why ?? null });
-    if (!hit && st.kind !== 'dir') s.misses++;
-    emit({ type: 'step', i: s.i, kind: st.kind, hit, auto: s.auto, why: why ?? null });
-    if (!hit && st.kind === 'dir') { s.over = true; s.overAt = s.t; s.outcome = 'knocked'; s.gap = true; s.gapLeft = 1.4; emit({ type: 'seq-end', outcome: 'knocked', misses: s.misses }); return; }
+    if (st.kind === 'pick' && hit) {
+      // the choice: the steps that follow are the ones of the branch
+      const id = pick ?? (s.auto ? (st.noQuiet ? 'loud' : SEQ.pickAuto) : null), br = st.branches?.[id] ?? [];
+      s.choice = { id, at: s.el };
+      s.steps.splice(s.i + 1, s.steps.length, ...br.map((x) => ({ ...x })));
+    }
+    s.log.push({ i: s.i, kind: st.kind, hit, at: s.t, why: why ?? null, choice: s.choice?.id ?? null });
+    const deadly = st.kind === 'dir' || st.kind === 'pick' || st.fatal;                // (the dodge, the choice and the first command of a branch: missing them is the dog)
+    if (!hit && !deadly) s.misses++;
+    emit({ type: 'step', i: s.i, kind: st.kind, hit, auto: s.auto, why: why ?? null, choice: st.kind === 'pick' && hit ? s.choice.id : null });
+    if (!hit && deadly) {
+      const outcome = st.kind === 'dir' ? 'knocked' : 'bitten';
+      s.over = true; s.overAt = s.t; s.outcome = outcome; s.gap = true; s.gapLeft = 1.4; emit({ type: 'seq-end', outcome, misses: s.misses }); return;
+    }
     s.gap = true; s.gapLeft = st.after ?? 0.4;
+    // the dodge: the leap goes on after the press; the next step waits for the dog to land (the rest of the window, and what `after` asks for)
+    if (st.kind === 'dir' && hit) s.gapLeft = Math.max(s.gapLeft, Math.max(0, s.win - s.el) + (st.landing ?? 0));
   }
   return {
     get active() { return Boolean(s) && !s.over; },
     get running() { return Boolean(s); },
-    start() { s = { steps, i: 0, el: 0, t: 0, prog: 0, gap: false, gapLeft: 0, over: false, outcome: null, misses: 0, log: [], win: 1, auto: false, pressAt: null, dodge: null }; emit({ type: 'seq-start' }); begin(0); },
+    start() { s = { steps: steps.map((x) => ({ ...x })), i: 0, el: 0, t: 0, prog: 0, gap: false, gapLeft: 0, over: false, outcome: null, misses: 0, log: [], win: 1, auto: false, pressAt: null, dodge: null, choice: null }; emit({ type: 'seq-start' }); begin(0); },
     /** The window of a step as it will run (the tests and the game read it). */
     windowOf: (st) => winOf(st),
     step(dt, { held = false, press = false, dir = 0, react = false } = {}) {
@@ -82,6 +96,12 @@ export function createSequence({ steps, options = {}, emit = () => {} }) {
           const need = st.need ?? 8, taps = (press ? 1 : 0) + (dir !== 0 ? 1 : 0) + (react ? 1 : 0);
           s.prog = Math.max(0, Math.min(1, s.prog + taps / need - dt * SEQ.mashFall / need));
           if (s.prog >= 1) finish(true); else if (end()) finish(false, 'late');
+          break;
+        }
+        case 'pick': {
+          const d = dir < 0 && st.noQuiet ? 0 : dir;               // (no lure in the pocket: the quiet way is not there)
+          if (d !== 0) finish(true, null, d < 0 ? 'quiet' : 'loud');
+          else if (end()) finish(false, 'late');
           break;
         }
         case 'press': {

@@ -20,8 +20,9 @@ export function createUI(root, h = {}) {
   </div>`);
   const react = make(`<button id="hud-react" type="button" hidden aria-label="Reagir"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="44"/><circle class="ring" cx="50" cy="50" r="44" pathLength="100"/></svg><span>Reagir</span><em></em></button>`);
   const fade = make('<div id="fade"></div>');
+  const over = make('<div id="gameover" hidden><h2>FIM DE JOGO</h2><p class="why"></p><p class="go"></p></div>');
   const bars = make('<div id="cutbars" hidden><i></i><i></i><div id="cut-skip">Segure Esc por 1 s para pular</div></div>');
-  root.append(hud, react, fade, bars);
+  root.append(hud, react, fade, over, bars);
   const $ = (s) => hud.querySelector(s);
   const E = { goal: $('#hud-goal'), escuta: $('#hud-escuta'), heard: $('#hud-heard'), dot: $('#hud-dot'), action: $('#hud-action'), ring: $('#hud-ring'), toast: $('#hud-toast'), lock: $('#hud-lock'), marker: $('#hud-marker'), say: $('#hud-say'), hurt: $('#hud-hurt'), sign: $('#hud-sign') };
   const SG = { arrow: E.sign.querySelector('.arrow'), keys: E.sign.querySelector('.keys'), word: E.sign.querySelector('.word'), bar: E.sign.querySelector('.bar u'), fill: E.sign.querySelector('.fill u'), fillBox: E.sign.querySelector('.fill') };
@@ -53,6 +54,9 @@ export function createUI(root, h = {}) {
     cut(on) { bars.hidden = !on; },
     cutHint(text) { bars.querySelector('#cut-skip').textContent = text; },
     fade(a) { fade.style.opacity = String(a); },
+    /** The game over, over the black: `spec` = { why, hint } to show it, null to take it away (the fade under it is the game's). */
+    gameOver(spec) { over.hidden = !spec; if (spec) { over.querySelector('.why').textContent = spec.why ?? ''; over.querySelector('.go').textContent = spec.hint ?? ''; } },
+    get gameOverShown() { return !over.hidden; },
     /** A notice: it waits its turn (a caption goes first, one notice at a time) and the same text is not queued twice. */
     toast(text, now) { if (toastNow?.text === text || toastQueue.some((x) => x.text === text)) return; toastQueue.push({ text, at: now }); if (toastQueue.length > 3) toastQueue.shift(); },
     /** A line that is being said. `dur`: how long it stays; several are queued. */

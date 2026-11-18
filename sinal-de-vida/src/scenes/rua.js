@@ -12,6 +12,7 @@ import { cityBuilders, createCityLod, stationEntrance, installPaints, setWindowN
 import { placeEntities, invert, makeThings } from './common.js';
 import { mulberry32 } from '../../vendor/engine/rng.js';
 import { STREET } from './rua-layout.js';
+import { footprint as grateFootprint } from './grade.js';
 import LAYOUT from '../../data/scenes/rua.json' with { type: 'json' };
 
 export const VIEWS = {
@@ -86,6 +87,8 @@ export function buildScene(r, { layout, editor = false, hooks = {} } = {}) {
       puddles: [[-17.6, 5.6, 1.5, 0.42], [-6.2, 5.7, 1.7, 0.36], [2.6, -1.2, 1.3, 0.7], [-28, -5.7, 2.1, 0.36], [12.2, 5.7, 1.2, 0.34], [-44, 2.3, 1.0, 0.6], [30, -2.1, 1.4, 0.8], [44, 5.7, 1.5, 0.34], [-2.4, 3.2, 0.8, 0.5]],
       spots: [...of('poste', 'semaforo', 'placa', 'hidrante').map((e) => [e.pos[0], e.pos[2], 'pole']), ...[0, 1, 2, 3, 4].map((i) => [station.x0 - 0.6 + i * 1.3, station.z0 - 0.3 - (i % 2) * 0.4, 'dust']), [-18.2, 9.4, 'hatch'], [10.6, 8.2, 'hatch'], [-33, -9, 'hatch'], [27, -8.4, 'hatch'], [-48, 9.8, 'stain'], [5, -10.2, 'stain'], [-15, 10.6, 'stain'], [22, 10.2, 'stain']],
     };
+    // the grate of the shaft is set into the pavement: the paving leaves its place open
+    M.holes = of('bocaRua').map((e) => { const f = grateFootprint(); return [e.pos[0] + f.x0, e.pos[2] + f.z0, e.pos[0] + f.x1, e.pos[2] + f.z1]; });
     buildGround(kit, tb, STREET, M, 7);
     // the lots behind the walls and the alleys: bare damp ground
     for (const s of [-1, 1]) tb.box({ c: '#5e5648', map: 'umido' }, [L + 120, 0.2, 90], [0, curb - 0.21, s * (GROUND.wall + 45)], { tile: 5, cell: 12, skip: ['-y', '+x', '-x', '+z', '-z'] });

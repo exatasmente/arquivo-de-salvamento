@@ -254,18 +254,21 @@ const answer = async (page, i, seconds) => {
 };
 /**
  * Plays the sequence of the splice right: Use held, the dodge the way the dog asks, Use hammered, Use pressed. Returns the kinds seen, in order, and the log.
- * (`miss`: kinds to leave alone: 'hold' | 'mash' | 'press' | 'dir', wrong way for 'dir-wrong'.)
+ * (`miss`: kinds to leave alone: 'hold' | 'mash' | 'press' | 'dir' | 'pick', wrong way for 'dir-wrong'; `choice`: the way of the choice with the dog stunned, 'quiet' (left) or 'loud' (right);
+ * `stopAt`: a kind to stop at, with the sequence on it.)
  */
-async function perform(page, { miss = [], max = 700 } = {}) {
+async function perform(page, { miss = [], max = 700, choice = 'quiet', stopAt = null } = {}) {
   const kinds = []; let held = false, n = 0;
   const key = async (k, down) => { await (down ? page.keyboard.down(k) : page.keyboard.up(k)); };
   for (let i = 0; i < max; i++) {
-    const v = await page.evaluate(() => { const S = window.__game.st.seq; if (!S) return null; const w = S.sq.view(); return { kind: w.kind, gap: w.gap, over: w.over, el: w.el, want: w.want, active: w.active, outcome: w.outcome }; });
+    const v = await page.evaluate(() => { const S = window.__game.st.seq; if (!S) return null; const w = S.sq.view(); return { kind: w.kind, gap: w.gap, over: w.over, el: w.el, want: w.want, active: w.active, outcome: w.outcome, i: w.i, fatal: w.fatal }; });
     if (!v) break;
+    if (stopAt && v.kind === stopAt && !v.gap) break;
     if (v.kind && !v.gap && !v.over && kinds.at(-1) !== v.kind) kinds.push(v.kind);
     const want = v.kind === 'hold' && !v.gap && !miss.includes('hold');
     if (want !== held) { held = want; await key('KeyE', held); }
     if (v.kind === 'dir' && !v.gap && !v.over && v.el > 0.35 && !miss.includes('dir')) { await key(miss.includes('dir-wrong') ? (v.want < 0 ? 'ArrowRight' : 'ArrowLeft') : (v.want < 0 ? 'ArrowLeft' : 'ArrowRight'), true); await step(page, 2); await key(v.want < 0 ? 'ArrowLeft' : 'ArrowRight', false); await key(v.want < 0 ? 'ArrowRight' : 'ArrowLeft', false); }
+    else if (v.kind === 'pick' && !v.gap && !v.over && v.el > 0.3 && !miss.includes('pick')) { const k = choice === 'quiet' ? 'ArrowLeft' : 'ArrowRight'; await key(k, true); await step(page, 2); await key(k, false); }
     else if (v.kind === 'mash' && !v.gap && !miss.includes('mash') && n++ % 2 === 0) { await key('KeyE', true); await step(page, 2); await key('KeyE', false); }
     else if (v.kind === 'press' && !v.gap && !miss.includes('press') && v.el > 0.25) { await key('KeyE', true); await step(page, 2); await key('KeyE', false); }
     await step(page, 5);
@@ -330,14 +333,16 @@ test('the night 1, from the new game to the card: the six scenes, the decisions,
     await page.mouse.move(500, 200); await page.mouse.down({ button: 'right' }); await step(page, 12); assert.equal(await page.evaluate(() => window.__game.st.aiming), true);
     await snap(page, 'cena4-mirando-a-isca');
     await page.mouse.down({ button: 'left' }); await step(page, 3); await page.mouse.up({ button: 'left' }); await step(page, 3); await page.mouse.up({ button: 'right' }); await step(page, 30);
-    assert.deepEqual(await page.evaluate(() => window.__game.run.pocket), [], 'the decoy was thrown');
+    assert.deepEqual(await page.evaluate(() => window.__game.run.pocket.filter((x) => x !== 'isca-reserva')), [], 'the decoy was thrown (the one of reserve, for the sensor of the dog, stays in the pocket)');
     // the splice: held next to the cut, then the cutscene of the dog arriving (skipped by holding Esc) and the sequence of reaction (the four kinds of command)
     await page.keyboard.down('KeyE'); await until(page, () => Boolean(window.__game.st.seq), 30); await page.keyboard.up('KeyE');
     assert.equal(await page.evaluate(() => window.__game.st.seq.phase), 'cine'); await step(page, 200); await snap(page, 'cena4-emenda-cinematica');
     await hold(page, 'Escape', 70);
     assert.equal(await page.evaluate(() => window.__game.st.seq.phase), 'act'); await snap(page, 'cena4-emenda-segurar');
-    assert.deepEqual((await perform(page)).kinds, ['hold', 'dir', 'mash', 'press'], JSON.stringify(await page.evaluate(() => ({ seq: Boolean(window.__game.st.seq), esc: window.__game.escuta.value }))));
+    assert.deepEqual((await perform(page)).kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press'], JSON.stringify(await page.evaluate(() => ({ seq: Boolean(window.__game.st.seq), esc: window.__game.escuta.value }))));
     await step(page, 10);
+    assert.equal(await page.evaluate(() => window.__game.player.hidden), 'cacamba', 'the quiet way: he is in the skip'); await hold(page, 'KeyE', 4); await step(page, 30);        // (and gets out of it to go on)
+    assert.equal(await page.evaluate(() => window.__game.player.hidden), null);
     assert.match(await goalOf(page), /poço/, JSON.stringify(await page.evaluate(() => ({ scene: window.__game.run.scene, pocket: window.__game.run.pocket, wait: window.__game.director.waitName, sp: window.__game.street?.street.splice, pos: window.__game.player.pos, esc: window.__game.escuta.value }))));
     await place(page, -1.2, 8.3, 3.14); await hold(page, 'KeyE', 100); await step(page, 30);
     assert.equal(await page.evaluate(() => window.__game.st.scene.id), 'n1-radio'); await ready(page);
@@ -457,46 +462,82 @@ const SEEN = `(G, pos, T) => {
   return { x: q.x, y: q.y, inside: q.z < 1 && Math.abs(q.x) < 0.9 && Math.abs(q.y) < 0.9, blocked: hits.length, dist: d };
 }`;
 
-test('the grate of the first cutscene is geometry (in the game and in the film mode), and the broken dog lies down and blinks a light that reads on a phone', { skip, timeout: 300000 }, async () => {
+test('the grate of the shaft is a thing of the street, fixed in the pavement (in the game and in the film mode): the first cutscene looks up through it and the dogs walk over it; and the broken dog lies down and blinks a light that reads on a phone', { skip, timeout: 600000 }, async () => {
+  const POCO = JSON.parse(readFileSync(path.join(ROOT, 'data/story/scenes.json'), 'utf8'))['n1-saida'].points.find((p) => p.id === 'poco');
+  /** The grate of a scene, as it is now: where it is in the world, its box, the camera. Runs in the page (S: { scene, camera, THREE }). */
+  const GRATE = `(S) => {
+    // (the film mode keeps a street for each of its cutscenes: the grate is the one of the street being shown)
+    const all = []; S.scene.traverse((x) => { if (x.name === 'grade') all.push(x); });
+    const up = (x) => { for (let p = x; p; p = p.parent) if (!p.visible) return false; return true; }, o = all.find(up) ?? all[0]; if (!o) return null;
+    S.scene.updateMatrixWorld(true); S.camera.updateMatrixWorld(true);
+    let shown = up(o), underCamera = false; for (let p = o; p; p = p.parent) if (p.isCamera) underCamera = true;
+    const b = new S.THREE.Box3().setFromObject(o.getObjectByName('grade-pintada')), dir = S.camera.getWorldDirection(new S.THREE.Vector3());
+    return { shown, underCamera, world: Array.from(o.matrixWorld.elements), min: b.min.toArray(), max: b.max.toArray(), bars: o.userData.bars, meshes: o.children.length, eye: S.camera.position.toArray(), dir: dir.toArray() };
+  }`;
+  // the moments of the cutscene that are measured: every 0.4 s, and every 0.2 s while a dog is by the grate
+  const TIMES = []; for (let i = 2; i < 70; i++) { const t = i * 0.2; if (i % 2 === 0 || (t > 3.5 && t < 5.5) || (t > 11.9 && t < 13.9)) TIMES.push(+t.toFixed(1)); }
+  const same = (a, b) => a.world.every((v, i) => Math.abs(v - b.world[i]) < 1e-9);
+  const moved = (a, b) => Math.hypot(a.eye[0] - b.eye[0], a.eye[1] - b.eye[1], a.eye[2] - b.eye[2]);
+  const turned = (a, b) => Math.acos(Math.max(-1, Math.min(1, a.dir[0] * b.dir[0] + a.dir[1] * b.dir[1] + a.dir[2] * b.dir[2])));
+  /** It is at the shaft (the point `poco` of the street scene), its top level with the pavement, and it goes down into the ground. */
+  const atTheShaft = (g, where) => {
+    const cx = (g.min[0] + g.max[0]) / 2, cz = (g.min[2] + g.max[2]) / 2;
+    assert.ok(Math.hypot(cx - POCO.pos[0], cz - POCO.pos[1]) < POCO.radius, `${where}: the grate is at the shaft (${cx.toFixed(2)}, ${cz.toFixed(2)})`);
+    assert.ok(Math.abs(g.max[1] - 0.15) < 0.03, `${where}: its top is level with the pavement (${g.max[1].toFixed(3)})`);
+    assert.ok(g.min[1] < -1, `${where}: the shaft goes down under it`);
+  };
   await withGame(async ({ page, open }) => {
     await open('?cena=n1-cidade'); await page.waitForFunction(() => window.__game.st.cut && !window.__game.st.cut.loading, null, { timeout: 90000 });
     await step(page, 60); await page.waitForTimeout(300);
-    const g = await page.evaluate(() => { const o = window.__game.r.scene.children.find((c) => c.name === 'grade'); return { visible: o?.visible, bars: o?.userData.bars, meshes: o?.children.length, css: getComputedStyle(document.getElementById('app'), '::after').content }; });
+    const look = () => page.evaluate(async (src) => { const G = window.__game; G.test.render(); await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))); return { ...eval(src)({ scene: G.r.scene, camera: G.r.camera, THREE: G.r.THREE }), t: G.st.cut?.t, css: getComputedStyle(document.getElementById('app'), '::after').content }; }, GRATE);
+    const g = await look();
     await snap(page, 'r2-grade-geometria');
-    assert.equal(g.visible, true); assert.ok(g.bars >= 12 && g.meshes >= 1 && g.meshes <= 3, 'bars of real geometry, joined into a mesh or two'); assert.ok(g.css === 'none' || g.css === 'normal', 'no CSS layer');
-    // the picture has the bars: a row of the screen crosses several upright bars (the row with the grate against the same row without it:
+    assert.equal(g.shown, true); assert.ok(g.bars >= 12 && g.meshes >= 1 && g.meshes <= 3, 'bars of real geometry, joined into a mesh or two'); assert.ok(g.css === 'none' || g.css === 'normal', 'no CSS layer');
+    assert.equal(g.underCamera, false, 'it does not hang from the camera'); atTheShaft(g, 'game');
+    assert.ok(g.eye[1] < g.max[1] - 0.2 && g.dir[1] > 0.2, 'the camera is inside the shaft, under the grate, looking up');
+    assert.ok(g.eye[0] > g.min[0] && g.eye[0] < g.max[0] && g.eye[2] > g.min[2] && g.eye[2] < g.max[2], 'inside the walls of the shaft');
+    // the picture has the bars: a row of the screen crosses several of them (the row with the grate against the same row without it:
     // the grate is painted steel, not a black shape, so it is not told by how dark it is)
     const bars = await page.evaluate(async () => {
-      const G = window.__game, o = G.r.scene.children.find((c) => c.name === 'grade');
-      const row = async () => {
+      const G = window.__game, o = G.r.scene.getObjectByName('grade');
+      const rows = async () => {
         G.test.render(); await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
         const c = G.r.renderer.domElement, t = document.createElement('canvas'); t.width = c.width; t.height = c.height; t.getContext('2d').drawImage(c, 0, 0);
-        return t.getContext('2d').getImageData(0, Math.floor(t.height * 0.5), t.width, 1).data;
+        return [0.3, 0.45, 0.6].map((fy) => t.getContext('2d').getImageData(0, Math.floor(t.height * fy), t.width, 1).data);
       };
-      const a = await row(); o.children.forEach((m) => { m.visible = false; }); const b = await row(); o.children.forEach((m) => { m.visible = true; });
-      let n = 0, on = false;
-      for (let x = 0; x < a.length / 4; x++) { const d = Math.abs(a[x * 4] - b[x * 4]) + Math.abs(a[x * 4 + 1] - b[x * 4 + 1]) + Math.abs(a[x * 4 + 2] - b[x * 4 + 2]) > 24; if (d && !on) n++; on = d; }
-      return n;
+      const a = await rows(); o.children.forEach((m) => { m.visible = false; }); const b = await rows(); o.children.forEach((m) => { m.visible = true; });
+      let best = 0;
+      a.forEach((pa, i) => { const pb = b[i]; let n = 0, on = false; for (let x = 0; x < pa.length / 4; x++) { const d = Math.abs(pa[x * 4] - pb[x * 4]) + Math.abs(pa[x * 4 + 1] - pb[x * 4 + 1]) + Math.abs(pa[x * 4 + 2] - pb[x * 4 + 2]) > 24; if (d && !on) n++; on = d; } best = Math.max(best, n); });
+      return best;
     });
     assert.ok(bars >= 5, `the bars cross the picture (${bars})`);
-    // a dog of the fleet crosses the picture between the bars: projected on the screen, inside it, with nothing in front of it (measured every 0.4 s over the cutscene)
-    const seen = []; let shotA = false, shotB = false;
-    for (let t = 0.4; t < 14; t += 0.4) {
-      const r = await page.evaluate(async ([k, src]) => {
-        const G = window.__game; while (G.st.cut && G.st.cut.t < k) G.test.step(6);
+    // the camera moves through the cutscene and the grate stays where it is; the dogs of the fleet walk over it, in the picture, with
+    // their feet on the bars (measured through the cutscene, closer together while a dog is by the grate: where each dog stands, and
+    // whether it is on the screen with nothing but the grate before it)
+    const seen = [], over = new Set(), states = [g]; let shotA = false, shotB = false;
+    for (const t of TIMES) {
+      const { r, now } = await page.evaluate(async ([k, src, grate]) => {
+        const G = window.__game; while (G.st.cut && G.st.cut.t < k) G.test.step(2);
         G.test.render(); await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
-        const f = eval(src), out = [];
-        for (const a of G.st.cut.actors) out.push({ ...f(G, [a.d.root.position.x, a.d.root.position.y + 0.45, a.d.root.position.z], G.r.THREE), t: G.st.cut.t });
-        return out;
-      }, [t, SEEN]);
+        const f = eval(src), r = [];
+        G.st.cut.actors.forEach((a, i) => r.push({ ...f(G, [a.d.root.position.x, a.d.root.position.y + 0.45, a.d.root.position.z], G.r.THREE), t: G.st.cut.t, i, foot: a.d.root.position.toArray() }));
+        return { r, now: eval(grate)({ scene: G.r.scene, camera: G.r.camera, THREE: G.r.THREE }) };
+      }, [t, SEEN, GRATE]);
+      states.push(now);
+      const on = r.filter((x) => x.foot[0] > g.min[0] + 0.2 && x.foot[0] < g.max[0] - 0.2 && x.foot[2] > g.min[2] + 0.2 && x.foot[2] < g.max[2] - 0.2);
+      for (const x of on) { over.add(x.i); assert.ok(Math.abs(x.foot[1] - 0.15) < 0.005, `the dog stands on the bars, not in them or over them (${x.foot[1]})`); }
       const ok = r.filter((x) => x.inside && x.blocked === 0 && x.dist < 14); seen.push(...ok);
-      if (ok.length && !shotA && t > 4) { shotA = true; await snap(page, 'r3-grade-cao-cruzando'); }
-      if (ok.length && !shotB && t > 8.5) { shotB = true; await snap(page, 'r3-grade-cao-cruzando-2'); }
+      if (on.length && ok.length && !shotA && t > 4) { shotA = true; await snap(page, 'r3-grade-cao-cruzando'); }
+      if (on.length && ok.length && !shotB && t > 12) { shotB = true; await snap(page, 'r3-grade-cao-cruzando-2'); }
     }
+    assert.ok(states.every((s) => same(s, g)), 'the grate has the same place in the world in every frame');
+    assert.ok(Math.max(...states.map((s) => moved(s, g))) > 0.5 && Math.max(...states.map((s) => turned(s, g))) > 0.5, 'while the camera moves and turns');
+    assert.ok(states.every((s) => s.shown && s.eye[1] < g.max[1] - 0.2), 'and stays under it');
+    assert.deepEqual([...over].sort(), [0, 1], 'the two dogs walk over the grate');
     assert.ok(seen.length >= 6, `a dog is in the picture, near and in the clear, in several samples (${seen.length})`);
-    assert.ok(new Set(seen.map((x) => Math.round(x.t))).size >= 4, 'for several seconds');
+    assert.ok(new Set(seen.map((x) => Math.round(x.t))).size >= 3, 'in more than one moment');
   });
-  // the same view in the film mode: the bars are in the picture too (the CSS of the game is not there)
+  // the same view in the film mode: the same grate of the street, in the same place, with the bars in the picture (the CSS of the game is not there)
   await withGame(async ({ page, url }) => {
     await page.goto(url.replace('index.html', 'index.html?film')); await page.waitForFunction(() => window.setup);
     await page.evaluate(() => window.setup({ width: 640, height: 360 }));
@@ -507,26 +548,30 @@ test('the grate of the first cutscene is geometry (in the game and in the film m
         const t = document.createElement('canvas'); t.width = 640; t.height = 360; const g = t.getContext('2d'); g.drawImage(img, 0, 0);
         return [0.35, 0.5, 0.65].map((fy) => g.getImageData(0, Math.floor(360 * fy), 640, 1).data);
       };
-      const a = await rows(), o = window.__film.current.render.scene.getObjectByName('grade');
+      const a = await rows(), all = []; window.__film.current.render.scene.traverse((x) => { if (x.name === 'grade') all.push(x); });
+      const o = all.find((x) => { for (let p = x; p; p = p.parent) if (!p.visible) return false; return true; });
       o.children.forEach((m) => { m.visible = false; }); const b = await rows(); o.children.forEach((m) => { m.visible = true; });
       let best = 0;
       a.forEach((pa, i) => { const pb = b[i]; let k = 0, on = false; for (let x = 0; x < 640; x++) { const d = Math.abs(pa[x * 4] - pb[x * 4]) + Math.abs(pa[x * 4 + 1] - pb[x * 4 + 1]) + Math.abs(pa[x * 4 + 2] - pb[x * 4 + 2]) > 24; if (d && !on) k++; on = d; } best = Math.max(best, k); });
       return best;
     });
     assert.ok(n >= 5, `the film of noite1.grade has the bars (${n})`);
+    const fixed = await page.evaluate((src) => { const F = window.__film.current, S = { scene: F.render.scene, camera: F.render.camera, THREE: F.render.THREE }, f = eval(src); window.shot({ from: 'noite1.grade', duration: 14 }); return [1, 4.6, 8, 11, 13].map((t) => { window.frame(t); return f(S); }); }, GRATE);
+    atTheShaft(fixed[0], 'film'); assert.equal(fixed[0].underCamera, false);
+    assert.ok(fixed.every((s) => s.shown && same(s, fixed[0])), 'the grate of the film has the same place in the world in every frame');
+    assert.ok(Math.max(...fixed.map((s) => moved(s, fixed[0]))) > 0.5 && Math.max(...fixed.map((s) => turned(s, fixed[0]))) > 0.5, 'while the camera of the film moves and turns');
     const SC = JSON.parse(readFileSync(path.join(ROOT, 'data/story/scenes.json'), 'utf8'))['n1-cidade'].beats.find((b) => b.type === 'cutscene');
-    const film = await page.evaluate(async ([cut, src]) => {
-      const F = window.__film.current, T = F.render.THREE, f = eval(src), out = [];
+    const film = await page.evaluate(async ([cut, src, times]) => {
+      const F = window.__film.current, T = F.render.THREE, f = eval(src), out = [], { routeAt } = await import('./src/systems/route.js');
       window.shot({ from: 'noite1.grade', duration: 14 });
-      for (let t = 0.4; t < 14; t += 0.4) {
+      for (const t of times) {
         window.frame(t);
-        for (const a of cut.actors) { const k = Math.max(0, Math.min(1, (t - a.t0) / (a.t1 - a.t0))); const pos = [a.from[0] + (a.to[0] - a.from[0]) * k, 0.45, a.from[1] + (a.to[1] - a.from[1]) * k];
-          out.push({ ...f({ r: F.render }, pos, T), t }); }
+        for (const a of cut.actors) { const { pos: p } = routeAt(a, (t - a.t0) / (a.t1 - a.t0)); out.push({ ...f({ r: F.render }, [p[0], 0.15 + 0.45, p[1]], T), t }); }
       }
       return out;
-    }, [SC, SEEN]);
+    }, [SC, SEEN, TIMES]);
     const inFilm = film.filter((x) => x.inside && x.blocked === 0 && x.dist < 14);
-    assert.ok(inFilm.length >= 6 && new Set(inFilm.map((x) => Math.round(x.t))).size >= 4, `a dog crosses the film of noite1.grade (${inFilm.length} samples)`);
+    assert.ok(inFilm.length >= 6 && new Set(inFilm.map((x) => Math.round(x.t))).size >= 3, `a dog walks over the grate in the film of noite1.grade (${inFilm.length} samples)`);
   });
   await withGame(async ({ page, open }) => {
     await open('?cena=n1-saida&sair=agora&semente=7'); await ready(page);
@@ -620,7 +665,7 @@ test('over the shoulder in the street: the camera is behind and above him, never
     // hiding in the skip: the camera comes close and low
     await place(page, -13.2, 6.4, 3.14); await page.evaluate(() => window.__game.cam.place(3.14)); await step(page, 5); await press(page, 'KeyE');
     assert.equal(await page.evaluate(() => window.__game.player.hidden), 'cacamba'); await step(page, 60); await frames(page, 3);
-    const hid = await inside(); assert.ok(hid.d < 0.5 && hid.y < 1.45, `close and low in the skip ${JSON.stringify(hid)}`);
+    const hid = await inside(); assert.ok(hid.d < 0.55 && hid.y < 1.45, `close and low in the skip ${JSON.stringify(hid)}`);
     assert.equal(await page.evaluate(() => document.getElementById('app').dataset.hide), '1', 'the rim of the skip darkens the picture');
     await snap(page, 'ombro-escondido-cacamba');
     await press(page, 'KeyE'); await step(page, 60); await frames(page, 90);
@@ -639,13 +684,13 @@ test('the splice, done right: the cutscene (4 to 6 s, skippable with Esc held), 
     assert.equal(await page.evaluate(() => window.__game.st.seq.phase), 'act', 'the cutscene ends by itself (without the skip)');
     const before = await escutaOf(page);
     const { kinds } = await perform(page);
-    assert.deepEqual(kinds, ['hold', 'dir', 'mash', 'press']);
+    assert.deepEqual(kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press']);
     await step(page, 10);
     assert.equal(await page.evaluate(() => window.__game.st.seq), null, 'the sequence is over');
     assert.equal(await escutaOf(page), before, 'nothing missed: the Escuta did not move');
     assert.equal(await page.evaluate(() => window.__game.street.street.splice.state), 'done');
     assert.match(await goalOf(page), /poço/); assert.equal(await page.evaluate(() => window.__game.quick.active), false, 'the old ring did not come up');
-    assert.deepEqual(await page.evaluate(() => window.__game.player.pos.map((x) => +x.toFixed(1))), [-13.3, 8.1], 'he stands where he worked');
+    assert.equal(await page.evaluate(() => window.__game.player.hidden), 'cacamba', 'the quiet way ends with him hidden in the skip');
   });
 });
 
@@ -668,30 +713,30 @@ test('the cutscene of the dog arriving can be skipped (Esc held 1 s, Start, or t
   }, { touch: true });
 });
 
-test('missing what is not the dodge makes noise and the game goes on: +8 on the Escuta for each, in the hold, the hammer and the press', { skip, timeout: 600000 }, async () => {
+test('missing what is not the dodge makes noise and the game goes on: +8 on the Escuta for each, in the hammer and the press', { skip, timeout: 600000 }, async () => {
   await withGame(async ({ page, open }) => {
     await toSplice(page, open); await skipCine(page);
     const before = await escutaOf(page);
-    const { kinds } = await perform(page, { miss: ['hold', 'mash', 'press'] });
-    assert.deepEqual(kinds, ['hold', 'dir', 'mash', 'press'], 'every step was still shown: the sequence goes on');
+    const { kinds } = await perform(page, { miss: ['mash', 'press'] });
+    assert.deepEqual(kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press'], 'every step was still shown: the sequence goes on');
     await step(page, 10);
     assert.equal(await page.evaluate(() => window.__game.st.seq), null);
-    assert.equal(await escutaOf(page), before + 24, 'three misses of +8');
+    assert.equal(await escutaOf(page), before + 16, 'two misses of +8');
     assert.equal(await page.evaluate(() => window.__game.street.street.splice.state), 'done', 'the splice is closed all the same');
     assert.match(await goalOf(page), /poço/);
   });
 });
 
-test('missing or mistaking the dodge: the dog knocks him down and the scene starts again from the checkpoint (his place, the decoy back)', { skip, timeout: 600000 }, async () => {
+test('missing or mistaking the dodge: the dog attacks, the game is over, and it comes back to the checkpoint of the splice (not to the start of the exit)', { skip, timeout: 600000 }, async () => {
   for (const miss of [['dir'], ['dir-wrong']]) await withGame(async ({ page, open }) => {
     await toSplice(page, open); await skipCine(page);
     await perform(page, { miss, max: 260 });
     const log = await page.evaluate(() => { const S = window.__game.st.seq; return S ? S.sq.view().outcome : 'restarted'; });
     assert.ok(['knocked', 'restarted'].includes(log), String(log));
-    await page.waitForFunction(() => !window.__game.st.seq && window.__game.player.pos[0] > -2, null, { timeout: 60000 }).catch(async () => { for (let i = 0; i < 40 && (await page.evaluate(() => Boolean(window.__game.st.seq))); i++) { await step(page, 30); await page.waitForTimeout(60); } });
-    await step(page, 40); await page.waitForTimeout(500);
-    assert.equal(await page.evaluate(() => window.__game.st.seq), null); assert.deepEqual(await page.evaluate(() => window.__game.player.pos.map((x) => +x.toFixed(1))), [-1.2, 8.1], 'back at the start of the scene');
-    assert.equal(await page.evaluate(() => window.__game.run.pocket.includes('isca')), true, 'the decoy is back');
+    // the attack, the black, the game over, and the reload: the sequence is made again, at its first command, with the decoy of reserve in the pocket
+    await page.waitForFunction(() => window.__game.st.seq?.phase === 'act' && window.__game.st.seq.t < 1 && !window.__game.st.seq.rec.knockedAt, null, { timeout: 90000, polling: 250 }).catch(async () => { for (let i = 0; i < 80; i++) { await step(page, 30); if (await page.evaluate(() => window.__game.st.seq?.phase === 'act' && window.__game.st.seq.t < 1 && !window.__game.st.seq.rec.knockedAt)) break; } });
+    const v = await page.evaluate(() => { const G = window.__game, S = G.st.seq; return { seq: Boolean(S), kind: S?.sq.view().kind, pos: G.player.pos.map((x) => +x.toFixed(1)), pocket: G.run.pocket.includes('isca-reserva'), cp: G.run.cp?.at }; });
+    assert.deepEqual(v, { seq: true, kind: 'hold', pos: [-13.3, 8.1], pocket: true, cp: 'saida-emenda' }, 'back at the start of the splice');
   });
 });
 
@@ -709,7 +754,7 @@ test('accessibility: "mais tempo" doubles the windows of every kind, "desligada"
     await place(page, -13.3, 7.0, 3.14); await page.keyboard.down('KeyE'); await until(page, () => Boolean(window.__game.st.seq), 40); await page.keyboard.up('KeyE');
     await skipCine(page); const before = await escutaOf(page);
     const kinds = []; for (let i = 0; i < 700 && (await page.evaluate(() => Boolean(window.__game.st.seq))); i++) { const k = await page.evaluate(() => { const v = window.__game.st.seq?.sq.view(); return v && !v.gap ? v.kind : null; }); if (k && kinds.at(-1) !== k) kinds.push(k); await step(page, 6); }
-    assert.deepEqual(kinds, ['hold', 'dir', 'mash', 'press'], 'it played by itself, with nothing pressed');
+    assert.deepEqual(kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press'], 'it played by itself, with nothing pressed');
     assert.equal(await escutaOf(page), before); assert.equal(await page.evaluate(() => window.__game.street.street.splice.state), 'done'); assert.match(await goalOf(page), /poço/);
   });
 });

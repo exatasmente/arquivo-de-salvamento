@@ -103,7 +103,7 @@ export function createHands({ r, body, audio, ui, getPlayer, ground, getRadio, c
     // anything else: a slip of paper with a mark on it
     return paperItem((g, w, h) => { g.fillStyle = '#cfc8a8'; g.fillRect(0, 0, w, h); g.strokeStyle = '#2c3040'; g.lineWidth = 4; g.beginPath(); g.moveTo(30, 60); g.bezierCurveTo(80, 30, 120, 90, 200, 50); g.moveTo(30, 100); g.lineTo(190, 100); g.stroke(); }, 0.08, 0.05);
   }
-  const NAMES = { mapa: 'Mapa de papel da saída', pano: 'Pano', lata: 'Lata furada', tampa: 'Tampa do filtro', 'filtro-novo': 'Filtro de pano e lata' };
+  const NAMES = { 'isca-reserva': 'Isca sonora (a de reserva)', mapa: 'Mapa de papel da saída', pano: 'Pano', lata: 'Lata furada', tampa: 'Tampa do filtro', 'filtro-novo': 'Filtro de pano e lata' };
   const itemName = (k) => NAMES[k] ?? (/isca/i.test(k) ? 'Isca sonora' : k);
   function showItem(i) {
     for (const c of [...itemRoot.children]) itemRoot.remove(c);

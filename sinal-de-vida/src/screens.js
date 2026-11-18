@@ -13,7 +13,9 @@ const COMMANDS = [
   ['Sair do exame (de perto)', 'Esc ou E', 'A ou B', 'botão ✗ Voltar'],
   ['Reagir', 'Espaço', 'X', 'botão Reagir (canto inferior direito)'],
   ['Emenda, segurar (a sequência da saída 1)', 'E (segurar)', 'A (segurar)', 'Usar (segurar)'],
-  ['Emenda, esquivar quando o cão salta', '← ou → (também A, D)', 'direcional ← →', 'botões ◀ ▶ ao lado de Usar'],
+  ['Emenda, esquivar quando o cão salta (o tempo fica lento)', '← ou → (também A, D)', 'direcional ← →', 'botões ◀ ▶ ao lado de Usar'],
+  ['Emenda, escolher com o cão atordoado: ◀ desorientar (em silêncio) ou ▶ desativar (com barulho)', '← ou →', 'direcional ← →', 'botões ◀ ▶'],
+  ['Emenda, a ação da escolha (encostar a isca: segurar; enfiar o cabo: apertar)', 'E (segurar ou apertar)', 'A', 'Usar'],
   ['Emenda, puxar o cabo preso', 'E (martelar) ou alternar ← →', 'A (martelar)', 'Usar (martelar)'],
   ['Emenda, fechar', 'E ou Espaço', 'A ou X', 'Usar ou Reagir'],
   ['Mirar a isca', 'botão direito (segurar)', 'LT (segurar)', 'arrastar o botão Item'],
@@ -75,13 +77,14 @@ export function createScreens(root, G) {
           <div class="col"><button type="button" class="f go" data-act="resume">Continuar</button>
           <button type="button" class="f" data-act="restart">Recomeçar a cena (volta ao último salvamento)</button>
           <button type="button" class="f" data-act="options">Opções</button>
+          ${opt('gore', 'Sangue e violência gráfica', yes(G.options.gore !== false))}
           <button type="button" class="f" data-act="commands">Comandos</button>
           <button type="button" class="f" data-act="card">Cartão de memória</button>
           <button type="button" class="f" data-act="title">Voltar ao título</button>
           <button type="button" class="f" data-act="archive">Voltar ao arquivo (menu dos jogos)</button></div>
           <p id="menu-seed">${run ? `Semente da partida: <b>${run.seed}</b> (com ?semente=${run.seed} repete a partida)` : ''}</p>`;
       },
-      act(a) { if (a === 'resume') close(); else if (a === 'restart') { close(); A().restartScene(); } else if (a === 'options') open('options', { from: 'menu' }); else if (a === 'commands') open('commands', { from: 'menu' }); else if (a === 'card') open('card', { from: 'menu' }); else if (a === 'title') { close(); A().toTitle(); } else if (a === 'archive') { location.href = '../'; } },
+      act(a, b) { if (a === 'resume') close(); else if (a === 'restart') { close(); A().restartScene(); } else if (a === 'options') open('options', { from: 'menu' }); else if (a === 'opt') A().toggleOption(b.dataset.o); else if (a === 'commands') open('commands', { from: 'menu' }); else if (a === 'card') open('card', { from: 'menu' }); else if (a === 'title') { close(); A().toTitle(); } else if (a === 'archive') { location.href = '../'; } },
     },
     options: {
       render() {
@@ -93,10 +96,22 @@ export function createScreens(root, G) {
           <div class="row"><span class="nm">Volume: <b>${o.volume}</b> de 10</span><button type="button" class="f x" data-act="vol-" aria-label="Baixar o volume">−</button><button type="button" class="f x" data-act="vol+" aria-label="Subir o volume">+</button></div>
           ${opt('captions', 'Legendas', yes(o.captions))}
           <div class="row"><span class="nm">Sensibilidade do olhar: <b>${o.sens.toFixed(1)}</b></span><button type="button" class="f x" data-act="sens-">−</button><button type="button" class="f x" data-act="sens+">+</button></div>
-          ${opt('invert', 'Inverter o olhar vertical', yes(o.invert))}</div>
-          <p class="dim">Reação rápida: o botão Reagir tem um anel que fecha; "Desligada" acerta sempre. Paciência maior: o chiado das vozes demora o dobro para sumir.</p>`;
+          ${opt('invert', 'Inverter o olhar vertical', yes(o.invert))}
+          ${opt('gore', 'Sangue e violência gráfica', yes(o.gore !== false))}</div>
+          <p class="dim">Reação rápida: o botão Reagir tem um anel que fecha; "Desligada" acerta sempre. Paciência maior: o chiado das vozes demora o dobro para sumir. Sangue e violência gráfica: desligado, o ataque do cão corta para o preto antes do impacto, com o som abafado; a morte e o fim de jogo continuam.</p>`;
       },
       act(a, b) { if (a === 'back') back(); else if (a === 'opt') A().toggleOption(b.dataset.o); else if (a === 'vol-') A().volume(-1); else if (a === 'vol+') A().volume(1); else if (a === 'sens-') A().sens(-1); else if (a === 'sens+') A().sens(1); },
+    },
+    gore: {
+      render() {
+        return `<h2>Aviso de conteúdo</h2>
+          <p>Este jogo é sério e tem cenas de ataque realista, com sangue e violência gráfica: um cão-robô ataca um adulto. É só para adultos.</p>
+          <p class="tip">Dá para mudar a qualquer hora, nas <b>Opções</b> ou na <b>Pausa</b>. Desligado, nada de sangue aparece: o ataque corta para o preto antes do impacto, com o som abafado. A morte e o fim de jogo continuam iguais.</p>
+          <div class="col"><button type="button" class="f go" data-act="gore-on">Sangue e violência gráfica: manter ligado</button>
+          <button type="button" class="f" data-act="gore-off">Desligar sangue e violência gráfica</button></div>`;
+      },
+      act(a) { if (a === 'gore-on') A().goreAnswer(true, st.args.then); else if (a === 'gore-off') A().goreAnswer(false, st.args.then); },
+      closable: false,
     },
     commands: {
       render() {

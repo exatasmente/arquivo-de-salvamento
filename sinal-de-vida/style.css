@@ -30,6 +30,10 @@ body.touch #hud-action.desk { bottom: auto; top: 62px; left: 12px; transform: no
 #hud-say b { display: block; color: #f2d68a; font-size: 12px; } #hud-say b:empty { display: none; } #hud-say span { font-size: 15px; }
 #hud-hurt { position: absolute; right: 14px; top: 100px; font-size: 12px; color: #ffb090; background: rgba(0, 0, 0, 0.5); padding: 2px 8px; border-radius: 4px; }
 #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 5; }
+#gameover { position: absolute; inset: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; color: #c9c2b4; font-family: system-ui, sans-serif; text-align: center; padding: 0 24px; }
+#gameover[hidden] { display: none; }
+#gameover h2 { margin: 0; font: 600 clamp(26px, 6vw, 54px) ui-monospace, monospace; letter-spacing: 0.18em; color: #8c1c20; text-shadow: 0 0 18px #000; }
+#gameover p { margin: 0; font-size: clamp(14px, 2.4vw, 20px); } #gameover .go { color: #f2d68a; font-size: clamp(13px, 2vw, 17px); opacity: 0.9; }
 #cutbars { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
 #cutbars i { position: absolute; left: 0; right: 0; height: 9vh; background: #000; } #cutbars i:first-child { top: 0; } #cutbars i:nth-child(2) { bottom: 0; }
 #cut-skip { position: absolute; right: 14px; top: calc(9vh + 6px); font-size: 12px; color: #aab; }

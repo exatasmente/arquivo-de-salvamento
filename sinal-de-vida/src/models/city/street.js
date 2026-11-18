@@ -1,18 +1,19 @@
 // The street itself, with form: the lamp (a real pole with an arm), the car (a lofted body with a cabin, wheels and lights), the viaduct
 // (girders under the deck, a parapet with a rail, expansion joints), its pillars (a flared head, ribs, a striped plinth), the vent shaft
-// of the unfinished station (a wide floor grille, the rope and the cable going down), storm drains, rubble and litter, dead trees,
+// of the unfinished station (its floor grate level with the pavement, the rope and the cable going down), storm drains, rubble and litter, dead trees,
 // kerbs, and the walled-off entrance of the station that was never opened. Builders return what models/objects.js builders return
 // ({ root, collider, light, hide, exit ... }); the rua scene uses them in place of the old boxes, by the same entity types.
 import { mulberry32 } from '../../../vendor/engine/rng.js';
 import { addPiece } from './pieces.js';
 import { place as placeProp, have as haveProp } from '../props/place.js';
+import { buildGrate, GRATE } from '../../scenes/grade.js';
 
 const make = (kit, fill) => {
   const b = new kit.Batch(), x = fill(b) ?? {};
   const root = new kit.T.Group(); root.add(b.build());
   return { root, ...x };
 };
-const CONC = { c: '#8c8c88', map: 'concreto' }, CONC_D = { c: '#6a6c6a', map: 'umido' }, STEEL = { c: '#6a6e74', map: 'metal' }, DARK = { c: '#26282c', map: 'metal' }, BLACK = { c: '#101114' };
+const CONC_D = { c: '#6a6c6a', map: 'umido' }, STEEL = { c: '#6a6e74', map: 'metal' }, DARK = { c: '#26282c', map: 'metal' };
 
 /** A tube between two points. */
 function tube(kit, b, spec, a, c, rad, seg = 6) {
@@ -77,26 +78,20 @@ export const STREET_BUILDERS = {
     return {};
   }),
   bocaRua: (kit) => {
-    // the ventilation shaft of the unfinished metro station: a concrete kerb round a wide grille in the pavement, a dark well under it, the grille
-    // bent open at one side, the rope going down and the thick cable coming in. The rope and the cable keep their place (the game climbs there).
+    // the ventilation shaft of the unfinished metro station: its grate, set level with the pavement (scenes/grade.js: the frame, the two
+    // leaves, the walls of the shaft under it), and what the people of the station hung in it: the rungs of the old ladder under the hatch,
+    // the rope tied to the frame and going down, the thick cable of the panels going in where two bars were sawn through.
+    // The grate keeps its own meshes (the first cutscene looks up through it and the tests find it by its name).
+    const grate = buildGrate(kit.r), G = GRATE, [cx, cz] = G.cable;
     const m = make(kit, (b) => {
-      const W = 2.4, D = 1.5;
-      for (const s of [-1, 1]) { b.box(CONC, [W + 0.5, 0.2, 0.25], [0, 0, s * (D / 2 + 0.12)], { cell: 3, tile: 1 }); b.box(CONC, [0.25, 0.2, D], [s * (W / 2 + 0.12), 0, 0], { cell: 3, tile: 1 }); }
-      b.box(BLACK, [W, 0.02, D], [0, -0.01, 0]);
-      // the grille: bars along the length, three cross ties; the two near ones bent up like a lid forced open
-      for (let i = 0; i < 11; i++) { const z = -D / 2 + 0.08 + (i * (D - 0.16)) / 10, up = i < 4 ? 0.5 : 0; b.box({ c: '#5a5e64', map: 'metal' }, [W - 0.1, 0.05, 0.06], [0, up ? 0.0 : 0.08, z + (up ? -0.2 : 0)], { rx: up ? 0.62 : 0, cell: 3, nojitter: true }); }
-      for (const x of [-W / 2 + 0.2, 0, W / 2 - 0.2]) b.box({ c: '#4a4e54', map: 'metal' }, [0.07, 0.07, D], [x, 0.04, 0], { cell: 3 });
-      // down in the well: dark walls with the rungs of an old ladder, the rope tied to an anchor on the kerb and going down through the grille, the cable coming in
-      const WALL = { c: '#14161a', map: 'umido' };
-      b.plane(WALL, W - 0.1, 2.6, [0, -2.6, -D / 2 + 0.05], { tile: 2, cell: 4 }); b.plane(WALL, W - 0.1, 2.6, [0, -2.6, D / 2 - 0.05], { ry: Math.PI, tile: 2, cell: 4 });
-      b.plane(WALL, D - 0.1, 2.6, [-W / 2 + 0.05, -2.6, 0], { ry: Math.PI / 2, tile: 2, cell: 4 }); b.plane(WALL, D - 0.1, 2.6, [W / 2 - 0.05, -2.6, 0], { ry: -Math.PI / 2, tile: 2, cell: 4 });
-      for (let i = 0; i < 6; i++) b.box({ c: '#6a6e74', map: 'ferrugem' }, [0.5, 0.04, 0.05], [-0.7, -0.35 - i * 0.4, -D / 2 + 0.1], { cell: 3 });
-      const rope = { c: '#d8c8a0', map: 'tecido' };   // the rope: a coil on the paving, tied round a bar of the grille, and down into the well
-      for (let k = 0; k < 3; k++) { const a0 = k * 2.1; tube(kit, b, rope, [0.9 + Math.cos(a0) * 0.2, 0.03, 1.2 + Math.sin(a0) * 0.2], [0.9 + Math.cos(a0 + 2.0) * 0.2, 0.03, 1.2 + Math.sin(a0 + 2.0) * 0.2], 0.04, 5); }
-      tube(kit, b, rope, [0.9, 0.03, 1.1], [0.62, 0.1, 0.3], 0.04, 5); tube(kit, b, rope, [0.62, 0.1, 0.3], [0.5, 0.0, 0.1], 0.04, 5); tube(kit, b, rope, [0.5, 0.0, 0.1], [0.46, -2.2, 0.05], 0.04, 5);
-      b.cyl({ c: '#1e1e22', map: 'borracha' }, 0.07, 0.07, 3.0, 8, [-0.9, 0.0, 0.1], { rz: Math.PI / 2 });                   // the cable
-      tube(kit, b, { c: '#1e1e22', map: 'borracha' }, [-W / 2 + 0.1, 0.02, 0.1], [-0.3, -1.6, 0.2], 0.07, 8);
+      for (let i = 0; i < 6; i++) b.box({ c: '#4a443e', map: 'ferrugem' }, [0.42, 0.04, 0.05], [G.x0 + 0.3, -0.4 - i * 0.4, G.z0 + 0.1], { cell: 3 });
+      const rope = { c: '#8a7c60', map: 'tecido' };   // the rope: a turn round the ledge under the hatch, and down into the well
+      tube(kit, b, rope, [G.x0 + 0.56, -0.07, G.z0 + 0.02], [G.x0 + 0.56, -0.07, G.z0 + 0.16], 0.03, 5); tube(kit, b, rope, [G.x0 + 0.56, -0.07, G.z0 + 0.16], [G.x0 + 0.58, -2.4, G.z0 + 0.2], 0.03, 5);
+      const cable = { c: '#5a5a64', map: 'borracha' };   // the cable: it comes along the pavement (the entity `cabo`), bends down where the bars were sawn through, and goes down the wall
+      const wx = G.x1 - 0.09;
+      tube(kit, b, cable, [cx + 0.06, 0.07, 0], [cx - 0.02, -0.02, cz], 0.07, 8); tube(kit, b, cable, [cx - 0.02, -0.02, cz], [wx, -0.3, cz + 0.02], 0.07, 8); tube(kit, b, cable, [wx, -0.3, cz + 0.02], [wx, -2.5, cz + 0.06], 0.07, 8);
     });
+    m.root.add(grate.group);
     return { ...m, exit: true };
   },
   entulho: (kit, p) => make(kit, (b) => {

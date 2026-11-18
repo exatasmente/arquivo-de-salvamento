@@ -24,7 +24,7 @@ export function streetLayout(seed = 7) {
   for (const [i, z] of [-8.6, 0, 8.6].entries()) add(`lampada-viaduto-${i + 1}`, 'lampada', [0, 6.95, z], 0, { queda: 0.3, cor: '#ffc078', alcance: 13 });
   add('bueiro-1', 'bueiro', [-3.4, 0, 5.9], 0); add('bueiro-2', 'bueiro', [14.5, 0, -5.9], 0);
   add('paineis', 'painelSolar', [16, H, 9.2], 0, { colunas: 3, fileiras: 2 });
-  add('cabo-paineis', 'cabo', [7.6, H, 9.5], 0, { comprimento: 16.8, raio: 0.07 });
+  add('cabo-paineis', 'cabo', [7.94, H, 9.5], 0, { comprimento: 16.12, raio: 0.07 });   // (it ends at the edge of the shaft's grate, where it goes in)
   add('caixa-dagua-alta', 'caixaDaguaAlta', [11, 0, -19], 0, { raio: 2.2, altura: 16 });
 
   // the places the video films

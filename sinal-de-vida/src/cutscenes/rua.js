@@ -15,7 +15,7 @@ const views = {
     entrega: [20, 26, 'O ponto de entrega pintado na calçada, com a caixa e o poste do pictograma, sem ninguém'],
     marquise: [26, 32, 'A marquise sobre a calçada, vista de longe, de onde um drone de farol passa à noite'],
     viaduto: [32, 38, 'O viaduto visto de baixo, os pilares com a base listrada e a luz sob o tabuleiro'],
-    boca: [38, 44, 'A boca de inspeção da calçada sob o viaduto: a tampa aberta, a corda descendo e o cabo grosso entrando'],
+    boca: [38, 44, 'A grade do poço de ventilação na calçada sob o viaduto: rente ao chão, com a folha de acesso fechada e o cabo grosso entrando por duas barras serradas'],
     paineis: [44, 50, 'Os painéis solares inclinados na calçada, com o cabo saindo deles'],
     cabo: [50, 56, 'O cabo grosso no chão da calçada, do painel até a boca de inspeção, seguido de perto'],
     'caixa-dagua': [56, 62, 'A caixa d\'água alta atrás dos prédios, olhando de baixo para cima (a antena sobe nela depois)'],

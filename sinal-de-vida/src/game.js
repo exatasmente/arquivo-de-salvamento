@@ -38,7 +38,7 @@ import { flashAt } from './systems/cores.js';
 import { matches } from './systems/director.js';
 import { bus } from './bus.js';
 import { buildDog } from './models/dog.js';
-import { buildGrate } from './scenes/grade.js';
+import { routeAt } from './systems/route.js';
 import { buildHalo } from './scenes/halo.js';
 import LAYOUT from '../data/scenes/galeria.json' with { type: 'json' };
 import RUA_LAYOUT from '../data/scenes/rua.json' with { type: 'json' };
@@ -62,7 +62,7 @@ const GLYPHS = {
 };
 const DURATIONS_URL = new URL('../assets/audio/n1/durations.json', import.meta.url).href;
 const WALK_HURT = 0.7;
-const OPTIONS0 = { quick: 'normal', patience: false, flashes: false, volume: 9, captions: true, sens: 1, invert: false };
+const OPTIONS0 = { quick: 'normal', patience: false, flashes: false, volume: 9, captions: true, sens: 1, invert: false, gore: true };
 
 export async function boot() {
   const q = new URLSearchParams(location.search);
@@ -76,6 +76,8 @@ export async function boot() {
   if (options.sound === false) options.volume = 0;           // the old on/off switch of an earlier card
   delete options.sound;
   const saveOptions = () => card.setMeta({ opts: { ...options } });
+  /** The one check of everything that may be gore (docs: the option "Sangue e violência gráfica"): blood, wounds, the attack shown. Nothing of the kind is made when it is off. */
+  const gore = () => options.gore !== false;
   const now = () => performance.now() / 1000;
   const qseed = q.get('semente') ? Number(q.get('semente')) >>> 0 : null;
   const freshSeed = () => qseed ?? (((Date.now() * 2654435761) >>> 0) % 1000000);
@@ -104,7 +106,6 @@ export async function boot() {
   };
   const body = await loadBody(r, { seed: 1, role: 'jonas' });
   r.scene.add(body.root);
-  const grate = buildGrate(r); r.scene.add(grate.group);       // the grate of the first cutscene: bars of geometry in front of its camera
   const quick = createQuick({ options, emit: onQuick });
   const sceneOf = (id) => SCENES[id];
   const titleOf = (night, i) => { const n = NIGHTS[night]; return n ? `${n.titulo} · ${SCENES[n.cenas[i]]?.title ?? ''}` : ''; };
@@ -200,7 +201,7 @@ export async function boot() {
   let sceneSeq = 0;
   async function enterScene(scene) {
     const seq = ++sceneSeq;
-    st.scene = scene; st.goal = ''; st.examine = null; st.cut = null; ui.cut(false); app.dataset.cutfx = ''; grate.show(false); st.shot = -1; interact.reset(); placeTargets(scene); st.aiming = false; st.camMode = scene.camera ?? 'plano'; app.dataset.hide = ''; delete app.dataset.hide; delete app.dataset.seq;
+    st.scene = scene; st.goal = ''; st.examine = null; st.cut = null; ui.cut(false); app.dataset.cutfx = ''; st.shot = -1; interact.reset(); placeTargets(scene); st.aiming = false; st.camMode = scene.camera ?? 'plano'; app.dataset.hide = ''; delete app.dataset.hide; delete app.dataset.seq;
     st.ready = (async () => {
       const w = await loadWorld(scene);
       if (seq !== sceneSeq) return;
@@ -287,7 +288,6 @@ export async function boot() {
     c.sfx = (b.sfx ?? []).map((x) => ({ ...x, played: false }));
     c.actors = (b.actors ?? []).map((a) => { const d = buildDog(r, { seed: a.seed ?? 3 }); st.world.sc.group.add(d.root); return { a, d }; });
     c.loading = false; st.shot = Math.max(0, st.shot);
-    grate.show(b.overlay === 'grade');
   }
   function cutPlan() { const c = st.cut; let t = c.t; for (const p of c.plan) { if (t < p.dur) return { p, u: t / p.dur }; t -= p.dur; } const p = c.plan.at(-1); return p ? { p, u: 1 } : null; }
   /** The camera of the cutscene now: the shot of the plan, moving from its eye to `eye2` and its target to `at2` when it has them. */
@@ -311,17 +311,17 @@ export async function boot() {
     }
     for (const x of c.sfx) if (!x.played && c.t >= x.t) { x.played = true; audio.play(x.name, { gain: x.gain ?? 0.7 }); }
     for (const { a, d } of c.actors) {
-      const u = Math.max(0, Math.min(1, (c.t - a.t0) / Math.max(0.01, a.t1 - a.t0))), p = lerp3(a.from, a.to, u);
+      const u = Math.max(0, Math.min(1, (c.t - a.t0) / Math.max(0.01, a.t1 - a.t0))), { pos: p, yaw } = routeAt(a, u);   // (its way may have corners: `via`)
       d.root.visible = c.t >= a.t0 - 0.01;
       d.root.position.set(p[0], st.world.sc.ground?.(p[0], p[1]) ?? 0, p[1]);
-      d.root.rotation.y = Math.atan2(-(a.to[0] - a.from[0]), -(a.to[1] - a.from[1]));
+      d.root.rotation.y = yaw;
       d.update(STEP, { speed: u > 0 && u < 1 ? a.speed ?? 1.1 : 0, state: a.state ?? 'calma' });
     }
     const cp = cutPlan(); if (cp) { const idx = c.plan.indexOf(cp.p); if (idx !== c.idx) { if (c.idx !== undefined) audio.play('corte', { gain: 0.4 }); c.idx = idx; } }
     if (it.skip || c.t >= c.total) endCut();
   }
   function endCut() {
-    const c = st.cut; st.cut = null; ui.cut(false); ui.sayClear(); app.dataset.ctx = ctxName(); app.dataset.cutfx = ''; grate.show(false);
+    const c = st.cut; st.cut = null; ui.cut(false); ui.sayClear(); app.dataset.ctx = ctxName(); app.dataset.cutfx = '';
     for (const v of c.voices) v.stop();
     for (const { d } of c.actors) d.root.parent?.remove(d.root);
     st.shot = pickShot(st.scene.shots, player.pos, -1); st.follow = null; c.done?.();
@@ -388,50 +388,112 @@ export async function boot() {
     st.world.sc.group.add(g);
     return out;
   }
-  function startSequence() {
+  /** The blood of the attack (the person's decision of 2026-11-17, only in this game): drops in the air, a pool on the pavement, blots on him. Made only when `gore()` is on, and never otherwise. */
+  function buildBlood(at, seed) {
+    const g = new T3.Group(); g.name = 'sangue';
+    const gy = st.world.sc.ground?.(at[0], at[1]) ?? 0.15;
+    const dropMat = r.mat('#6a0e14'), darkMat = r.mat('#450910');
+    const drops = Array.from({ length: EM.BLOOD.n }, () => { const m = new T3.Mesh(new T3.SphereGeometry(0.024, 5, 4), dropMat); m.visible = false; g.add(m); return m; });
+    const flat = (mat, sides) => { const m = new T3.Mesh(new T3.CircleGeometry(1, sides), mat); m.rotation.x = -Math.PI / 2; m.visible = false; g.add(m); return m; };
+    const pool = flat(darkMat, 14), stains = [flat(darkMat, 9), flat(dropMat, 9), flat(darkMat, 8)];
+    st.world.sc.group.add(g);
+    return {
+      group: g, parts: drops.length + 1 + stains.length,
+      update(tau) {
+        const b = EM.bloodAt(tau, at, seed);
+        b.pts.forEach((p, i) => { const m = drops[i]; if (!p) { m.visible = false; return; } m.visible = true; m.position.set(p[0], gy + p[1] - 0.2, p[2]); });
+        pool.visible = b.pool > 0.01; pool.scale.set(Math.max(0.01, b.pool), Math.max(0.01, b.pool * 0.75), 1); pool.position.set(at[0] + 0.1, gy + 0.03, at[1] + 0.05);
+        stains.forEach((m, i) => { const s = b.stains[i]; m.visible = s.r > 0.01; m.scale.set(Math.max(0.01, s.r), Math.max(0.01, s.r), 1); m.position.set(s.x, gy + 0.3 + i * 0.01, s.z); });
+      },
+      dispose() { g.removeFromParent(); g.traverse((o) => { o.geometry?.dispose?.(); }); },
+    };
+  }
+  /** The sparks of the dog's shorted battery: a few hot points round the socket of its back, from the time (deterministic). */
+  function buildSparks() {
+    const g = new T3.Group(), mat = r.glow ? r.glow('#ffd070') : r.mat('#ffd070');
+    const pts = Array.from({ length: 16 }, () => { const m = new T3.Mesh(new T3.BoxGeometry(0.07, 0.07, 0.07), mat); m.visible = false; g.add(m); return m; });
+    st.world.sc.group.add(g);
+    return {
+      group: g,
+      set(k, dog, t) {
+        const rg = mulberry32(Math.floor(t * (options.flashes ? 4 : 24)) + 77);       // ("reduzir clarões": fewer, slower sparks)
+        pts.forEach((m, i) => { if (!k || rg() > k) { m.visible = false; return; } const a = rg() * 6.28, d = 0.1 + rg() * 0.35, sy = Math.sin(dog.yaw ?? 0), cy = Math.cos(dog.yaw ?? 0); m.visible = true; m.position.set(dog.pos[0] + Math.cos(a) * d * 0.7 + sy * 0.45, 0.85 + rg() * 0.5, dog.pos[1] + Math.sin(a) * d * 0.7 + cy * 0.45); });
+      },
+      dispose() { g.removeFromParent(); g.traverse((o) => { o.geometry?.dispose?.(); }); },
+    };
+  }
+  /** `opts`: { retry, variant, from }: the checkpoint brings him back to the start of the splice (the cutscene is skipped, the fade comes up from black). */
+  function startSequence(opts = {}) {
     if (st.seq || !S4) return;
     const cfg = S4.cfg, sp = cfg.splice, id = cfg.dogs[0].id;
     const dg = S4.machines.list().find((x) => x.id === id), far = dg && dist2(dg.pos, sp.pos) > 14;
     const forced = q.get('emenda');
     // the decoy that took the dog far away makes it shorter and easier: the dog only passes at a distance and looks (two steps, no leap, no stuck cable)
-    const variant = forced === 'cheia' || forced === 'curta' ? forced : far ? 'curta' : 'cheia';
-    const from = mulberry32(((run.seed >>> 0) ^ 0x5eed) >>> 0)() < 0.5 ? -1 : 1;           // from which side of the lane the dog leaps (the seed of the game)
-    const steps = EM.STEPS[variant].map((x) => (x.kind === 'dir' ? { ...x, want: from } : x));
-    const rec = { variant, from, starts: [], wins: [], hits: [], dodge: null, knockedAt: null, closedAt: null, freedAt: null, mash: 0 };
-    const S = { variant, steps, rec, id, phase: 'cine', t: 0, ct: 0, prevDown: false, prevSx: 0, pose: null, dead: false, fade: 0, sfxAt: 0, shot: -1, said: new Set(), props: null };
+    const variant = opts.variant ?? (forced === 'cheia' || forced === 'curta' ? forced : far ? 'curta' : 'cheia');
+    const from = opts.from ?? (mulberry32(((run.seed >>> 0) ^ 0x5eed) >>> 0)() < 0.5 ? -1 : 1);           // from which side of the lane the dog leaps (the seed of the game)
+    const noQuiet = !run.pocket.includes('isca-reserva');                                                  // the lure pressed against the sensor is the reserve one
+    // the dodge is always to the left (south, away from the skip, where the dog is going to slide): the seed only decides which side of the lane the dog leaps from
+    const steps = EM.STEPS[variant].map((x) => (x.kind === 'dir' ? { ...x, want: -1 } : x.kind === 'pick' ? { ...x, noQuiet } : x));
+    const rec = { variant, from, starts: [], wins: [], hits: [], dodge: null, knockedAt: null, closedAt: null, freedAt: null, mash: 0, choice: null, slowK: 0 };
+    const S = { variant, steps, rec, id, phase: 'cine', t: 0, ct: 0, prevDown: false, prevSx: 0, pose: null, dead: false, fade: 0, sfxAt: 0, shot: -1, said: new Set(), props: null, slowK: 0, timeScale: 1, blood: null, sparks: null, goreOn: true, over: null };
     S.sq = createSequence({ steps, options, emit: (e) => onSeq(e) });
     S.props = buildSeqProps(variant);
     st.seq = S4.seq = S;
     quick.cancel(); player.pos = [...EM.J]; player.body = 0; player.hidden = null; interact.reset();
+    // the checkpoint of the splice: a death comes back here, not to the start of the exit (the card holds it, with what is in the pocket)
+    if (!opts.retry && director.scene) { run.cp = { scene: director.scene.id, at: 'saida-emenda', variant, from }; checkpoint(); }
     ui.cut(true); ui.cutHint(touch.visible ? '' : device() === 'gamepad' ? 'Segure Start por 1 s para pular a cena' : 'Segure Esc por 1 s para pular a cena');
     app.dataset.ctx = 'cut'; delete app.dataset.seq;
     S.pose = EM.cinePose(variant, 0); S4.machines.puppet(id, S.pose.dog);
+    if (opts.retry) { S.ct = EM.CINE[variant] - 1e-3; st.fadeIn = FADE_IN * 1.4; }        // (the dog is where the cutscene left it: it goes straight to the first command)
   }
   function dropSequence() {
     const S = st.seq; if (!S) return;
-    S.props?.dispose(); S4?.machines.puppet(S.id, null);
+    S.props?.dispose(); S.blood?.dispose(); S.sparks?.dispose(); S4?.machines.puppet(S.id, null);
     st.seq = null; if (S4) S4.seq = null;
-    ui.sign(null); ui.cut(false); delete app.dataset.seq; app.dataset.ctx = ctxName();
+    ui.sign(null); ui.cut(false); ui.gameOver(null); delete app.dataset.seq; app.dataset.ctx = ctxName();
   }
   /** A step of the sequence is over, or begins: the sound, the consequence, what the picture will need (rec). */
   function onSeq(e) {
     const S = st.seq; if (!S) return; const rec = S.rec;
     if (e.type === 'step-start') {
       rec.starts[e.i] = S.t; rec.wins[e.i] = S.sq.view().total;
-      if (e.kind === 'dir') audio.play('cao-salta', { gain: 0.8 });
+      if (e.kind === 'dir') { audio.play('cao-salta', { gain: 0.8 }); audio.play('camera-lenta', { gain: 0.7 }); }
       else if (e.i > 0) audio.play('reacao-abre', { gain: 0.5 });
+      if (e.i === 3 && rec.choice?.id === 'quiet') audio.play('isca-perto', { gain: 0.8 });
     } else if (e.type === 'step') {
       rec.hits[e.i] = e.hit;
       audio.play(e.hit ? 'reacao-acerto' : 'reacao-erro', { gain: 0.7 });
-      S.lastStep = { kind: e.kind, hit: e.hit, auto: e.auto, at: S.t };
+      S.lastStep = { kind: e.kind, hit: e.hit, auto: e.auto, at: S.t, i: e.i };
+      const fatal = S.sq.view().fatal, last = e.i === S.sq.view().count - 1;
       if (e.kind === 'dir') {
         const d = S.sq.view().dodge;
         if (e.hit) rec.dodge = { side: d.side, at: rec.starts[e.i] + d.at };
-        else rec.knockedAt = rec.starts[e.i] + rec.wins[e.i];                         // the dog gets to him when its leap ends
-      } else if (!e.hit) seqMiss();
+        else { rec.knockedAt = rec.starts[e.i] + rec.wins[e.i]; S.goreOn = gore(); }  // the dog gets to him when its leap ends
+      } else if (e.kind === 'pick') {
+        if (e.hit) { rec.choice = { id: e.choice, at: S.t }; if (e.choice === 'loud') rec.spent = true; }
+      } else if (e.i === 3 && rec.choice && e.hit) {
+        rec.b1End = S.t;
+        if (rec.choice.id === 'quiet') {
+          // the lure was spent at the sensor: the dog is deaf for a while
+          rec.deafAt = S.t; dropFrom(run.pocket, 'isca-reserva'); run.flags.iscaGasta = true; audio.play('cao-surdo', { gain: 0.8 });
+        } else {
+          // the bare end of the cable in the socket of its back: the battery shorts, the dog falls switched off; the network sees one dog less
+          rec.jabAt = S.t; run.flags.caoDesativado = true; audio.play('curto', { gain: 0.9 });
+          escuta.raise(EM.ESCUTA_DISABLE, 'dog-disabled'); ui.heard(now()); ui.toast('A rede perdeu o sinal de um cão: a Escuta subiu', now());
+        }
+      } else if (!e.hit && !fatal) seqMiss();
       if (e.kind === 'mash' && e.hit) { rec.freedAt = S.t; audio.play('cabo-solta', { gain: 0.8 }); }
-      if (e.kind === 'press') closeSplice();                                         // (missed: it closes anyway, with the noise)
-    } else if (e.type === 'seq-end' && e.outcome === 'done') endSequence();
+      if (e.kind === 'press' && last) closeSplice();                                 // (missed: it closes anyway, with the noise)
+    } else if (e.type === 'seq-end') {
+      if (e.outcome === 'done') { endSequence(); return; }
+      S.goreOn = gore();
+      if (e.outcome === 'bitten') {
+        // it recovers and goes for him: from the skip to where he is (at the dog, if he was kneeling at it)
+        const atDog = S.sq.view().log.at(-1)?.i === 3;
+        rec.failAt = S.t; rec.knock = { S: [...EM.DUMP.hit], C: [...(atDog ? EM.DUMP.near[rec.choice.id] : EM.J)] }; rec.knockedAt = S.t + EM.ATTACK.bite;
+      }
+    }
   }
   /** Missing a step that is not the dodge: the noise, the Escuta (+8, as any reaction missed in the street), and the game goes on. */
   function seqMiss() {
@@ -445,17 +507,46 @@ export async function boot() {
     st.world.sc.ents.setParam(S4.cfg.cable, 'emendado', true); st.world.sc.setThing?.('paineis', 'limpo');
     audio.play('consertar', { gain: 0.8 });
   }
-  /** The dog is let go (it goes back to its route and does not see him for a while), and the story goes on: back down the shaft. */
+  /** Jonas goes into the skip (the quiet way out): hidden, as if he had pressed the key at it. */
+  function hideInSkip() {
+    const h = st.world.sc.hides.find((x) => /cacamba/.test(x.id)); if (!h) return;
+    st.hideFrom = [...EM.J]; player.pos = [h.pos[0], h.pos[2] ?? h.pos[1]]; player.hidden = h.id; player.crouch = true; player.run = false;
+    cam3.place(Math.PI / 2);
+  }
+  /** The dog is let go and the story goes on: back down the shaft. The way it ended decides what is left in the street (a dog that is switched off, or one that went on along its route). */
   function endSequence() {
-    const S = st.seq, dog = S.pose?.dog;
-    S4.machines.release(S.id, { pos: dog?.pos, yaw: dog?.yaw }); S4.machines.grace('jonas', 8);
+    const S = st.seq, dog = S.pose?.dog, ch = S.rec.choice?.id, id = S.id;
+    if (ch === 'loud') { /* the dog stays down: the puppet is put back below */ }
+    else S4.machines.release(id, { pos: dog?.pos, yaw: dog?.yaw });
+    S4.machines.grace('jonas', ch === 'quiet' ? 30 : 8);
     player.crouch = false; player.body = -Math.PI / 2; cam3.place(-Math.PI / 2);          // he gets up facing east, where the shaft is
-    dropSequence();
+    dropSequence(); if (st.view) st.view.work = null;
+    if (ch === 'loud') {
+      // it lies where it fell, like the broken one; it is a body: a box the size of the dog keeps Jonas from walking through it
+      S4.machines.puppet(id, { pos: [...EM.DUMP.hit], yaw: EM.DUMP.yaw, speed: 0, state: 'desligado', sensor: '#16161a', y: 0, pitch: 0 });
+      S4.down = id; S4.cols.push({ min: [EM.DUMP.hit[0] - 0.7, EM.DUMP.hit[1] - 0.3], max: [EM.DUMP.hit[0] + 0.7, EM.DUMP.hit[1] + 0.3] });
+    } else if (ch === 'quiet') hideInSkip();
     ui.toast('Cabo emendado: a bateria volta a carregar', now()); director.signal('saida-emenda');
+  }
+  /** The checkpoint came back (a death, or "Continuar"): Jonas is at the cable, the street is made, and the sequence starts at its first command. */
+  function resumeSplice(cp) {
+    if (!S4 || st.seq) return;
+    if (director.waitName !== 'saida-emenda') return;
+    startSequence({ retry: true, variant: cp.variant, from: cp.from });
+  }
+  /** The world is slow while the dodge is asked for, and eases back. */
+  function seqScale(S) {
+    const v = S.sq.view(), on = v.active && !v.gap && v.kind === 'dir';
+    S.slowK += ((on ? 1 : 0) - S.slowK) * Math.min(1, STEP * (on ? EM.SLOW.easeIn : EM.SLOW.easeOut));
+    S.slowK = Math.max(0, Math.min(1, S.slowK)); if (S.slowK < 0.002 && !on) S.slowK = 0;
+    S.rec.slowK = S.slowK;
+    return 1 - S.slowK * (1 - EM.SLOW.scale);
   }
   function stepSequence(it) {
     const S = st.seq, id = S.id;
-    S.t += STEP;
+    const scale = S.phase === 'act' ? seqScale(S) : 1, dt = STEP * scale;
+    S.timeScale = scale;
+    S.t += dt;
     if (S.phase === 'cine') {
       S.ct += STEP; const total = EM.CINE[S.variant];
       S.pose = EM.cinePose(S.variant, Math.min(S.ct, total - 1e-4));
@@ -470,26 +561,37 @@ export async function boot() {
       const sx = Math.abs(it.mx) > 0.6 ? Math.sign(it.mx) : 0; let dir = it.dir; if (!dir && sx && sx !== S.prevSx) dir = sx; S.prevSx = sx;
       const react = it.react || st.reactNow; st.reactNow = false;
       const v0 = S.sq.view();
-      S.sq.step(STEP, { held: down, press: edgeUse, dir, react });
+      S.sq.step(dt, { held: down, press: edgeUse, dir, react });
       const v = S.sq.view(); S.rec.mash = v.kind === 'mash' && !v.gap ? v.progress : S.rec.mash;
       if (v.kind === 'mash' && !v.gap && (edgeUse || dir || react) && v.progress > v0.progress - 1) audio.play('cabo-puxa', { gain: 0.5 });
       S.pose = EM.actionPose(S.variant, S.rec, S.t);
-      // the dog's sounds: the servo while it walks, the stinger of the leap, the one that knocks him down
+      // the dog's sounds: the servo while it walks, the stinger of the leap, the skid into the skip
       const dg = S.pose.dog;
       if (dg.speed > 0.5 && S.t - S.sfxAt > 0.38) { S.sfxAt = S.t; audio.play('cao-rolar', { pos: [dg.pos[0], 1, dg.pos[1]], gain: 0.8 }); }
       const rk = S.rec;
-      if (rk.knockedAt != null && S.t >= rk.knockedAt && !S.said.has('knock')) { S.said.add('knock'); audio.play('cao-derruba', { gain: 0.9 }); bus.emit('noise', { pos: [...EM.J], loud: 1, kind: 'fall', src: 'jonas-fall' }); }
+      if (rk.starts[1] !== undefined && !S.said.has('slam') && rk.knockedAt == null && S.t >= rk.starts[1] + rk.wins[1] + EM.DUMP.slide) { S.said.add('slam'); audio.play('cao-bate', { gain: 0.9 }); bus.emit('noise', { pos: [...EM.DUMP.hit], loud: 0.6, kind: 'fall', src: id }); }
+      // the dog's battery, when it is shorted
+      if (S.pose.fx.dogSpark > 0 || S.sparks) { S.sparks ??= buildSparks(); S.sparks.set(S.pose.fx.dogSpark * (options.flashes ? 0.4 : 1), dg, S.t); }
+      // the attack: the sound, the blood (only if the option is on), then the black, the game over, and the way back
       if (rk.knockedAt != null) {
-        const k = S.t - rk.knockedAt;
-        S.fade = Math.max(0, Math.min(1, (k - 0.7) / 0.6));
-        if (k > 1.4 && !S.dead) { S.dead = true; bus.emit('person:down', { id: 'jonas', by: id }); return; }
+        const k = S.t - rk.knockedAt, on = S.goreOn, A = EM.ATTACK, T = on ? A : A.off;
+        if (k >= 0 && !S.said.has('hit')) {
+          S.said.add('hit');
+          if (on) { audio.play('cao-ataque', { gain: 0.95 }); S.blood = gore() ? buildBlood(rk.knock?.C ?? EM.J, run.seed) : null; }
+          else audio.play('abafado', { gain: 0.9 });
+        }
+        if (S.blood && k >= 0) S.blood.update(k);
+        S.fade = on ? Math.max(0, Math.min(1, (k - A.fadeAt) / 0.6)) : Math.max(0, Math.min(1, (k - A.off.fadeAt) / A.off.fade));
+        if (k >= T.overAt && !S.over) { S.over = { at: S.t }; audio.play('fim-de-jogo', { gain: 0.8 }); ui.gameOver({ why: 'O cão pegou o Jonas.', hint: fmt('{use}: voltar ao último ponto salvo') }); }
+        const again = S.over && S.t - S.over.at > 0.8 && (edgeUse || react);
+        if ((k >= T.reloadAt || again) && !S.dead) { S.dead = true; bus.emit('person:down', { id: 'jonas', by: id }); return; }
       }
     }
     S4.machines.puppet(id, S.pose.dog);
-    S4.machines.update(STEP, { people: [] });
-    S4.gear.update(STEP);
+    S4.machines.update(dt, { people: [] });
+    S4.gear.update(dt);
     S.props?.set(S.pose.tail);
-    director.update(STEP, { pos: player.pos });
+    director.update(dt, { pos: player.pos });
   }
   // ---- the run ------------------------------------------------------------------------------------------------------------------------
   function bind(saved) {
@@ -499,7 +601,7 @@ export async function boot() {
     closeRadio(); st.handRadio = false;
     radio = createRadio({ escuta, trust, flags: run.flags, conversations: CONVERSATIONS, channels: RADIO.channels, secrets: SECRETS, options, saved: run.radio, emit: onRadio });
     director = createDirector({ nights: NIGHTS, scenes: SCENES, run, escuta, trust, radio, quick, hooks: {
-      sceneStart: (scene) => { enterScene(scene); },
+      sceneStart: (scene) => { enterScene(scene).then(() => { const cp = run?.cp; if (cp && cp.scene === scene.id) resumeSplice(cp); }); },
       checkpoint: () => checkpoint(),
       goal: (t) => { st.goal = t; },
       say: (who, text, d, voice) => say(who, text, d, voice),
@@ -565,9 +667,12 @@ export async function boot() {
     director.resume(); app.dataset.ctx = ctxName();
   };
   G.actions = {
-    newGame() { startRun('noite-1'); },
+    newGame() { G.actions.askGore(() => startRun('noite-1')); },
+    /** The first start: a short content notice and the choice of the option "Sangue e violência gráfica" (asked once, kept on the card), then what was asked for. */
+    askGore(then) { if (card.data.meta?.goreAsked) then(); else screens.open('gore', { then }); },
+    goreAnswer(on, then) { options.gore = Boolean(on); card.setMeta({ goreAsked: true, opts: { ...options } }); screens.close(true); then?.(); },
     again(args) { if (args?.demo) startRun('demo'); else if (args?.next) { run.night = args.next; run.scene = 0; st.phase = 'play'; director.beginNight(); card.save(copy(serialize())); } else G.actions.toTitle(); },
-    continueGame() { card.reload(); if (card.hasRun()) { loadRun(card.data.run); ui.toast('Partida carregada do bloco 1', now()); } },
+    continueGame() { card.reload(); if (card.hasRun()) G.actions.askGore(() => { loadRun(card.data.run); ui.toast('Partida carregada do bloco 1', now()); }); },
     loadNight(id) { const n = card.data.nights[id]; if (n?.start) { loadRun(n.start); ui.toast(`Recomeçando da noite ${NIGHTS[id].numero}`, now()); } },
     /** The death, or "recomeçar a cena": the state of the card (the start of the scene) comes back. */
     restartScene() {
@@ -614,7 +719,7 @@ export async function boot() {
     machines.update(STEP, { people: [{ id: 'jonas', pos: [...player.pos], crouch: player.crouch, hidden: Boolean(player.hidden), heat: 1 }] });
     if (S4 !== cur) return;                                // the dog knocked him down: the scene started again under us
     gear.update(STEP);
-    const dogs = machines.list();
+    const dogs = machines.list().filter((d) => d.id !== S4.down);                       // (a dog that was switched off is not one that hears, sees, or makes him run for it)
     // the splice of the cable: held next to the cut, once Tânia or the goal sent him there
     const sp = cfg.splice, working = sp && director.waitName === 'saida-emenda' && !player.hidden && dist2(player.pos, sp.pos) <= sp.radius;
     if (working) {
@@ -772,9 +877,12 @@ export async function boot() {
       else if (kind === 'dir') { const a = P.dog; at = [a.pos[0], 1.35 + (a.y ?? 0), a.pos[1]]; spec = { arrow: v.want < 0 ? '◀' : '▶', keys: dev === 'touch' ? '' : dev === 'gamepad' ? (v.want < 0 ? '◀' : '▶') : (v.want < 0 ? '←' : '→'), word: auto || 'esquive', u, pulse: true }; }
       else if (kind === 'mash') { at = cableMid; spec = { keys: g, word: auto || 'martele', u, progress: v.progress, pulse: true }; }
       else if (kind === 'press') { at = hand; spec = { keys: g, word: auto || 'aperte', u, pulse: true }; }
+      else if (kind === 'pick') { const a = P.dog; at = [a.pos[0], 1.3, a.pos[1]]; spec = { keys: dev === 'touch' ? '' : dev === 'gamepad' ? '◀|▶' : '←|→', word: auto || (v.noQuiet ? 'desativar ▶' : 'desorientar ◀   ▶ desativar'), u, pulse: true }; }
+      // the first command of a branch is at the dog, not at the cable
+      if ((kind === 'hold' || kind === 'press') && v.i === 3 && S.rec.choice) { const a = P.dog; at = [a.pos[0], 0.95, a.pos[1]]; spec = { ...spec, word: auto || (kind === 'hold' ? 'encoste a isca' : 'enfie o cabo') }; }
     } else if (recent) {
-      at = recent.kind === 'dir' ? [P.dog.pos[0], 1.35, P.dog.pos[1]] : recent.kind === 'mash' ? cableMid : hand;
-      spec = { word: recent.auto ? 'automático' : recent.hit ? 'ok' : recent.kind === 'dir' ? 'o cão pegou' : 'barulho', tone: recent.hit ? 'hit' : 'miss' };
+      at = recent.kind === 'dir' || recent.kind === 'pick' || recent.i === 3 ? [P.dog.pos[0], 1.35, P.dog.pos[1]] : recent.kind === 'mash' ? cableMid : hand;
+      spec = { word: recent.auto ? 'automático' : recent.hit ? 'ok' : recent.kind === 'dir' || recent.kind === 'pick' || recent.i === 3 ? 'o cão pegou' : 'barulho', tone: recent.hit ? 'hit' : 'miss' };
     }
     if (!spec || !at) return null;
     const p = project3(...at); if (!p) return null;
@@ -786,11 +894,14 @@ export async function boot() {
   let stepAcc = 0;
   function frame(tNow) {
     // (the captures give each picture its own length of time, `st.frameDt`: a software renderer is far too slow for the real one, and the video would play too fast)
-    const dtReal = st.manual && st.frameDt ? st.frameDt : Math.min(0.25, (tNow - last) / 1000); last = tNow;
+    // (filming: the animation advances by the game time stepped since the last picture, not by one frame time for every rAF: the browser calls this many times between two pictures)
+    const filming = st.manual && st.frameDt, dtReal = filming ? (st.simAcc ?? 0) : Math.min(0.25, (tNow - last) / 1000); last = tNow;
+    if (filming) st.simAcc = 0;
+    const animK = filming ? 1 : (st.seq?.timeScale ?? 1);
     stepAcc += dtReal;
     if (st.manual) stepAcc = 0;                       // the tests drive the steps themselves (a software renderer is far too slow for real time)
     try { while (stepAcc >= STEP) { step(); stepAcc -= STEP; } } catch (err) { console.error('step', err); stepAcc = 0; }
-    if (st.manual && st.frameDt) st.vt = (st.vt ?? 0) + st.frameDt;
+    if (filming) st.vt = (st.vt ?? 0) + dtReal;
     const t = st.manual && st.frameDt ? st.vt : (tNow - t0) / 1000;
     const w = st.world, scene = st.scene;
     if (w && scene && st.shot >= 0) {
@@ -799,7 +910,7 @@ export async function boot() {
       const cutting = st.phase === 'play' && st.cut && !st.cut.loading;
       const fp = st.phase === 'play' && hands.active ? hands.camera() : null, atDesk = st.phase === 'play' && desk.active ? desk.camera(r.camera.aspect, baseFov()) : null;
       if (st.debugCam) { const c = st.debugCam, dv = [c.at[0] - c.eye[0], c.at[1] - c.eye[1], c.at[2] - c.eye[2]]; cam = { eye: c.eye, at: c.at, dir: dv, fov: c.fov ?? null, aim: { pos: c.eye, dir: dv } }; }
-      else if (cutting) { cam = cutCamera(); if (cam && grate.visible) grate.place(cam.eye, cam.at, st.cut.t); }
+      else if (cutting) cam = cutCamera();
       else if (fp) cam = fp;
       else if (atDesk) cam = atDesk;
       else if (st.phase === 'title') { const u = Math.sin(t * 0.12) * 0.5; cam = shotCamera({ ...shot, eye: [shot.eye[0] + u * 3, shot.eye[1], shot.eye[2]] }); }
@@ -819,7 +930,7 @@ export async function boot() {
         const hers = desk.active || hands.active;       // at the radio, or with his hands up: the step places and moves him (src/desk.js, src/hands.js)
         body.root.visible = (hers || !st.examine) && st.phase !== 'title' && !player.hidden && !(st.cut && st.cut.b.noJonas) && !cam.near;
         const sj = st.seq?.pose?.jonas;
-        if (sj) { body.root.visible = true; body.root.position.set(sj.pos[0], w.sc.ground?.(sj.pos[0], sj.pos[1]) ?? 0, sj.pos[1]); body.root.rotation.y = sj.yaw; body.update(dtReal, { speed: sj.speed ?? 0, crouch: (sj.crouch ?? 0) > 0.5, run: Boolean(sj.run), lamp: st.seq.phase === 'act' ? 'on' : 'off', action: sj.action ?? null, gaze: sj.gaze ?? { x: 0, y: 0 } }); }
+        if (sj) { body.root.visible = !sj.hidden; body.root.position.set(sj.pos[0], w.sc.ground?.(sj.pos[0], sj.pos[1]) ?? 0, sj.pos[1]); body.root.rotation.y = sj.yaw; body.update(dtReal * animK, { speed: sj.speed ?? 0, crouch: (sj.crouch ?? 0) > 0.5, run: Boolean(sj.run), lamp: st.seq.phase === 'act' ? 'on' : 'off', action: sj.action ?? null, gaze: sj.gaze ?? { x: 0, y: 0 } }); }
         else if (!hers) { const g = w.sc.ground?.(player.pos[0], player.pos[1]) ?? 0; body.root.position.set(player.pos[0], g, player.pos[1]); body.root.rotation.y = player.body; }
         if (!sj && !hers && !st.examine) {
           // he looks at what matters: the thing in front of him (the point he can use), else straight ahead; the head lamp follows the flashlight
@@ -827,7 +938,7 @@ export async function boot() {
           if (c) { const a = Math.atan2(-(c.pos[0] - player.pos[0]), -(c.pos[1] - player.pos[1])); let d = a - player.body; d = Math.atan2(Math.sin(d), Math.cos(d)); gx = Math.max(-0.55, Math.min(0.55, d)); }
           if (st.cut?.b.look === 'up') { gx = 0; gy = 0.6; }
           st.gaze = (st.gaze ?? 0) + (gx - (st.gaze ?? 0)) * Math.min(1, dtReal * 6);
-          body.update(dtReal, { speed: player.speed, crouch: player.crouch, run: player.speed > 3.5, lamp: player.light ? 'on' : 'off', gaze: { x: st.gaze, y: gy } });
+          body.update(dtReal * animK, { speed: player.speed, crouch: player.crouch, run: player.speed > 3.5, lamp: player.light ? 'on' : 'off', gaze: { x: st.gaze, y: gy } });
         }
         // the light: the flashlight; in a cutscene the beat may bring a light of its own (a sensor shining down the shaft)
         const sl = st.cut?.b.spot;
@@ -901,7 +1012,7 @@ export async function boot() {
 
   window.__game = {
     G, st, player, card, input, options, screens, ui, audio, voices, quick, body, r, bus, cam: cam3,
-    get run() { return run; }, get escuta() { return escuta; }, get trust() { return trust; }, get radio() { return radio; }, get desk() { return desk; }, get hands() { return hands; }, get director() { return director; }, get street() { return S4; }, get conversations() { return CONVERSATIONS; },
+    gore, get run() { return run; }, get escuta() { return escuta; }, get trust() { return trust; }, get radio() { return radio; }, get desk() { return desk; }, get hands() { return hands; }, get director() { return director; }, get street() { return S4; }, get conversations() { return CONVERSATIONS; },
     // for the tests and the captures: nothing of the game's rules
     test: {
       teleport(x, z) { player.pos = [x, z]; },
@@ -909,7 +1020,7 @@ export async function boot() {
       die,
       manual(on = true) { st.manual = on; st.forceDraw = 0; },
       render() { st.forceDraw = 3; },
-      step(n = 1) { for (let i = 0; i < n; i++) step(); },
+      step(n = 1) { for (let i = 0; i < n; i++) { step(); st.simAcc = (st.simAcc ?? 0) + STEP * (st.seq?.timeScale ?? 1); } },
       /** A camera put by hand ({ eye, at, fov }) for a picture; `camera(null)` gives the game its own back. */
       camera(c) { st.debugCam = c; },
       serialize,

@@ -1,11 +1,12 @@
 // The cutscenes of the night 1 for the film mode (the video of the night): the places and the moments of the avenue that the game plays, each a
-// view the video can use alone: the city through the grate, the broken dog blinking its eight colours (S3: 6 s), the dog on its route, the decoy,
+// view the video can use alone: the city seen from inside the shaft, up through its grate (the grate is a thing of the street, in the pavement:
+// scenes/grade.js; nothing is put in front of the camera), the broken dog blinking its eight colours (S3: 6 s), the dog on its route, the decoy,
 // the splice of the cable. Everything is a function of the time t; the street is the one of data/scenes/rua.json plus the cut cable of the scene
 // (data/story/scenes.json, n1-saida), so what is filmed is what is played. A view is [t0, t1, what it shows].
 import { buildScene } from '../scenes/rua.js';
 import { makeStage, mix, ease } from './stage.js';
 import { flashAt } from '../systems/cores.js';
-import { buildGrate } from '../scenes/grade.js';
+import { routeAt } from '../systems/route.js';
 import RUA from '../../data/scenes/rua.json' with { type: 'json' };
 import SCENES from '../../data/story/scenes.json' with { type: 'json' };
 
@@ -16,11 +17,11 @@ const dolly = (e0, a0, e1, a1, fov) => (u) => ({ eye: go(e0, e1)(u), at: go(a0, 
 const CID = SCENES['n1-cidade'].beats.find((b) => b.type === 'cutscene'), CID_T = CID.plan.reduce((a, p) => a + p.dur, 0);
 const cidShot = (t) => { let k = Math.max(0, Math.min(CID_T - 1e-6, t)); for (const p of CID.plan) { if (k < p.dur) return [CID.shots.find((x) => x.id === p.shot), k / p.dur]; k -= p.dur; } return [CID.shots[0], 1]; };
 const cidCam = (t) => { const [s, u0] = cidShot(t), u = ease(u0); return { eye: s.eye2 ? mix(s.eye, s.eye2, u) : s.eye, at: s.at2 ? mix(s.at, s.at2, u) : s.at, fov: s.fov }; };
-const cidDog = (i) => (u, t) => { const a = CID.actors[i], k = Math.max(0, Math.min(1, (t - a.t0) / (a.t1 - a.t0))), dx = a.to[0] - a.from[0]; return { pos: mix(a.from, a.to, k), yaw: dx < 0 ? P / 2 : -P / 2, speed: a.speed, state: a.state }; };
+const cidDog = (i) => (u, t) => { const a = CID.actors[i], k = Math.max(0, Math.min(1, (t - a.t0) / (a.t1 - a.t0))); return { ...routeAt(a, k), speed: k > 0 && k < 1 ? a.speed : 0, state: a.state }; };
 const S = SCENES['n1-saida'], BROKEN = S.street.broken, SPLICE = S.street.splice;
 
 const views = {
-  grade: [0, CID_T, 'A cidade que ainda trabalha, vista pela grade do poço de ventilação: a avenida iluminada, os carros parados, o viaduto e os cães da frota que passam'],
+  grade: [0, CID_T, 'A cidade que ainda trabalha, vista de dentro do poço de ventilação, de baixo para cima, pela grade fixa na calçada: os prédios, o viaduto e o céu por entre as barras, e os cães da frota que passam por cima dela'],
   'cao-quebrado': [14, 20, 'O cão quebrado junto à caçamba, sem rede, piscando as oito cores da sequência uma depois da outra, 0,75 s cada (6.0 s)'],
   'cao-rota': [20, 28, 'O cão em rota fixa pela pista, ao lado da calçada, com Jonas agachado perto da caçamba (8.0 s)'],
   isca: [28, 34, 'A isca sonora no chão, estalando, e o cão indo até ela (6.0 s)'],
@@ -42,13 +43,8 @@ function buildOwn(r) {
   const cable = S.entities.find((e) => e.id === 'cabo-avenida');
   const sc = buildScene(r, { layout: { ...RUA, entities: [...RUA.entities, cable] } });
   let spliced = null;
-  // the grate of the first view is geometry, as in the game: bars in front of the camera
-  const grate = buildGrate(r); sc.group.add(grate.group);
   const update = sc.update.bind(sc);
   sc.update = (t, ctx) => {
-    const through = t >= views.grade[0] && t < views.grade[1];
-    grate.show(through);
-    if (through && ctx?.listener) grate.place(ctx.listener, [ctx.listener[0] + ctx.dir[0], ctx.listener[1] + ctx.dir[1], ctx.listener[2] + ctx.dir[2]], t);
     const on = t >= views.emenda[0] + (views.emenda[1] - views.emenda[0]) * 0.5 && t < views.emenda[1] + 1;
     if (on !== spliced) { spliced = on; sc.ents.setParam('cabo-avenida', 'emendado', on); }
     update(t, ctx);

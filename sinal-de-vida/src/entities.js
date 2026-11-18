@@ -70,7 +70,7 @@ export const ENTITY_TYPES = defineTypes({
   pontoDeEmbarque: { label: 'Ponto de embarque', group: 'rua', desc: 'Abrigo, o poste com a seta e o boneco, e a baia pintada.', params: {} },
   pontoDeEntrega: { label: 'Ponto de entrega', group: 'rua', desc: 'Chão pintado com a caixa e o poste do pictograma.', params: {} },
   bueiro: { label: 'Bueiro (grade)', group: 'rua', desc: 'Grade de bueiro no asfalto.', params: {} },
-  bocaRua: { label: 'Boca de inspeção (na rua)', group: 'rua', desc: 'A tampa aberta, com a corda e o cabo descendo.', params: {} },
+  bocaRua: { label: 'Grade do poço (na rua)', group: 'rua', desc: 'A grade do poço de ventilação da estação, rente à calçada: a folha de acesso, a corda por dentro e o cabo entrando.', params: {} },
   semaforo: { label: 'Semáforo', group: 'rua', desc: 'Semáforo com braço (0 vermelho, 1 amarelo, 2 verde).', params: { cor: num(0, 2, 1, 2) } },
   barreira: { label: 'Barreira', group: 'rua', desc: 'Barreira listrada de obra.', params: { comprimento: num(1, 6, 0.25, 2.5) } },
   cone: { label: 'Cone', group: 'rua', desc: 'Cone de trânsito.', params: {} },

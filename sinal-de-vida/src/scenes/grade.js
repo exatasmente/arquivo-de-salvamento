@@ -1,37 +1,39 @@
-// The grate of the first cutscene (the city seen through the ventilation grate of the shaft): a welded steel grate of real geometry a little
-// in front of the camera, so that what the game plays and what the film mode films is the same picture (a CSS layer would not be in the film).
-// It is made as a grate is made: upright flat bars standing on edge (deeper than they are wide), flat cross bars welded behind them, a weld
-// bead in each corner where they meet, and a frame of heavier bar round all of it. Each bar has a chamfer on its two near edges, which is
-// where the paint has gone and the steel catches the light of the street.
+// The grate of the station's ventilation shaft: a thing of the street, fixed in the pavement (models/city/street.js puts it in the entity
+// `bocaRua`, under the viaduct). It is not in front of any camera: the first cutscene looks up through it from inside the shaft, the dogs of
+// the fleet walk over it, and the street scenes see the same grate from above, where Jonas climbs out.
+// It is made as a floor grate is made: flat bars standing on edge (deeper than they are wide) that run along the avenue, square cross rods
+// let into their tops, a band of the same flat bar round each of its two leaves (the smaller one, over the ladder, is the access hatch, with
+// its hinges and its lifting plate), a beam under the joint of the two, a steel frame level with the pavement and a collar of concrete round
+// it. A weld bead where each bar meets its band and where each rod crosses a bar. Under it, the walls of the shaft going down into the dark.
+// Everything is in the entity's own frame: x along the avenue, y up with 0 at the top of the pavement, z across (the frame's top is level with the pavement).
 // It is painted as the props and the city are (models/city/paintkit.js): dark paint with large masses of value, chipped down to the primer
-// and the steel, rust that blooms at the welds and runs down, a worn pale edge, the shade of a bar on the one behind it. The night is in the
-// painting: the faces turned to the shaft are dark, the flanks get lighter toward the street. Nothing of it glows: the material is the
-// look's own, with about the share of unlit painting the props have (models/props/place.js).
-// The whole grate is two meshes: the painted one and the shell of its outline (models/outline.js), with the outline's material of the render.
-// `place(eye, at, t)` puts the grate in front of the camera, looking where it looks, with a very slow sway (the camera is a hand-held thing).
-// GRATE: `dist` from the eye to the near face, `pitch` between bars, `bar` the width of a bar's face, `cols` upright bars, `rows` cross bars.
-// It is read when the grate is built (a cutscene may tune it for its picture before building).
+// and the steel, rust that blooms at the welds and runs, a worn pale edge; the tops of the bars are polished by years of feet. The night is
+// in the painting: the undersides are dark, the flanks get lighter toward the street, the walls of the shaft are lit only near the top.
+// Nothing of it glows: the material is the look's own, with about the share of unlit painting the props have (models/props/place.js).
+// The whole of it is two meshes: the painted one and the shell of its outline (models/outline.js). The painting is made once (kept by the
+// grate's numbers) and the meshes carry `keep`, so the street does not join them into its own (scenes/common.js): the grate can be found
+// by its name, `grade`, and its place in the world never changes.
 import { mulberry32 } from '../../vendor/engine/rng.js';
 import { kitOf, OUTLINE_SPEC } from '../models/kit.js';
 import { OUTLINE } from '../models/outline.js';
 import * as P from '../models/city/paintkit.js';
 
-export const GRATE = { dist: 0.62, pitch: 0.21, bar: 0.03, cols: 9, rows: 4 };
+/**
+ * The grate's numbers, in metres: the opening of the shaft (x0..x1 by z0..z1, in the entity's frame), `split` where its two leaves meet,
+ * `pitch` between two bars, `bar` their width and `deep` their depth, `rod` the side of a cross rod and `rods` their pitch, `frame` the
+ * width of the steel frame and `collar` of the concrete round it, `well` how far down the walls go, `cable` where the thick cable goes in
+ * ([x, z]: the bars there are sawn through).
+ */
+export const GRATE = { x0: -0.9, x1: 1.2, z0: -0.75, z1: 0.75, split: -0.3, pitch: 0.1, bar: 0.016, deep: 0.05, rod: 0.012, rods: 0.2, frame: 0.04, collar: 0.16, well: 2.6, cable: [1.08, 0.02] };
+/** What the grate takes of the pavement (the hole the ground leaves for it), in the entity's frame. */
+export const footprint = (G = GRATE) => { const m = G.frame + G.collar - 0.004; return { x0: G.x0 - m, x1: G.x1 + m, z0: G.z0 - m, z1: G.z1 + m }; };
 
 // the colours of the painting (as in daylight; the material's tint and the scene's light make the night)
-const PAINT = [50, 51, 50], PRIMER = [124, 62, 46], STEEL = [150, 156, 162], BRIGHT = [226, 232, 240];
+const PAINT = [50, 51, 50], PRIMER = [124, 62, 46], STEEL = [150, 156, 162], BRIGHT = [226, 232, 240], CONC = [120, 121, 122];
 const RUST = '160,84,40', RUST_D = '94,48,28', GRIME = '26,22,22', COOL = '196,214,236', SPILL = [128, 146, 178];
 const TINT = '#b0aca4', PAINTED = 0.26;            // the night's tint over the painting, and how much of the painting shows whatever the light
-const ATLAS = 4096, DENSITY = 2048, GUT = 6;     // the painting's width, its most pixels per metre, the gap between two strips
-
-/** The sizes of a grate of these numbers, in metres (x across, y up, z away from the eye). */
-function layout(G) {
-  const { dist, pitch, bar, cols, rows } = G;
-  const w = pitch * (cols - 1), h = pitch * (rows - 1);
-  const dv = bar * 1.35, dh = bar * 1.15, fw = bar * 1.7, ch = bar * 0.13, proud = bar * 0.14;
-  const iw = w + pitch, ih = h + pitch;                                       // the opening inside the frame: half a pitch beyond the last bars
-  return { dist, pitch, bar, cols, rows, w, h, dv, dh, fw, ch, proud, iw, ih, ow: iw + fw * 2, oh: ih + fw * 2, z0: dist - bar / 2 };
-}
+const ATLAS = 4096, GUT = 6;                       // the painting's width, the gap between two strips
+const LONG = 2250, WALL_S = 420;                   // the pixels of a strip along a bar (1.5 m of it), and of a metre of the shaft's wall
 
 // ---- the painting ---------------------------------------------------------------------------------------------------------------------
 /** Runs fn with the context turned so that "down" (+y) is along the strip (+x of the canvas), at (x, y): for the bars that stand upright. */
@@ -160,30 +162,107 @@ function paintWeld(g, R, q) {
   g.restore();
 }
 
-/** The painting of a grate and where each of its parts is in it. Kept by the grate's numbers: the game and its cutscene share one. */
+/** The top of a bar: steel polished by the feet in long stretches, what is left of the paint in others, rust, grit caught at its edges. */
+function paintTop(g, R, q) {
+  const { x, y, w, h } = q;
+  clipTo(g, q);
+  g.fillStyle = P.css(P.mixc(PAINT, STEEL, 0.42)); g.fillRect(x, y, w, h);
+  P.masses(g, R, x, y, w, h, Math.round(w / 90), h * 1.4, '14,14,16', '150,156,164', 0.3);
+  for (let px = x - 40; px < x + w;) {
+    const len = 60 + R() * R() * 500, k = R();
+    if (k < 0.5) P.blob(g, px + len / 2, y + h * (0.35 + R() * 0.3), len * 0.6, h * (0.5 + R() * 0.5), k < 0.18 ? '226,232,240' : '170,176,184', 0.5 + R() * 0.4);
+    else if (k < 0.66) P.blob(g, px + len / 2, y + h / 2, Math.min(len, 80) * 0.5, h * 0.9, R() < 0.5 ? RUST : RUST_D, 0.7);
+    else if (k < 0.8) { g.fillStyle = P.css(P.scale(PAINT, 0.8 + R() * 0.3), 0.85); g.fillRect(px, y, len * 0.7, h); }
+    px += len * (0.5 + R() * 0.6);
+  }
+  for (let i = 0; i < w / 26; i++) { g.fillStyle = `rgba(${R() < 0.5 ? P.INK : P.PALE},${0.12 + R() * 0.25})`; g.fillRect(x + R() * w, y + R() * h, 6 + R() * 50, 1 + R()); }
+  g.fillStyle = `rgba(${P.INK},0.4)`; g.fillRect(x, y, w, 2); g.fillRect(x, y + h - 2, w, 2);
+  g.restore();
+}
+/**
+ * The concrete collar round the frame, seen from above, in the strip q: v = 0 is its outer edge (by the paving), v = h the edge by the
+ * steel, where the rust bleeds out. Floated concrete with its pits, cracks, chips off the outer edge, and the drawn line at its two edges.
+ */
+function paintConcrete(g, R, q) {
+  const { x, y, w, h } = q;
+  clipTo(g, q);
+  g.fillStyle = P.css(P.scale(CONC, 0.92 + R() * 0.14)); g.fillRect(x, y, w, h);
+  P.masses(g, R, x, y, w, h, Math.round(w / 60), h * 0.9, '40,34,30', P.PALE, 0.26);
+  for (let i = 0; i < (w * h) / 500; i++) { g.fillStyle = `rgba(${R() < 0.6 ? P.INK : P.PALE},${0.06 + R() * 0.12})`; g.fillRect(x + R() * w, y + R() * h, 8 + R() * 60, 1 + R() * 2); }
+  for (let i = 0; i < (w * h) / 900; i++) { const px = x + R() * w, py = y + R() * h, s = 1 + R() * 2.5; g.fillStyle = `rgba(${P.INK},${0.3 + R() * 0.4})`; g.fillRect(px, py, s, s); g.fillStyle = `rgba(${P.PALE},0.35)`; g.fillRect(px, py + s, s, 1); }
+  for (let px = x + R() * 120; px < x + w; px += 60 + R() * 420) { const s = 14 + R() * 30; P.blob(g, px, y + h - 2, s * (1.5 + R()), h * (0.3 + R() * 0.4), RUST_D, 0.4); P.blob(g, px, y + h, s, h * 0.2, RUST, 0.4); }
+  for (let i = 0; i < w / 300; i++) P.blob(g, x + R() * w, y + R() * h * 0.4, 50 + R() * 120, h * 0.4, GRIME, 0.3);
+  for (let i = 0; i < w / 380; i++) P.crack(g, R, x + R() * w, y + (R() < 0.5 ? 0 : h * 0.3), h * (0.5 + R() * 0.6), Math.PI / 2 + (R() - 0.5) * 0.8, 1.2, 0.7);
+  for (let i = 0; i < w / 260; i++) P.chip(g, R, x + R() * w, y + 3 + R() * 5, 8 + R() * 22, 4 + R() * 8, P.scale(CONC, 0.62), { lip: 0.4 });
+  wornEdge(g, R, x, x + w, y + 5, 3, 0.6);
+  g.fillStyle = `rgba(${P.INK},0.7)`; g.fillRect(x, y, w, 2.5); g.fillRect(x, y + h - 3, w, 3);
+  P.finish(g, R, x, y, w, h, { n: Math.round((w * h) / 3000), wide: 6, len: 50, a: 0.1, dir: 0, drift: 3 });
+  g.restore();
+}
+/**
+ * A wall of the shaft, seen from inside, in the strip q (v = 0 under the frame, v = h down in the well; S pixels to the metre): board-marked
+ * concrete with the damp and the rust run down from the frame. The light is painted: the warm light of the street comes in through the grate
+ * and lies on the top of the wall, with the shade of the cross rods in it, and the well goes dark below. A shell seen from inside has no
+ * outline of geometry, so its line is painted too: a dark band under the frame and down the two corners.
+ */
+function paintWall(g, R, q, S) {
+  const { x, y, w, h } = q;
+  clipTo(g, q);
+  g.fillStyle = P.css([84, 84, 84]); g.fillRect(x, y, w, h);
+  P.masses(g, R, x, y, w, h, 26, w * 0.16, '24,22,22', '170,168,160', 0.3);
+  for (let py = y + 0.3 * S; py < y + h; py += S * (0.24 + R() * 0.1)) for (let px = x; px < x + w;) {
+    const len = 40 + R() * 200;
+    if (R() < 0.6) { g.fillStyle = `rgba(${P.INK},${0.15 + R() * 0.25})`; g.fillRect(px, py + (R() - 0.5) * 3, len, 1.4); g.fillStyle = `rgba(${P.PALE},0.12)`; g.fillRect(px, py + 2, len, 1); }
+    px += len + R() * 90;
+  }
+  P.drips(g, R, x, x + w, y + 0.06 * S, h * 0.6, GRIME, 0.55, 26);
+  P.drips(g, R, x, x + w, y + 0.06 * S, h * 0.28, RUST_D, 0.5, 60);
+  for (let i = 0; i < 9; i++) P.blob(g, x + R() * w, y + 0.07 * S, 12 + R() * 30, 8 + R() * 14, RUST, 0.6);
+  for (let i = 0; i < 5; i++) { const px = x + R() * w, py = y + h * (0.1 + R() * 0.5); P.crack(g, R, px, py, 60 + R() * 160, Math.PI / 2 + (R() - 0.5) * 0.9, 1.3, 0.7); if (R() < 0.6) P.drip(g, R, px, py + 20, 60 + R() * 140, 5 + R() * 6, '214,208,190', 0.3); }
+  P.finish(g, R, x, y, w, h, { n: Math.round((w * h) / 4200), wide: 9, len: 60, a: 0.11, dir: Math.PI / 2, drift: 4 });
+  const lit = g.createLinearGradient(0, y, 0, y + h * 0.42); lit.addColorStop(0, 'rgba(255,196,128,0.2)'); lit.addColorStop(0.5, 'rgba(255,196,128,0.07)'); lit.addColorStop(1, 'rgba(255,196,128,0)');
+  g.fillStyle = lit; g.fillRect(x, y, w, h * 0.42);
+  for (let px = x - 0.2 * S; px < x + w; px += 0.2 * S) {
+    g.save(); g.transform(1, 0, 0.14, 1, px, y);
+    const gr = g.createLinearGradient(0, 0, 0, h * 0.4); gr.addColorStop(0, `rgba(${P.INK},0.26)`); gr.addColorStop(1, `rgba(${P.INK},0)`);
+    g.fillStyle = gr; g.fillRect(-0.008 * S, 0, 0.016 * S, h * 0.3); g.restore();
+  }
+  const dark = g.createLinearGradient(0, y, 0, y + h); dark.addColorStop(0, 'rgba(6,7,10,0)'); dark.addColorStop(0.25, 'rgba(6,7,10,0.22)'); dark.addColorStop(0.6, 'rgba(6,7,10,0.8)'); dark.addColorStop(0.8, 'rgba(6,7,10,1)'); dark.addColorStop(1, 'rgba(6,7,10,1)');
+  g.fillStyle = dark; g.fillRect(x, y, w, h);
+  g.fillStyle = `rgba(${P.INK},0.8)`; g.fillRect(x, y, w, 0.03 * S); g.fillRect(x, y, 5, h); g.fillRect(x + w - 5, y, 5, h);
+  g.restore();
+}
+
+/** The painting of a grate and where each of its parts is in it (a strip also says how many metres it is long: `m`). Kept by the grate's numbers. */
 const painted = new Map();
-function paintingOf(T, L) {
-  const key = [L.pitch, L.bar, L.cols, L.rows].join('|');
+function paintingOf(T, G) {
+  const key = JSON.stringify(G);
   if (painted.has(key)) return painted.get(key);
-  const S = Math.min(DENSITY, (ATLAS - GUT * 2) / L.ow), px = (m) => Math.max(4, Math.round(m * S));
-  // a shelf of strips: each asks for its length and its height
-  let cx = GUT, cy = GUT, rowH = 0; const jobs = [];
-  const strip = (len, hgt, fn) => { const w = px(len), h = px(hgt); if (cx + w + GUT > ATLAS) { cx = GUT; cy += rowH + GUT; rowH = 0; } const q = { x: cx, y: cy, w, h }; cx += w + GUT; rowH = Math.max(rowH, h); jobs.push([q, fn]); return q; };
-  const R = mulberry32(2026 + L.cols * 31 + L.rows);
-  const xs = Array.from({ length: L.cols }, (_, i) => -L.w / 2 + i * L.pitch), ys = Array.from({ length: L.rows }, (_, j) => L.h / 2 - j * L.pitch);
-  const A = {
-    S,
-    cross: ys.map(() => strip(L.iw, L.bar, (g, q) => paintFace(g, R, q, { down: 'v', cross: xs.map((x) => q.x + ((x + L.iw / 2 + L.bar * 0.2) / (L.iw + L.bar * 0.4)) * q.w), cw: L.bar * S }))),
-    upright: xs.map(() => strip(L.ih, L.bar, (g, q) => paintFace(g, R, q, { down: 'u' }))),
-    frameH: strip(L.ow, L.fw, (g, q) => paintFace(g, R, q, { down: 'v', bolts: L.pitch * S })),
-    frameV: strip(L.ih, L.fw, (g, q) => paintFace(g, R, q, { down: 'u', bolts: L.pitch * S })),
-    top: strip(L.ow, L.dv, (g, q) => paintFlank(g, R, q, 'top')),
-    bottom: strip(L.ow, L.dv, (g, q) => paintFlank(g, R, q, 'bottom')),
-    side: strip(L.ow, L.dv, (g, q) => paintFlank(g, R, q, 'side')),
-    edge: strip(L.ow, 14 / S, (g, q) => paintEdge(g, R, q)),
-    weld: strip(520 / S, 30 / S, (g, q) => paintWeld(g, R, q)),
+  // two columns of shelves: the wall of the shaft at the left, the long thin strips of the steel at the right
+  const wallW = Math.round((G.x1 - G.x0) * WALL_S), left = wallW + GUT * 2;
+  const cols = [{ x0: GUT, x1: left - GUT, cx: GUT, cy: GUT, rowH: 0 }, { x0: left, x1: ATLAS - GUT, cx: left, cy: GUT, rowH: 0 }], jobs = [];
+  const strip = (col, w, h, m, fn) => {
+    const c = cols[col]; w = Math.round(w); h = Math.round(h);
+    if (c.cx + w > c.x1) { c.cx = c.x0; c.cy += c.rowH + GUT; c.rowH = 0; }
+    const q = { x: c.cx, y: c.cy, w, h, m }; c.cx += w + GUT; c.rowH = Math.max(c.rowH, h); jobs.push([q, fn]); return q;
   };
-  const [c, g] = P.canvas(ATLAS, cy + rowH + GUT);
+  const R = mulberry32(2026 + 18), many = (n, f) => Array.from({ length: n }, f);
+  const ow = G.x1 - G.x0 + (G.frame + G.collar) * 2;
+  const A = {
+    wall: strip(0, wallW, G.well * WALL_S, G.x1 - G.x0, (g, q) => paintWall(g, R, q, WALL_S)),
+    flank: many(6, () => strip(1, LONG, 80, 1.5, (g, q) => paintFlank(g, R, q, 'side'))),
+    under: many(4, () => strip(1, LONG, 40, 1.5, (g, q) => paintFace(g, R, q, { down: 'u' }))),
+    top: many(4, () => strip(1, LONG, 40, 1.5, (g, q) => paintTop(g, R, q))),
+    edge: strip(1, LONG, 14, 1.5, (g, q) => paintEdge(g, R, q)),
+    frame: many(2, () => strip(1, LONG, 46, ow, (g, q) => paintFace(g, R, q, { down: 'u' }))),
+    beamUnder: strip(1, LONG, 100, 1.5, (g, q) => paintFace(g, R, q, { down: 'u', bolts: LONG / 6 })),
+    beamWeb: strip(1, LONG, 100, 1.5, (g, q) => paintFlank(g, R, q, 'side')),
+    rodTop: strip(1, LONG, 14, 1.5, (g, q) => paintEdge(g, R, q)),
+    rodSide: strip(1, LONG, 26, 1.5, (g, q) => paintFlank(g, R, q, 'bottom')),
+    collar: many(2, () => strip(1, LONG, 128, ow, (g, q) => paintConcrete(g, R, q))),
+    weld: strip(1, 520, 30, 0.3, (g, q) => paintWeld(g, R, q)),
+  };
+  const [c, g] = P.canvas(ATLAS, Math.max(cols[0].cy + cols[0].rowH, cols[1].cy + cols[1].rowH) + GUT);
   g.fillStyle = P.css(P.scale(PAINT, 0.9)); g.fillRect(0, 0, c.width, c.height);
   for (const [q, fn] of jobs) fn(g, q);
   P.punch(g, 0.34);
@@ -193,10 +272,20 @@ function paintingOf(T, L) {
 }
 
 // ---- the geometry ---------------------------------------------------------------------------------------------------------------------
+/** Where everything of a grate of these numbers is: its two leaves, each with its bars (their z) and its cross rods (their x). */
+function layout(G) {
+  const play = 0.004, strip = 0.03;                                             // the play of a leaf in the frame; the beam's top, between the leaves
+  const leaves = [[G.x0 + play, G.split - strip / 2 - play / 2], [G.split + strip / 2 + play / 2, G.x1 - play]].map(([a, b]) => {
+    const za = G.z0 + play, zb = G.z1 - play, n = Math.round((zb - za - G.bar) / G.pitch) - 1, step = (zb - za - G.bar) / (n + 1);
+    const nr = Math.max(1, Math.round((b - a) / G.rods) - 1);
+    return { a, b, za, zb, zs: Array.from({ length: n }, (_, i) => za + G.bar / 2 + step * (i + 1)), xs: Array.from({ length: nr }, (_, j) => a + ((b - a) * (j + 1)) / (nr + 1)) };
+  });
+  return { play, strip, leaves, c: G.bar * 0.2, seat: 0.03 };
+}
 /** Collects flat quads (and triangles) with the normal of each and a uv from a strip of the painting. */
 function mesher(T, A) {
   const pos = [], nor = [], uv = [], a = new T.Vector3(), b = new T.Vector3(), n = new T.Vector3();
-  /** uv of a point of a strip: s along (0..1 over [u0, u1] of its length), t across (kept half a pixel inside it). */
+  /** uv of a point of a strip: s along (0..1 of its length), t across (kept half a pixel inside it). */
   const at = (q, s, t) => [(q.x + s * q.w) / A.W, 1 - (q.y + 0.5 + t * (q.h - 1)) / A.H];
   const tri = (p, t, want) => {
     n.crossVectors(a.set(p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]), b.set(p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2])).normalize();
@@ -213,25 +302,43 @@ function mesher(T, A) {
   };
 }
 /**
- * A bar: `up` (it stands upright) or not, its centre (cx, cy), its length, the width f of its face, from z to z + d, with the chamfer c on
- * its two near edges. It is the near face, the two chamfers and the two flanks (the far face is never seen from the shaft).
- * strips: { face, a, b } (a: the flank at the left or the top, b: the other), each [strip, s0, s1] (the stretch of its length used).
+ * A flat bar on edge: it runs along `ax` ('x' or 'z') from a0 to a1 with its middle at `mid` on the other axis, f wide, from y1 (its top)
+ * down to y0, with the chamfer c on its two lower edges (where the paint has gone and the steel catches the light, seen from the shaft).
+ * strips: { top, under, a, b, edge, edge2 } (a: the flank on the low side of the other axis), each [strip, s0, s1]; one left out is not made.
  */
-function bar(M, A, { up, cx, cy, len, f, z, d, c }, strips) {
-  // (al along from the left or the top, ac across from the left or the top, dz into the depth) -> a place
-  const at = up ? (al, ac, dz) => [cx - f / 2 + ac, cy + len / 2 - al, z + dz] : (al, ac, dz) => [cx - len / 2 + al, cy + f / 2 - ac, z + dz];
-  const dir = up ? (ac, dz) => [ac, 0, dz] : (ac, dz) => [0, -ac, dz];
-  const face = (q, ac0, dz0, ac1, dz1, t0, t1, want) => { const [st, s0, s1] = q; M.quad([at(0, ac0, dz0), at(len, ac0, dz0), at(len, ac1, dz1), at(0, ac1, dz1)], [M.at(st, s0, t0), M.at(st, s1, t0), M.at(st, s1, t1), M.at(st, s0, t1)], want); };
-  face(strips.face, c, 0, f - c, 0, c / f, 1 - c / f, dir(0, -1));
-  face(strips.edge, 0, c, c, 0, 0, 1, dir(-1, -1)); face(strips.edge2, f, c, f - c, 0, 0, 1, dir(1, -1));
-  face(strips.a, 0, c, 0, d, c / d, 1, dir(-1, 0)); face(strips.b, f, c, f, d, c / d, 1, dir(1, 0));
+function bar(M, { ax, a0, a1, mid, f, y0, y1, c }, strips) {
+  const len = a1 - a0;
+  const at = ax === 'x' ? (al, ac, y) => [a0 + al, y, mid - f / 2 + ac] : (al, ac, y) => [mid - f / 2 + ac, y, a0 + al];
+  const dir = ax === 'x' ? (ac, y) => [0, y, ac] : (ac, y) => [ac, y, 0];
+  const face = (q, ac0, ya, ac1, yb, want) => { if (!q) return; const [st, s0, s1] = q; M.quad([at(0, ac0, ya), at(len, ac0, ya), at(len, ac1, yb), at(0, ac1, yb)], [M.at(st, s0, 0), M.at(st, s1, 0), M.at(st, s1, 1), M.at(st, s0, 1)], want); };
+  face(strips.top, 0, y1, f, y1, dir(0, 1));
+  face(strips.under, c, y0, f - c, y0, dir(0, -1));
+  face(strips.edge, 0, y0 + c, c, y0, dir(-1, -1)); face(strips.edge2, f, y0 + c, f - c, y0, dir(1, -1));
+  face(strips.a, 0, y0 + c, 0, y1, dir(-1, 0)); face(strips.b, f, y0 + c, f, y1, dir(1, 0));          // (the painting's far edge is the one by the street: the top)
 }
-/** A weld bead along y from y0 to y1, in the corner between a flank at x (the bead goes to the side s) and a face at z. */
-function bead(M, A, R, x, s, z, y0, y1, r) {
-  const n = 3, q = A.weld, u0 = R() * 0.55, du = 0.42 / n, ring = [];
-  for (let i = 0; i <= n; i++) { const k = i === 0 || i === n ? 0.45 : 0.8 + R() * 0.4, y = y0 + (y1 - y0) * (i / n) + (i > 0 && i < n ? (R() - 0.5) * (y1 - y0) * 0.12 : 0); ring.push([[x, y, z - r * k], [x + s * r * k * 0.66, y, z - r * k * 0.66], [x + s * r * k, y, z]]); }
-  for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) M.quad([ring[i][j], ring[i + 1][j], ring[i + 1][j + 1], ring[i][j + 1]], [M.at(q, u0 + du * i, j / 2), M.at(q, u0 + du * (i + 1), j / 2), M.at(q, u0 + du * (i + 1), (j + 1) / 2), M.at(q, u0 + du * i, (j + 1) / 2)], [s * (j ? 0.9 : 0.4), 0, j ? -0.4 : -0.9]);
-  for (const [i, up] of [[0, -1], [n, 1]]) M.tri(ring[i], [M.at(q, u0, 0), M.at(q, u0, 0.5), M.at(q, u0, 1)], [0, up, -0.2]);
+/** A box with a strip of the painting on each face asked for: faces { px, nx, py, ny, pz, nz }, each [strip, s0, s1, t0 = 0, t1 = 1], laid along the face's longer side. */
+function box(M, x0, x1, y0, y1, z0, z1, faces) {
+  const lo = [x0, y0, z0], hi = [x1, y1, z1];
+  for (const [name, q] of Object.entries(faces)) {
+    if (!q) continue;
+    const n = 'xyz'.indexOf(name[1]), s = name[0] === 'p' ? 1 : -1, [u, v] = [0, 1, 2].filter((k) => k !== n).sort((i, j) => (hi[j] - lo[j]) - (hi[i] - lo[i]));
+    const pt = (ku, kv) => { const p = [0, 0, 0]; p[n] = s > 0 ? hi[n] : lo[n]; p[u] = ku ? hi[u] : lo[u]; p[v] = kv ? hi[v] : lo[v]; return p; };
+    const want = [0, 0, 0]; want[n] = s;
+    const [st, s0, s1, t0 = 0, t1 = 1] = q;
+    M.quad([pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1)], [M.at(st, s0, t0), M.at(st, s1, t0), M.at(st, s1, t1), M.at(st, s0, t1)], want);
+  }
+}
+/** A weld bead in a corner: along the line p0..p1, between the two faces that go out of it along the unit vectors a and b; r its size. */
+function bead(M, A, R, p0, p1, a, b, r, n = 3) {
+  const q = A.weld, u0 = R() * 0.55, du = 0.42 / n, ring = [], d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+  for (let i = 0; i <= n; i++) {
+    const k = i === 0 || i === n ? 0.45 : 0.8 + R() * 0.4, f = i / n + (i > 0 && i < n ? (R() - 0.5) * 0.12 : 0), p = [p0[0] + d[0] * f, p0[1] + d[1] * f, p0[2] + d[2] * f];
+    const at = (ka, kb) => [p[0] + (a[0] * ka + b[0] * kb) * r * k, p[1] + (a[1] * ka + b[1] * kb) * r * k, p[2] + (a[2] * ka + b[2] * kb) * r * k];
+    ring.push([at(1, 0), at(0.66, 0.66), at(0, 1)]);
+  }
+  const out = [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) M.quad([ring[i][j], ring[i + 1][j], ring[i + 1][j + 1], ring[i][j + 1]], [M.at(q, u0 + du * i, j / 2), M.at(q, u0 + du * (i + 1), j / 2), M.at(q, u0 + du * (i + 1), (j + 1) / 2), M.at(q, u0 + du * i, (j + 1) / 2)], out);
+  M.tri(ring[0], [M.at(q, u0, 0), M.at(q, u0, 0.5), M.at(q, u0, 1)], [-d[0], -d[1], -d[2]]); M.tri(ring[n], [M.at(q, u0, 0), M.at(q, u0, 0.5), M.at(q, u0, 1)], d);
 }
 /** The outline's shell of a box: its eight corners, each with the normal of a corner, so the shell does not open (models/outline.js). */
 function shellBox(out, x0, x1, y0, y1, z0, z1) {
@@ -240,70 +347,96 @@ function shellBox(out, x0, x1, y0, y1, z0, z1) {
   for (const f of [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]]) out.idx.push(base + f[0], base + f[1], base + f[2], base + f[0], base + f[2], base + f[3]);
 }
 
-export function buildGrate(r) {
-  const T = r.THREE, g = new T.Group();
-  g.visible = false; g.name = 'grade';
-  const G = { ...GRATE };
-  // it is made when it is first shown: a game that begins past the first cutscene never pays for the painting
-  let made = false;
-  const make = () => { if (!made) { made = true; fill(r, g, G); } };
-  const p = new T.Vector3();
-  return {
-    group: g,
-    show(on) { if (on) make(); g.visible = Boolean(on); },
-    get visible() { return g.visible; },
-    place(eye, at, t = 0) {
-      p.set(...eye); g.position.copy(p);
-      g.position.y += Math.sin(t * 0.7) * 0.004;
-      g.lookAt(at[0], at[1], at[2]);
-      g.updateMatrixWorld(true);
-    },
-  };
-}
-
-/** Puts the grate's two meshes into its group. */
-function fill(r, g, G) {
-  const T = r.THREE, t0 = globalThis.performance?.now() ?? 0;
-  const L = layout(G), A = paintingOf(T, L), t1 = globalThis.performance?.now() ?? 0, M = mesher(T, A), R = mulberry32(77 + L.cols * 13 + L.rows);
+/**
+ * The grate of the shaft, built in the entity's frame: { group, footprint }. The group is named `grade` and holds the painted mesh and the
+ * outline's shell; it is to be added to the entity's root and never moved.
+ */
+export function buildGrate(r, G = GRATE) {
+  const T = r.THREE, g = new T.Group(), t0 = globalThis.performance?.now() ?? 0;
+  g.name = 'grade';
+  const L = layout(G), A = paintingOf(T, G), t1 = globalThis.performance?.now() ?? 0, M = mesher(T, A), R = mulberry32(77 + L.leaves[0].zs.length * 13);
   const shell = { pos: [], nor: [], idx: [] };
-  const xs = Array.from({ length: L.cols }, (_, i) => -L.w / 2 + i * L.pitch), ys = Array.from({ length: L.rows }, (_, j) => L.h / 2 - j * L.pitch);
-  const zc = L.z0 + L.dv, tuck = L.bar * 0.2;                                   // the cross bars begin where the uprights end; a bar goes a little into the frame
-  const whole = (q, flipped = false) => (flipped ? [q, 1, 0] : [q, 0, 1]);
-  /** A stretch of a long strip for a shorter bar, begun at a place of its own (so no two bars show the same painting side by side). */
-  const part = (q, len) => { const k = Math.min(1, (len * A.S) / q.w), s = R() * (1 - k); return R() < 0.5 ? [q, s, s + k] : [q, s + k, s]; };
-  const sides = (len) => ({ edge: part(A.edge, len), edge2: part(A.edge, len) });
-  // the uprights, in front
-  xs.forEach((x, i) => {
-    const len = L.ih + tuck * 2;
-    bar(M, A, { up: true, cx: x, cy: 0, len, f: L.bar, z: L.z0, d: L.dv, c: L.ch }, { face: whole(A.upright[i]), a: part(A.side, len), b: part(A.side, len), ...sides(len) });
-    shellBox(shell, x - L.bar / 2, x + L.bar / 2, -L.ih / 2, L.ih / 2, L.z0, L.z0 + L.dv);
-  });
-  // the cross bars, behind them
-  ys.forEach((y, j) => {
-    const len = L.iw + tuck * 2;
-    bar(M, A, { up: false, cx: 0, cy: y, len, f: L.bar, z: zc, d: L.dh, c: L.ch }, { face: whole(A.cross[j]), a: part(A.top, len), b: part(A.bottom, len), ...sides(len) });
-    shellBox(shell, -L.iw / 2, L.iw / 2, y - L.bar / 2, y + L.bar / 2, zc, zc + L.dh);
-  });
-  // the welds: one each side of an upright, on every cross bar
-  for (const x of xs) for (const y of ys) for (const s of [-1, 1]) bead(M, A, R, x + s * L.bar / 2, s, zc, y - L.bar * (0.4 + R() * 0.08), y + L.bar * (0.4 + R() * 0.08), L.bar * (0.3 + R() * 0.1));
-  // the frame: heavier bar, a little proud of the uprights and as deep as the two layers
-  const fz = L.z0 - L.proud, fd = L.dv + L.dh + L.proud, fy = (L.ih + L.fw) / 2, fx = (L.iw + L.fw) / 2;
-  for (const s of [-1, 1]) {
-    bar(M, A, { up: false, cx: 0, cy: s * fy, len: L.ow, f: L.fw, z: fz, d: fd, c: L.ch * 1.3 }, { face: whole(A.frameH, s < 0), a: part(A.top, L.ow), b: part(A.bottom, L.ow), ...sides(L.ow) });
-    shellBox(shell, -L.ow / 2, L.ow / 2, s * fy - L.fw / 2, s * fy + L.fw / 2, fz, fz + fd);
-    bar(M, A, { up: true, cx: s * fx, cy: 0, len: L.ih, f: L.fw, z: fz, d: fd, c: L.ch * 1.3 }, { face: whole(A.frameV, s < 0), a: part(A.side, L.ih), b: part(A.side, L.ih), ...sides(L.ih) });
-    shellBox(shell, s * fx - L.fw / 2, s * fx + L.fw / 2, -L.ih / 2, L.ih / 2, fz, fz + fd);
+  const { x0, x1, z0, z1, bar: bw, deep, rod } = G, yb = -deep, c = L.c;
+  /** A stretch of a long strip for a shorter piece, begun at a place of its own (so no two bars show the same painting side by side). */
+  const part = (q, len) => { const k = Math.min(1, len / q.m), s = R() * (1 - k); return R() < 0.5 ? [q, s, s + k] : [q, s + k, s]; };
+  const any = (list) => list[Math.floor(R() * list.length)];
+  const steel = (len) => ({ top: part(any(A.top), len), under: part(any(A.under), len), a: part(any(A.flank), len), b: part(any(A.flank), len), edge: part(A.edge, len), edge2: part(A.edge, len) });
+
+  // the shaft: its four walls seen from inside, and the dark at the bottom of it
+  const wall = (p0, p1, s0, s1, want) => M.quad([[p0[0], 0, p0[1]], [p1[0], 0, p1[1]], [p1[0], -G.well, p1[1]], [p0[0], -G.well, p0[1]]], [M.at(A.wall, s0, 0), M.at(A.wall, s1, 0), M.at(A.wall, s1, 1), M.at(A.wall, s0, 1)], want);
+  const kz = (z1 - z0) / (x1 - x0);
+  wall([x0, z0], [x1, z0], 0, 1, [0, 0, 1]); wall([x1, z1], [x0, z1], 0, 1, [0, 0, -1]);
+  wall([x0, z1], [x0, z0], 0, kz, [1, 0, 0]); wall([x1, z0], [x1, z1], 1 - kz, 1, [-1, 0, 0]);
+  const pit = M.at(A.wall, 0.5, 0.995);
+  M.quad([[x0, -G.well, z0], [x1, -G.well, z0], [x1, -G.well, z1], [x0, -G.well, z1]], [pit, pit, pit, pit], [0, 1, 0]);
+
+  // the seat of the leaves: a ledge of the steel frame all round, under them
+  const ys = yb - 0.008, se = L.seat;
+  box(M, x0, x1, ys, yb, z0, z0 + se, { ny: part(A.frame[0], x1 - x0), pz: part(A.rodSide, x1 - x0) });
+  box(M, x0, x1, ys, yb, z1 - se, z1, { ny: part(A.frame[1], x1 - x0), nz: part(A.rodSide, x1 - x0) });
+  box(M, x0, x0 + se, ys, yb, z0, z1, { ny: part(A.frame[0], z1 - z0), px: part(A.rodSide, z1 - z0) });
+  box(M, x1 - se, x1, ys, yb, z0, z1, { ny: part(A.frame[1], z1 - z0), nx: part(A.rodSide, z1 - z0) });
+
+  // the beam under the joint of the two leaves: its top between them, level with the bars, the flange they sit on, the web and the lower flange
+  const sx = G.split, bl = z1 - z0, by = -0.12, bf = 0.032;
+  box(M, sx - L.strip / 2, sx + L.strip / 2, yb, 0.001, z0, z1, { py: part(A.frame[0], bl) });
+  box(M, sx - bf, sx + bf, ys, yb, z0, z1, { ny: part(A.frame[1], bl), px: part(A.rodSide, bl), nx: part(A.rodSide, bl) });
+  box(M, sx - 0.005, sx + 0.005, by + 0.012, ys, z0, z1, { px: part(A.beamWeb, bl), nx: part(A.beamWeb, bl) });
+  box(M, sx - bf, sx + bf, by, by + 0.012, z0, z1, { ny: part(A.beamUnder, bl), px: part(A.rodSide, bl), nx: part(A.rodSide, bl), py: part(A.frame[0], bl) });
+  shellBox(shell, sx - bf, sx + bf, by, by + 0.012, z0, z1); shellBox(shell, sx - 0.005, sx + 0.005, by, ys, z0, z1);
+
+  // the steel frame, level with the pavement, and the collar of concrete round it (a hair over the paving, so their meeting does not flicker)
+  const fw = G.frame, m = fw + G.collar, fy = 0.003, cy = 0.002;
+  box(M, x0 - fw, x1 + fw, -0.02, fy, z0 - fw, z0, { py: part(A.frame[0], x1 - x0 + fw * 2) });
+  box(M, x0 - fw, x1 + fw, -0.02, fy, z1, z1 + fw, { py: part(A.frame[1], x1 - x0 + fw * 2) });
+  box(M, x0 - fw, x0, -0.02, fy, z0, z1, { py: part(A.frame[1], z1 - z0) });
+  box(M, x1, x1 + fw, -0.02, fy, z0, z1, { py: part(A.frame[0], z1 - z0) });
+  box(M, x0 - m, x1 + m, -0.02, cy, z0 - m, z0 - fw, { py: [A.collar[0], 0, 1, 0, 1] });
+  box(M, x0 - m, x1 + m, -0.02, cy, z1 + fw, z1 + m, { py: [A.collar[1], 1, 0, 1, 0] });
+  { const k = (z1 - z0 + fw * 2) / A.collar[0].m; box(M, x0 - m, x0 - fw, -0.02, cy, z0 - fw, z1 + fw, { py: [A.collar[1], 0.05, 0.05 + k, 0, 1] }); box(M, x1 + fw, x1 + m, -0.02, cy, z0 - fw, z1 + fw, { py: [A.collar[0], 0.3 + k, 0.3, 1, 0] }); }
+
+  // the two leaves: the band round each, its bars along the avenue, the cross rods let into their tops, the welds
+  let bars = 0;
+  const cut = G.cable;
+  for (const lf of L.leaves) {
+    const { a, b, za, zb } = lf;
+    for (const z of [za + bw / 2, zb - bw / 2]) { bar(M, { ax: 'x', a0: a, a1: b, mid: z, f: bw, y0: yb, y1: 0, c }, steel(b - a)); shellBox(shell, a, b, yb, 0, z - bw / 2, z + bw / 2); }
+    for (const x of [a + bw / 2, b - bw / 2]) { bar(M, { ax: 'z', a0: za, a1: zb, mid: x, f: bw, y0: yb, y1: 0, c }, steel(zb - za)); shellBox(shell, x - bw / 2, x + bw / 2, yb, 0, za, zb); }
+    for (const z of lf.zs) {
+      // where the thick cable goes down, the bars are sawn through
+      const sawn = cut && cut[0] > a && cut[0] < b && Math.abs(z - cut[1]) < 0.1;
+      for (const [p, q] of sawn ? [[a + bw, cut[0] - 0.11], [cut[0] + 0.11, b - bw]] : [[a + bw, b - bw]]) {
+        if (q - p < 0.03) continue;
+        bar(M, { ax: 'x', a0: p, a1: q, mid: z, f: bw, y0: yb, y1: 0, c }, steel(q - p)); shellBox(shell, p, q, yb, 0, z - bw / 2, z + bw / 2); bars++;
+        for (const [xe, ex, open] of [[p, 1, p > a + bw + 1e-6], [q, -1, q < b - bw - 1e-6]]) {
+          if (open) { box(M, xe - 0.001, xe, yb, 0, z - bw / 2, z + bw / 2, { [ex > 0 ? 'nx' : 'px']: [A.edge, 0.2, 0.22] }); continue; }      // the sawn end: bare steel
+          for (const s of [-1, 1]) bead(M, A, R, [xe, yb + c, z + s * bw / 2], [xe, -0.006, z + s * bw / 2], [ex, 0, 0], [0, 0, s], 0.006 + R() * 0.002);
+        }
+      }
+    }
+    for (const x of lf.xs) {
+      const hole = cut && Math.abs(x - cut[0]) < 0.11;
+      for (const [p, q] of hole ? [[za + bw, cut[1] - 0.1], [cut[1] + 0.1, zb - bw]] : [[za + bw, zb - bw]]) if (q - p > 0.03) box(M, x - rod / 2, x + rod / 2, 0.002 - rod, 0.002, p, q, { py: part(A.rodTop, q - p), ny: part(A.rodSide, q - p), px: part(A.rodSide, q - p), nx: part(A.rodSide, q - p) });
+      for (const z of lf.zs) { if (hole && Math.abs(z - cut[1]) < 0.1) continue; for (const s of [-1, 1]) bead(M, A, R, [x - rod / 2, 0.002 - rod, z + s * bw / 2], [x + rod / 2, 0.002 - rod, z + s * bw / 2], [0, 0, s], [0, -1, 0], 0.0045 + R() * 0.0015, 2); }
+    }
   }
-  const body = new T.Mesh(M.geometry(), r.mat(TINT, { map: A.map, emissive: PAINTED }));
-  body.name = 'grade-pintada'; body.frustumCulled = false; g.add(body);
+  // the hatch (the first leaf): two hinges on the frame at its far side, and the plate it is lifted by
+  const hatch = L.leaves[0];
+  for (const z of [-0.45, 0.45]) { const hx0 = x0 - 0.03, hx1 = x0 + 0.03, f = part(A.frame[0], 0.1); box(M, hx0, hx1, 0, 0.012, z - 0.05, z + 0.05, { py: f, px: part(A.rodSide, 0.1), nx: part(A.rodSide, 0.1), pz: part(A.rodSide, 0.06), nz: part(A.rodSide, 0.06) }); shellBox(shell, hx0, hx1, 0, 0.012, z - 0.05, z + 0.05); }
+  { const px0 = hatch.b - 0.2, px1 = hatch.b - 0.04, f = part(A.frame[1], 0.16); box(M, px0, px1, 0, 0.006, -0.07, 0.07, { py: f, px: part(A.rodSide, 0.14), nx: part(A.rodSide, 0.14), pz: part(A.rodSide, 0.16), nz: part(A.rodSide, 0.16) }); }
+
+  const keep = (mesh) => { mesh.userData.keep = true; g.add(mesh); return mesh; };
+  keep(new T.Mesh(M.geometry(), r.mat(TINT, { map: A.map, emissive: PAINTED }))).name = 'grade-pintada';
   if (OUTLINE.on) {
     const geo = new T.BufferGeometry();
     geo.setAttribute('position', new T.Float32BufferAttribute(shell.pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(shell.nor, 3));
     geo.setAttribute('uv', new T.Float32BufferAttribute(new Float32Array((shell.pos.length / 3) * 2), 2)); geo.setIndex(shell.idx);
-    const hull = new T.Mesh(geo, kitOf(r).mat(OUTLINE_SPEC));
-    hull.name = 'grade_hull'; hull.frustumCulled = false; hull.renderOrder = 1; g.add(hull);
+    const hull = keep(new T.Mesh(geo, kitOf(r).mat(OUTLINE_SPEC)));
+    hull.name = 'grade_hull'; hull.renderOrder = 1;
   }
-  g.userData.bars = L.cols + L.rows;                                           // (the tests count the bars: they are one mesh now)
+  g.userData.bars = bars;                                                      // (the tests count the bars: they are one mesh)
+  g.userData.rods = L.leaves.reduce((n, lf) => n + lf.xs.length, 0);
   g.userData.tris = M.tris + shell.idx.length / 3;
   g.userData.paintMs = Math.round(t1 - t0);                                    // (0 when the painting was already made for another grate)
+  return { group: g, footprint: footprint(G) };
 }

@@ -183,7 +183,7 @@ function paintWalk(g, r, y0, s, M) {
 
 /**
  * Builds the ground into batch `tb`. `S`: STREET (road, walk, curb, halfX); `M`: what is where (see paintAsphalt and paintWalk), plus
- * `lifted`: [[x, side]] slabs pushed up by a root. Returns { walkSpec } (the pavement's material, for what else is painted in its row).
+ * `lifted`: [[x, side]] slabs pushed up by a root. and `holes`: [[x0, z0, x1, z1]] rectangles of the pavements left open. Returns { walkSpec } (the pavement's material, for what else is painted in its row).
  */
 export function buildGround(kit, tb, S, M, seed = 7) {
   const T = kit.T, r = mulberry32(seed * 977 + 3), { road, curb } = S, hw = road - GROUND.gutter, far = GROUND.far, L = GROUND.len;
@@ -213,6 +213,13 @@ export function buildGround(kit, tb, S, M, seed = 7) {
         if (k === 4) continue;   // (the kerb's top ends where the slabs begin: the same place)
         const [za, ya, ta] = prof[k], [zb, yb, tb2] = prof[k + 1], row = k - 5, up = fine && row >= 0 ? lifted.get(`${ci}|${s}|${row}`) : 0;
         const pts = [[x, ya, s * za], [x2, ya, s * za], [x2, yb + (up ?? 0), s * zb], [x, yb + (up ? up * 0.3 : 0), s * zb]], uvs = [[u(x), v(ta)], [u(x2), v(ta)], [u(x2), v(tb2)], [u(x), v(tb2)]];
+        // a hole left in the paving for what is set into it (the grate of the shaft): the slab is laid in pieces round it
+        const hole = row >= 0 && !up ? (M.holes ?? []).find(([hx0, hz0, hx1, hz1]) => hx0 < x2 && hx1 > x && Math.min(s * hz0, s * hz1) < zb && Math.max(s * hz0, s * hz1) > za) : null;
+        if (hole) {
+          const ha = Math.min(s * hole[1], s * hole[3]), hb = Math.max(s * hole[1], s * hole[3]), xa = Math.max(x, hole[0]), xb = Math.min(x2, hole[2]), tz = (z) => ta + ((tb2 - ta) * (z - za)) / (zb - za);
+          for (const [p0, p1, a, b] of [[x, xa, za, zb], [xb, x2, za, zb], [xa, xb, za, ha], [xa, xb, hb, zb]]) if (p1 - p0 > 1e-4 && b - a > 1e-4) W.poly([[p0, ya, s * a], [p1, ya, s * a], [p1, ya, s * b], [p0, ya, s * b]], [0, 1, s * 0.01], [[u(p0), v(tz(a))], [u(p1), v(tz(a))], [u(p1), v(tz(b))], [u(p0), v(tz(b))]]);
+          continue;
+        }
         W.poly(pts, [0, 1, s * 0.01], uvs);
         if (up) { const e = 0.012 / total * 0.5, vj = v(tb2) + e; W.poly([[x, curb, s * zb], [x2, curb, s * zb], [x2, yb + up, s * zb], [x, yb + up * 0.3, s * zb]], [0, 0, s], [[u(x), vj], [u(x2), vj], [u(x2), vj], [u(x), vj]]); W.poly([[x2, curb, s * za], [x2, curb, s * zb], [x2, curb + up, s * zb]], [1, 0, 0], [[u(x2) - 0.0002, v(ta)], [u(x2) - 0.0002, v(tb2)], [u(x2) - 0.0002, v(tb2)]]); }
       }

@@ -106,6 +106,64 @@ const ONE = {
     K.tone(t + 0.01, 0.05, { type: 'square', f0: 1500 + r() * 300, f1: 900, g: 0.1, lp: 3000 });
     return 0.1;
   },
+  // The slow-motion dodge: the world drops: a deep pressure swell and a heartbeat, nothing bright.
+  'camera-lenta': ({ K, t }) => {
+    K.tone(t, 1.4, { type: 'sine', f0: 90, f1: 38, g: 0.3, att: 0.25 });
+    K.noise(t, 1.4, { kind: 'brown', type: 'lowpass', f0: 500, f1: 120, g: 0.12, att: 0.3 });
+    [0.1, 0.52, 1.2].forEach((h, i) => K.tone(t + h, 0.18, { type: 'sine', f0: 62, f1: 34, g: 0.3 - i * 0.05, att: 0.004 }));
+    return 1.5;
+  },
+  // The dog goes into the skip: a metal body against sheet steel, the whole box ringing low, then the servo coming apart.
+  'cao-bate': ({ K, t, r }) => {
+    K.tone(t, 0.5, { type: 'sine', f0: 100, f1: 30, g: 0.7, att: 0.002 });
+    K.noise(t, 0.35, { kind: 'brown', type: 'lowpass', f0: 1100, f1: 240, g: 0.5, att: 0.002 });
+    K.metal(t + 0.01, 130, [[1, 0.3, 0.5], [1.9, 0.2, 0.35], [3.1, 0.12, 0.2], [4.7, 0.06, 0.12]]);
+    K.tone(t + 0.12, 0.8, { type: 'triangle', f0: 150, f1: 40, g: 0.07, att: 0.05, lp: 350 });
+    [0.2, 0.34].forEach((h) => K.noise(t + h, 0.08, { kind: 'pink', type: 'bandpass', f0: 600 + r() * 400, q: 2, g: 0.06, att: 0.003 }));
+    return 0.9;
+  },
+  // The lure at the sensor: a dense burst of dry clicks, too close, too many.
+  'isca-perto': ({ K, t, r }) => {
+    for (let i = 0; i < 26; i++) K.tick(t + i * 0.045 + r() * 0.02, { g: 0.32, f0: 1800 + r() * 1400 });
+    K.tone(t, 1.2, { type: 'square', f0: 900, f1: 1300, g: 0.04, lp: 2500, att: 0.05 });
+    return 1.3;
+  },
+  // The dog that cannot hear: a servo that loses its tune, turning and stumbling.
+  'cao-surdo': ({ K, t, r }) => {
+    K.tone(t, 1.6, { type: 'triangle', f0: 120, f1: 70, g: 0.12, att: 0.2, lp: 400 });
+    [0.15, 0.55, 0.95, 1.3].forEach((h) => { K.noise(t + h, 0.08, { kind: 'brown', type: 'lowpass', f0: 500 + r() * 200, g: 0.2, att: 0.002 }); K.tick(t + h, { g: 0.1, f0: 1400 }); });
+    return 1.8;
+  },
+  // The short: a sharp crack, a fizz of arcing, and the servo dying down.
+  curto: ({ K, t, r }) => {
+    K.tick(t, { g: 0.6, f0: 2600, dur: 0.02 });
+    K.noise(t, 0.5, { kind: 'white', type: 'bandpass', f0: 2400, f1: 900, q: 0.8, g: 0.2, att: 0.002 });
+    for (let i = 0; i < 9; i++) K.tick(t + 0.05 + i * 0.08 + r() * 0.04, { g: 0.2, f0: 2000 + r() * 2000 });
+    K.tone(t + 0.1, 1.1, { type: 'sawtooth', f0: 110, f1: 25, g: 0.14, att: 0.01, lp: 300 });
+    return 1.3;
+  },
+  // The attack: heavy, close, low. No scream, no sting: weight and the plates working.
+  'cao-ataque': ({ K, t, r }) => {
+    K.tone(t, 0.55, { type: 'sine', f0: 95, f1: 28, g: 0.75, att: 0.002 });
+    K.noise(t, 0.6, { kind: 'brown', type: 'lowpass', f0: 1000, f1: 200, g: 0.55, att: 0.002 });
+    K.metal(t, 170, [[1, 0.25, 0.3], [2.3, 0.15, 0.2]]);
+    [0.25, 0.5, 0.75, 1.0, 1.25, 1.5].forEach((h, i) => { K.tone(t + h, 0.2, { type: 'sine', f0: 80, f1: 34, g: 0.4 / (1 + i * 0.25), att: 0.003 }); K.noise(t + h, 0.15, { kind: 'brown', type: 'lowpass', f0: 700, g: 0.22 / (1 + i * 0.25), att: 0.003 }); K.noise(t + h + 0.03, 0.1, { kind: 'pink', type: 'bandpass', f0: 500 + r() * 300, q: 1.5, g: 0.08, att: 0.005 }); });
+    return 1.9;
+  },
+  // The same blow heard through a wall: muffled, no top (the attack that is not shown).
+  abafado: ({ K, t }) => {
+    K.tone(t, 0.7, { type: 'sine', f0: 70, f1: 24, g: 0.5, att: 0.004 });
+    K.noise(t, 0.7, { kind: 'brown', type: 'lowpass', f0: 220, f1: 90, g: 0.3, att: 0.004 });
+    [0.35, 0.65].forEach((h) => K.tone(t + h, 0.25, { type: 'sine', f0: 55, f1: 26, g: 0.2, att: 0.005 }));
+    return 1.0;
+  },
+  // Game over: one low note that does not resolve.
+  'fim-de-jogo': ({ K, t }) => {
+    K.tone(t, 3.0, { type: 'sine', f0: 55, f1: 49, g: 0.35, att: 0.5 });
+    K.tone(t, 3.0, { type: 'triangle', f0: 110, f1: 98, g: 0.07, att: 0.8, lp: 300 });
+    K.noise(t, 3.0, { kind: 'brown', type: 'lowpass', f0: 160, g: 0.08, att: 0.6 });
+    return 3.2;
+  },
 };
 
 export const MACHINE_NAMES = Object.keys(ONE);

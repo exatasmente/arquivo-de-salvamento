@@ -28,12 +28,16 @@ export function createDirector({ nights, scenes, run, escuta, trust, radio, quic
   const ctx = () => ({ flags: run.flags, escuta, handRadio: hooks.handRadio?.() ?? false });
   const night = () => nights[run.night];
 
-  function startScene() {
+  function startScene(fromCp = false) {
     scene = scenes[night().cenas[run.scene]];
     if (!scene) throw new Error(`no scene ${night().cenas[run.scene]} in ${run.night}`);
     beats = scene.beats ?? []; i = -1; t = 0; wait = null; latched.clear(); D.goal = ''; D.marker = null; D.done = false;
+    // a checkpoint inside the scene (`run.cp`, set by the game: the splice): a death returns to the beat that waits for it, not to the start
+    const cp = fromCp && run.cp && run.cp.scene === scene.id ? run.cp : null;
+    if (!cp) delete run.cp;
     hooks.sceneStart?.(scene);
     hooks.checkpoint?.();                                  // the start of every scene is saved: the death returns here
+    if (cp) { let k = beats.findIndex((b) => b.type === 'await' && b.event === cp.at); if (k > 0) { while (k > 0 && beats[k - 1].type === 'goal') k--; i = k - 1; } }
     next();
   }
   function next() {
@@ -94,7 +98,7 @@ export function createDirector({ nights, scenes, run, escuta, trust, radio, quic
     /** Begins the night of the run: the Escuta of the night, the keyboard of the radio fresh, Jonas no longer hurt, and the first scene. */
     beginNight() { escuta.beginNight(nights[run.night].numero); radio.resetNight?.(); run.hurt = false; run.scene = 0; startScene(); },   // a limp lasts until the end of the night
     /** Enters the scene the run says (a loaded card: the Escuta stays as the card has it). */
-    resume() { startScene(); },
+    resume() { startScene(true); },
     update(dt, { pos } = {}) {
       if (!wait || D.done) return;
       if (wait.kind === 'time') { wait.left -= dt; if (wait.left <= 0) next(); }

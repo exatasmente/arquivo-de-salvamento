@@ -16,7 +16,7 @@
     {"id":"bueiro-1","type":"bueiro","pos":[-3.4,0,5.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
     {"id":"bueiro-2","type":"bueiro","pos":[14.5,0,-5.9],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
     {"id":"paineis","type":"painelSolar","pos":[16,0.15,9.2],"rot":[0,0,0],"scale":[1,1,1],"params":{"colunas":3,"fileiras":2}},
-    {"id":"cabo-paineis","type":"cabo","pos":[7.6,0.15,9.5],"rot":[0,0,0],"scale":[1,1,1],"params":{"comprimento":16.8,"raio":0.07}},
+    {"id":"cabo-paineis","type":"cabo","pos":[7.94,0.15,9.5],"rot":[0,0,0],"scale":[1,1,1],"params":{"comprimento":16.12,"raio":0.07}},
     {"id":"caixa-dagua-alta","type":"caixaDaguaAlta","pos":[11,0,-19],"rot":[0,0,0],"scale":[1,1,1],"params":{"raio":2.2,"altura":16}},
     {"id":"ponto-embarque","type":"pontoDeEmbarque","pos":[-10,0.15,-8.3],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
     {"id":"carro-embarque","type":"carro","pos":[-8.6,0,-4.3],"rot":[0,1.571,0],"scale":[1,1,1],"params":{"tipo":"sedan","cor":"#8a8e92","luzes":true,"porta":true}},

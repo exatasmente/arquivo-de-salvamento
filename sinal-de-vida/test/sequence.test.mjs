@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSequence, SEQ } from '../src/systems/sequence.js';
 import { createShoulder, SHOULDER } from '../src/systems/shoulder.js';
-import { STEPS, CINE, J, cinePose, actionPose, leap, DODGE } from '../src/systems/emenda.js';
+import { STEPS, CINE, J, cinePose, actionPose, leap, DODGE, DUMP, SLOW, ATTACK } from '../src/systems/emenda.js';
 import { readFileSync } from 'node:fs';
 import { hits } from '../src/systems/player.js';
 import MANIFEST from '../src/film-manifest.json' with { type: 'json' };
@@ -30,7 +30,7 @@ test('hold: the bar fills while Use is held and falls when let go; short of it a
 test('dir: the right way, in the window, is a hit; the wrong way, or none, is the dog knocking him down and ends the sequence', () => {
   const steps = [{ kind: 'dir', window: 1.3, want: -1, after: 0.5 }, { kind: 'press', window: 1 }];
   const ok = make(steps); ok.s.start(); run(ok.s, 0.4); ok.s.step(DT, { dir: -1 });
-  assert.deepEqual(results(ok.ev), [['dir', true]]); assert.equal(ok.s.view().dodge.side, 'left'); run(ok.s, 0.6); assert.equal(ok.s.view().kind, 'press');
+  assert.deepEqual(results(ok.ev), [['dir', true]]); assert.equal(ok.s.view().dodge.side, 'left'); run(ok.s, 1.0); assert.equal(ok.s.view().kind, 'press', 'the next step waits for the leap to end');
   const wrong = make(steps); wrong.s.start(); wrong.s.step(DT, { dir: 1 });
   assert.deepEqual(results(wrong.ev), [['dir', false]]); assert.equal(wrong.s.view().outcome, 'knocked'); assert.equal(wrong.ev.at(-1).type, 'seq-end'); assert.equal(wrong.s.active, false);
   const late = make(steps); late.s.start(); run(late.s, 1.4);
@@ -69,17 +69,49 @@ test('accessibility: "more time" doubles every window, the first step has double
   assert.ok(off.s.view().t < 4.4 + 1.3 + 1.2 + 0.6 + 4 * 0.2 + 0.1, 'the steps that need no pacing are shorter when they are automatic');
 });
 
-test('the steps of the scene: four kinds of command in order, the short one has two; a perfect run takes 15 to 25 s with the cutscene, the short one less', () => {
+test('the steps of the scene: hold, dodge, then the choice with two branches; a perfect run of either takes 15 to 30 s with the cutscene, the short one less', () => {
   const kinds = (v) => STEPS[v].map((x) => x.kind);
-  assert.deepEqual(kinds('cheia'), ['hold', 'dir', 'mash', 'press']); assert.deepEqual(kinds('curta'), ['hold', 'press']);
+  assert.deepEqual(kinds('cheia'), ['hold', 'dir', 'pick']); assert.deepEqual(kinds('curta'), ['hold', 'press']);
+  assert.deepEqual(STEPS.cheia[2].branches.quiet.map((x) => x.kind), ['hold', 'mash', 'press']); assert.deepEqual(STEPS.cheia[2].branches.loud.map((x) => x.kind), ['press', 'mash', 'press']);
+  assert.ok(STEPS.cheia[2].branches.quiet[0].fatal && STEPS.cheia[2].branches.loud[0].fatal, 'missing the first command of a branch is the end');
+  assert.ok(STEPS.cheia[2].branches.loud[1].need > STEPS.cheia[2].branches.quiet[1].need, 'the loud way closes slower: the piece of cable is spent');
   assert.ok(STEPS.cheia[0].first && STEPS.curta[0].first, 'the first step has the double time (the lesson)');
-  const perfect = (v) => { const steps = STEPS[v].map((x) => (x.kind === 'dir' ? { ...x, want: -1 } : x)), m = make(steps); m.s.start(); let t = 0;
+  const perfect = (v, choice = 'quiet') => { const steps = STEPS[v].map((x) => (x.kind === 'dir' ? { ...x, want: -1 } : x)), m = make(steps); m.s.start(); let t = 0;
     while (m.s.running && m.s.active && t < 60) { const w = m.s.view(); const k = w.kind;
-      m.s.step(DT, { held: k === 'hold', press: k === 'press' || (k === 'mash' && Math.round(t * 60) % 6 === 0), dir: k === 'dir' && w.el > 0.4 ? -1 : 0 }); t += DT; }
-    assert.equal(m.ev.at(-1).outcome, 'done'); assert.deepEqual(results(m.ev).map((x) => x[1]), steps.map(() => true)); return t; };
-  const full = CINE.cheia + perfect('cheia'), short = CINE.curta + perfect('curta');
-  assert.ok(full >= 15 && full <= 25, `the full sequence takes ${full.toFixed(1)} s`); assert.ok(short < full && short >= 8, `the short one ${short.toFixed(1)} s`);
+      m.s.step(DT, { held: k === 'hold', press: k === 'press' || (k === 'mash' && Math.round(t * 60) % 6 === 0), dir: k === 'dir' && w.el > 0.4 ? -1 : k === 'pick' && w.el > 0.5 ? (choice === 'quiet' ? -1 : 1) : 0 }); t += DT; }
+    assert.equal(m.ev.at(-1).outcome, 'done'); assert.ok(results(m.ev).every((x) => x[1]), JSON.stringify(results(m.ev))); return { t, kinds: results(m.ev).map((x) => x[0]) }; };
+  const quiet = perfect('cheia', 'quiet'), loud = perfect('cheia', 'loud'), short = perfect('curta');
+  assert.deepEqual(quiet.kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press']); assert.deepEqual(loud.kinds, ['hold', 'dir', 'pick', 'press', 'mash', 'press']);
+  for (const [n, x] of [['quiet', quiet], ['loud', loud]]) { const total = CINE.cheia + x.t; assert.ok(total >= 15 && total <= 40, `the ${n} sequence takes ${total.toFixed(1)} s`); }
+  assert.ok(CINE.curta + short.t < CINE.cheia + quiet.t && CINE.curta + short.t >= 8, `the short one ${(CINE.curta + short.t).toFixed(1)} s`);
   assert.ok(CINE.cheia >= 4 && CINE.cheia <= 6, 'the cutscene is 4 to 6 s');
+});
+
+test('the choice with the dog stunned: left is quiet, right is loud, each one replaces what follows with its own steps; nothing in time, or a miss of the first command, is the dog getting him', () => {
+  const pick = { kind: 'pick', window: 2, branches: { quiet: [{ kind: 'hold', window: 1.6, need: 1, fatal: true }, { kind: 'press', window: 1 }], loud: [{ kind: 'press', window: 0.9, fatal: true }, { kind: 'mash', window: 3, need: 4 }] } };
+  const left = make([pick]); left.s.start(); run(left.s, 0.3); left.s.step(DT, { dir: -1 });
+  assert.equal(left.s.view().choice.id, 'quiet'); assert.equal(left.ev.find((e) => e.type === 'step').choice, 'quiet'); run(left.s, 0.5); assert.equal(left.s.view().kind, 'hold'); assert.equal(left.s.view().count, 3);
+  const right = make([pick]); right.s.start(); run(right.s, 0.3); right.s.step(DT, { dir: 1 }); run(right.s, 0.5);
+  assert.equal(right.s.view().choice.id, 'loud'); assert.equal(right.s.view().kind, 'press'); assert.equal(right.s.view().count, 3);
+  // nothing in time: bitten (it is the dog; no noise counted)
+  const late = make([pick]); late.s.start(); run(late.s, 2.1); assert.equal(late.s.view().outcome, 'bitten'); assert.equal(late.s.view().misses, 0); assert.equal(late.s.active, false);
+  // the first command of the branch missed: the same
+  const miss = make([pick]); miss.s.start(); miss.s.step(DT, { dir: -1 }); run(miss.s, 0.5); run(miss.s, 1.7);
+  assert.equal(miss.s.view().outcome, 'bitten'); assert.deepEqual(results(miss.ev), [['pick', true], ['hold', false]]); assert.equal(miss.ev.at(-1).type, 'seq-end');
+  // the hold of the lure: filled, it is a hit and the branch goes on
+  const ok = make([pick]); ok.s.start(); ok.s.step(DT, { dir: -1 }); run(ok.s, 0.5); run(ok.s, 1.7, () => ({ held: true })); assert.deepEqual(results(ok.ev), [['pick', true], ['hold', true]]);
+  // no lure in the pocket: the quiet way is not there (left does nothing); "mais tempo" doubles the window
+  const none = make([{ ...pick, noQuiet: true }]); none.s.start(); none.s.step(DT, { dir: -1 }); assert.equal(none.s.view().choice, null); assert.equal(none.s.view().noQuiet, true);
+  const long = make([pick], { quick: 'long' }); long.s.start(); assert.equal(long.s.view().total, 4); run(long.s, 2.1); assert.equal(long.s.active, true, 'with more time it is still open at 2.1 s');
+  // "desligada": it chooses the quiet way by itself, and every command of it is a hit
+  const off = make([pick], { quick: 'off' }); off.s.start(); let t = 0; while (off.s.active && t < 30) { off.s.step(DT, {}); t += DT; }
+  assert.equal(off.ev.at(-1).outcome, 'done'); assert.equal(off.s.view().choice.id, 'quiet'); assert.ok(results(off.ev).every((x) => x[1]));
+  const offNo = make([{ ...pick, noQuiet: true }], { quick: 'off' }); offNo.s.start(); run(offNo.s, 2); assert.equal(offNo.s.view().choice.id, 'loud', 'with no lure the automatic choice is the loud way');
+});
+
+test('the dodge: the leap goes on after the press, and the next step waits for the dog to land and for him to be on his feet', () => {
+  const m = make([{ kind: 'dir', window: 0.6, want: -1, after: 2.2, landing: 0.6 }, { kind: 'press', window: 1 }]); m.s.start(); run(m.s, 0.2); m.s.step(DT, { dir: -1 }); run(m.s, 2.0); assert.equal(m.s.view().kind, 'dir', 'still in the gap'); run(m.s, 0.4); assert.equal(m.s.view().kind, 'press');
+  const wrong = make([{ kind: 'dir', window: 0.6, want: -1, after: 2.2 }]); wrong.s.start(); wrong.s.step(DT, { dir: 1 }); assert.equal(wrong.s.view().outcome, 'knocked');
 });
 
 test('the miss numbers: +8 on the Escuta for each step missed that is not the dodge (the number of any reaction missed in the street)', () => {
@@ -160,3 +192,29 @@ test('"desligada": the dodge is made by itself, to the side the dog asks, before
   const m = make([{ kind: 'dir', window: 1.3, want: 1, after: 0.1 }], { quick: 'off' }); m.s.start(); run(m.s, 1.4);
   const d = m.s.view().dodge; assert.equal(d.side, 'right'); assert.ok(d.at > 0.3 && d.at < 1.3); assert.equal(m.ev.find((e) => e.type === 'step').hit, true);
 });
+
+test('the staging by the skip: the dog and Jonas never touch (nor pass through the lamp post, the hydrant or the skip) on either side of the dodge, in either way out', () => {
+  const POST = [-13.5, 7.3], HYDRANT = [-12.0, 7.3], SKIP = { min: [-15.2, 4.5], max: [-12.8, 6.0] };
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (const from of [-1, 1]) for (const ch of ['quiet', 'loud']) {
+    const side = 'left';                                           // (the dodge is always to the south: the dog slides into the skip on the other side)
+    const rec = { variant: 'cheia', from, film: true, dodge: { side, at: 5.1 }, choice: { id: ch, at: 8.5 }, starts: [0, 4.6, 7.3, 8.5, ch === 'quiet' ? 10.8 : 10.4, ch === 'quiet' ? 13.3 : 14.4], wins: [4.4, 0.6, 2, ch === 'quiet' ? 1.6 : 0.9, ch === 'quiet' ? 3.6 : 5, 1.2],
+      b1End: ch === 'quiet' ? 10.1 : 8.9, deafAt: ch === 'quiet' ? 10.1 : undefined, jabAt: ch === 'loud' ? 8.9 : undefined, freedAt: ch === 'quiet' ? 12.8 : 13.9, closedAt: ch === 'quiet' ? 13.7 : 14.9, spent: ch === 'loud' };
+    for (let t = 4.6; t < (ch === 'quiet' ? 19 : 17); t += 0.05) {
+      const P = actionPose('cheia', rec, t), j = P.jonas;
+      if (!j.hidden) { assert.ok(d(j.pos, P.dog.pos) > 0.6 || t < 5.6, `from ${from} ${ch} t=${t.toFixed(2)}: Jonas ${j.pos.map((x) => x.toFixed(2))} and the dog ${P.dog.pos.map((x) => x.toFixed(2))} are too close`); assert.ok(d(j.pos, POST) > 0.28, `from ${from} ${ch} t=${t.toFixed(2)}: Jonas inside the lamp post`); assert.ok(d(j.pos, HYDRANT) > 0.28, `${ch}: Jonas inside the hydrant`); }
+      if (t > 6.6) { const [x, z] = P.dog.pos; const inSkip = x > SKIP.min[0] - 0.2 && x < SKIP.max[0] + 0.2 && z > SKIP.min[1] - 0.2 && z < SKIP.max[1] + 0.2 && P.dog.state !== 'calma'; assert.ok(!inSkip, `from ${from} ${ch} t=${t.toFixed(2)}: the dog is inside the skip (${x.toFixed(2)}, ${z.toFixed(2)})`); }
+    }
+  }
+});
+
+test('the numbers of the dodge and of the death: 0.25-0.3x slow motion, a push-in on both of them, and the timings of the attack with and without blood', () => {
+  assert.ok(SLOW.scale >= 0.25 && SLOW.scale <= 0.3); assert.ok(SLOW.fov > 3 && SLOW.push > 0.1, 'the camera comes in');
+  const rec = { variant: 'cheia', from: -1, starts: [0, 4.6], wins: [4.4, 0.6], dodge: null, knockedAt: null, slowK: 0 };
+  const fov = (k) => actionPose('cheia', { ...rec, slowK: k }, 4.9).cam.fov, eye = (k) => actionPose('cheia', { ...rec, slowK: k }, 4.9).cam.eye;
+  assert.ok(fov(1) < fov(0) - SLOW.fov + 0.01, 'a tighter lens while it is slow'); assert.ok(Math.abs(eye(1)[0] - eye(0)[0]) + Math.abs(eye(1)[2] - eye(0)[2]) > 0.2, 'and nearer to them');
+  assert.ok(ATTACK.fadeAt > 1.5 && ATTACK.overAt > ATTACK.fadeAt && ATTACK.reloadAt > ATTACK.overAt, 'the attack is seen, then black, then the game over, then the way back');
+  assert.ok(ATTACK.off.fadeAt <= 0 && ATTACK.off.fade <= 0.1, 'blood off: black at the impact'); assert.ok(ATTACK.off.overAt < ATTACK.overAt && ATTACK.off.reloadAt < ATTACK.reloadAt);
+  assert.ok(DUMP.deaf === 8 && DUMP.spark > 0.5);
+});
+

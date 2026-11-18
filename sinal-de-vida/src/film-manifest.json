@@ -21,7 +21,7 @@
     "rua.entrega": "O ponto de entrega pintado na calçada, com a caixa e o poste do pictograma, sem ninguém (6.0 s)",
     "rua.marquise": "A marquise sobre a calçada, vista de longe, de onde um drone de farol passa à noite (6.0 s)",
     "rua.viaduto": "O viaduto visto de baixo, os pilares com a base listrada e a luz sob o tabuleiro (6.0 s)",
-    "rua.boca": "A boca de inspeção da calçada sob o viaduto: a tampa aberta, a corda descendo e o cabo grosso entrando (6.0 s)",
+    "rua.boca": "A grade do poço de ventilação na calçada sob o viaduto: rente ao chão, com a folha de acesso fechada e o cabo grosso entrando por duas barras serradas (6.0 s)",
     "rua.paineis": "Os painéis solares inclinados na calçada, com o cabo saindo deles (6.0 s)",
     "rua.cabo": "O cabo grosso no chão da calçada, do painel até a boca de inspeção, seguido de perto (6.0 s)",
     "rua.caixa-dagua": "A caixa d'água alta atrás dos prédios, olhando de baixo para cima (a antena sobe nela depois) (6.0 s)",
@@ -39,7 +39,7 @@
     "radio-teste.reacao": "O close forte da reação final: ele congela e olha para o alto (4.5 s)",
     "radio-teste.poco": "O poço de ventilação escuro, com a grade, visto de baixo (2.4 s)",
     "radio-curto.curto": "Vídeo curto vertical: Jonas pega o microfone, gira o seletor, fala e ouve a resposta no rádio novo (25.6 s)",
-    "noite1.grade": "A cidade que ainda trabalha, vista pela grade do poço de ventilação: a avenida iluminada, os carros parados, o viaduto e os cães da frota que passam (14.0 s)",
+    "noite1.grade": "A cidade que ainda trabalha, vista de dentro do poço de ventilação, de baixo para cima, pela grade fixa na calçada: os prédios, o viaduto e o céu por entre as barras, e os cães da frota que passam por cima dela (14.0 s)",
     "noite1.cao-quebrado": "O cão quebrado junto à caçamba, sem rede, piscando as oito cores da sequência uma depois da outra, 0,75 s cada (6.0 s) (6.0 s)",
     "noite1.cao-rota": "O cão em rota fixa pela pista, ao lado da calçada, com Jonas agachado perto da caçamba (8.0 s) (8.0 s)",
     "noite1.isca": "A isca sonora no chão, estalando, e o cão indo até ela (6.0 s) (6.0 s)",
@@ -49,11 +49,16 @@
     "emenda.sensor": "Fechado no sensor do cão de frente, baixo, a faixa de luz passando de âmbar fraco para âmbar (1.3 s)",
     "emenda.olhar": "Jonas ajoelhado na ponta do cabo vira a cabeça e o corpo e olha por cima do ombro, para onde o cão vem (1.3 s)",
     "emenda.espera": "A reação, primeiro passo: Jonas segura a emenda enquanto o cão de patas de borracha anda devagar pela calçada na direção dele (4.4 s)",
-    "emenda.salto": "O cão agacha e salta sobre Jonas, que se atira para o lado e cai (1.8 s)",
-    "emenda.cabo-preso": "O cabo solto preso na grade do chão e Jonas puxando até soltar, com o cão perdido atrás dele (3.0 s)",
-    "emenda.fecha": "Jonas fecha a emenda com a mão, a faísca, e o cão vai embora pela calçada (1.9 s)",
-    "emenda.acao": "A sequência de reação inteira, acertada, do primeiro passo ao último (12.5 s)",
-    "emenda.derrubado": "O erro na esquiva: o cão alcança Jonas e o derruba, a câmera treme (2.5 s)"
+    "emenda.salto": "A esquiva em câmera lenta: o cão agacha e salta, o tempo cai, a câmera se aproxima e Jonas se atira para o lado (2.3 s)",
+    "emenda.batida": "O cão passa por Jonas, derrapa e bate na caçamba; fica atordoado, tremendo, o sensor falhando, enquanto Jonas se levanta (3.0 s)",
+    "emenda.desorientar": "O caminho silencioso: Jonas encosta a isca sonora no sensor do cão atordoado, a rajada de estalos, e o cão ensurdecido gira procurando (2.8 s)",
+    "emenda.cabo-preso": "O cabo solto preso na grade do chão e Jonas puxando até soltar, com o cão surdo atrás dele, girando (2.2 s)",
+    "emenda.fecha": "Jonas fecha a emenda com a mão, a faísca, e corre agachado para a caçamba (1.9 s)",
+    "emenda.esconde": "Jonas escondido na caçamba; o cão recupera o ouvido, fareja e segue a rota sem achá-lo (3.7 s)",
+    "emenda.acao": "A sequência de reação inteira pelo caminho silencioso, do primeiro passo ao último (20.4 s)",
+    "emenda.desativar": "O caminho barulhento: Jonas enfia a ponta desencapada do cabo no encaixe das costas do cão; faíscas, o curto, e o cão cai desligado (2.6 s)",
+    "emenda.desativar-fecha": "Com o cão desligado ao lado da caçamba, Jonas fecha a emenda com o trecho de cabo que sobrou, mais curto e mais lento (2.7 s)",
+    "emenda.derrubado": "O erro na esquiva: o cão alcança Jonas, o ataque, a câmera treme (o jogo faz o sangue e o preto, sem o sangue no vídeo) (3.5 s)"
   },
   "actions": {
     "escuro": "A luz do cenário cai pela metade, sem piscar"
@@ -85,6 +90,7 @@
     "noite1.poco": "A grade do poço, na calçada sob o viaduto",
     "emenda.corte": "A ponta do cabo cortado, na calçada, onde Jonas emenda",
     "emenda.grade": "A grade do chão onde o cabo fica preso depois do salto",
-    "emenda.canto": "O canto entre os carros parados por onde o cão sai da pista"
+    "emenda.canto": "O canto entre os carros parados por onde o cão sai da pista",
+    "emenda.cacamba": "A caçamba onde o cão bate e onde Jonas se esconde"
   }
 }
