@@ -607,10 +607,13 @@ self.addEventListener('activate', (e) => {
 
 const kept = (url) => !/\.(mp4|webm|wav)$/i.test(url.pathname);
 
+// Online, a file is checked with the server every time (no-cache: a 304 when it is the same), never taken from the
+// browser's own HTTP cache, which can hold a file of the version before for minutes after a deploy and mix two
+// versions of a game's modules in one page.
 function fromNetwork(req) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
-    fetch(req).then((res) => { clearTimeout(t); resolve(res); }, (err) => { clearTimeout(t); reject(err); });
+    fetch(new Request(req, { cache: 'no-cache' })).then((res) => { clearTimeout(t); resolve(res); }, (err) => { clearTimeout(t); reject(err); });
   });
 }
 
