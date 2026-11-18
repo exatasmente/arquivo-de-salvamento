@@ -461,18 +461,24 @@ test('the grate of the first cutscene is geometry (in the game and in the film m
   await withGame(async ({ page, open }) => {
     await open('?cena=n1-cidade'); await page.waitForFunction(() => window.__game.st.cut && !window.__game.st.cut.loading, null, { timeout: 90000 });
     await step(page, 60); await page.waitForTimeout(300);
-    const g = await page.evaluate(() => { const o = window.__game.r.scene.children.find((c) => c.name === 'grade'); return { visible: o?.visible, bars: o?.children.length, css: getComputedStyle(document.getElementById('app'), '::after').content }; });
+    const g = await page.evaluate(() => { const o = window.__game.r.scene.children.find((c) => c.name === 'grade'); return { visible: o?.visible, bars: o?.userData.bars, meshes: o?.children.length, css: getComputedStyle(document.getElementById('app'), '::after').content }; });
     await snap(page, 'r2-grade-geometria');
-    assert.equal(g.visible, true); assert.ok(g.bars >= 12, 'bars of real geometry'); assert.ok(g.css === 'none' || g.css === 'normal', 'no CSS layer');
-    // the picture has the bars: a row of the screen crosses several dark vertical bars
+    assert.equal(g.visible, true); assert.ok(g.bars >= 12 && g.meshes >= 1 && g.meshes <= 3, 'bars of real geometry, joined into a mesh or two'); assert.ok(g.css === 'none' || g.css === 'normal', 'no CSS layer');
+    // the picture has the bars: a row of the screen crosses several upright bars (the row with the grate against the same row without it:
+    // the grate is painted steel, not a black shape, so it is not told by how dark it is)
     const bars = await page.evaluate(async () => {
-      window.__game.test.render(); await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
-      const c = window.__game.r.renderer.domElement, t = document.createElement('canvas'); t.width = c.width; t.height = c.height; t.getContext('2d').drawImage(c, 0, 0);
-      const y = Math.floor(t.height * 0.5), px = t.getContext('2d').getImageData(0, y, t.width, 1).data; let n = 0, dark = false;
-      for (let x = 0; x < t.width; x++) { const l = px[x * 4] + px[x * 4 + 1] + px[x * 4 + 2]; const d = l < 40; if (d && !dark) n++; dark = d; }
+      const G = window.__game, o = G.r.scene.children.find((c) => c.name === 'grade');
+      const row = async () => {
+        G.test.render(); await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+        const c = G.r.renderer.domElement, t = document.createElement('canvas'); t.width = c.width; t.height = c.height; t.getContext('2d').drawImage(c, 0, 0);
+        return t.getContext('2d').getImageData(0, Math.floor(t.height * 0.5), t.width, 1).data;
+      };
+      const a = await row(); o.children.forEach((m) => { m.visible = false; }); const b = await row(); o.children.forEach((m) => { m.visible = true; });
+      let n = 0, on = false;
+      for (let x = 0; x < a.length / 4; x++) { const d = Math.abs(a[x * 4] - b[x * 4]) + Math.abs(a[x * 4 + 1] - b[x * 4 + 1]) + Math.abs(a[x * 4 + 2] - b[x * 4 + 2]) > 24; if (d && !on) n++; on = d; }
       return n;
     });
-    assert.ok(bars >= 5, `the dark bars cross the picture (${bars})`);
+    assert.ok(bars >= 5, `the bars cross the picture (${bars})`);
     // a dog of the fleet crosses the picture between the bars: projected on the screen, inside it, with nothing in front of it (measured every 0.4 s over the cutscene)
     const seen = []; let shotA = false, shotB = false;
     for (let t = 0.4; t < 14; t += 0.4) {

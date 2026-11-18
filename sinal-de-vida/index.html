@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Sinal de Vida</title>
 <meta name="theme-color" content="#05060a">
-<link rel="manifest" href="../manifest.webmanifest">
-<link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="icon" href="data:,">
+<script>
+  // inside the site the game shares its app manifest and icons (../); opened alone (tests, a local copy) those do not exist
+  if (/\/sinal-de-vida\//.test(location.pathname)) for (const [rel, href, type] of [['manifest', '../manifest.webmanifest'], ['icon', '../icons/icon.svg', 'image/svg+xml'], ['apple-touch-icon', '../icons/apple-touch-icon.png']]) { const l = document.createElement('link'); l.rel = rel; l.href = href; if (type) l.type = type; document.head.append(l); }
+</script>
 <link rel="stylesheet" href="./style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
 </head>

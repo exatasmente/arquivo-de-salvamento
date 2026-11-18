@@ -5,7 +5,7 @@
 // The opening video of the Rinha is not kept: offline the game falls back to its real-time cutscenes.
 
 // precache:start
-const VERSION = '0c662177d9e9';
+const VERSION = '1d78e0a0cc2d';
 const PRECACHE = [
   ["assets/o-dia-que-sobra.jpg", '17931a2396ad'],
   ["assets/og.jpg", '77776032a238'],
@@ -432,8 +432,8 @@ const PRECACHE = [
   ["sinal-de-vida/data/story/radio.json", '874652607ba9'],
   ["sinal-de-vida/data/story/scenes.json", 'b94fbad7aeab'],
   ["sinal-de-vida/data/story/secrets.json", '04b3d42f7ce1'],
-  ["sinal-de-vida/", 'ca3e8678bf4a'],
-  ["sinal-de-vida/index.html", 'ca3e8678bf4a'],
+  ["sinal-de-vida/", '5d8923f68d2b'],
+  ["sinal-de-vida/index.html", '5d8923f68d2b'],
   ["sinal-de-vida/package.json", '3ab263b14414'],
   ["sinal-de-vida/src/audio/index.js", 'a761ab20a06b'],
   ["sinal-de-vida/src/audio/machines.js", 'f8a1d959f521'],
@@ -494,7 +494,7 @@ const PRECACHE = [
   ["sinal-de-vida/src/scenes/galeria-shell.js", '015fdf7dc5cb'],
   ["sinal-de-vida/src/scenes/galeria-tunel.js", '6fd8884a3acc'],
   ["sinal-de-vida/src/scenes/galeria.js", 'e3b967b083e6'],
-  ["sinal-de-vida/src/scenes/grade.js", '002eb40cf9d2'],
+  ["sinal-de-vida/src/scenes/grade.js", 'a45f73c2042d'],
   ["sinal-de-vida/src/scenes/halo.js", '0661a5f700a0'],
   ["sinal-de-vida/src/scenes/rua-layout.js", 'cb51a6a37814'],
   ["sinal-de-vida/src/scenes/rua.js", '9b5728cbec3d'],
