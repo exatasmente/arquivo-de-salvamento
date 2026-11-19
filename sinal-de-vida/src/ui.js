@@ -20,9 +20,14 @@ export function createUI(root, h = {}) {
   </div>`);
   const react = make(`<button id="hud-react" type="button" hidden aria-label="Reagir"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="44"/><circle class="ring" cx="50" cy="50" r="44" pathLength="100"/></svg><span>Reagir</span><em></em></button>`);
   const fade = make('<div id="fade"></div>');
-  const over = make('<div id="gameover" hidden><h2>FIM DE JOGO</h2><p class="why"></p><p class="go"></p></div>');
+  const over = make(`<div id="gameover" hidden><svg class="flat" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 H300 l10 -5 l10 10 l10 -26 l12 48 l12 -34 l10 12 H430 l8 -3 l8 6 l8 -14 l8 24 l8 -12 l6 3 H1000" pathLength="1"/></svg>
+    <div class="gcol"><small class="kick">Sinal de Vida</small><h2>FIM DE JOGO</h2><p class="why"></p><p class="go"></p></div></div>`);
   const bars = make('<div id="cutbars" hidden><i></i><i></i><div id="cut-skip">Segure Esc por 1 s para pular</div></div>');
   root.append(hud, react, fade, over, bars);
+  // The loading screen is in index.html (so it is there from the first paint); the game only shows and hides it. A short wait shows nothing (`after` seconds).
+  const loadEl = document.getElementById('loading');
+  const TIPS = ['Falar no rádio é ser ouvido.', 'Às vezes calar é a resposta.'];
+  let loadTimer = null, tipN = 0;
   const $ = (s) => hud.querySelector(s);
   const E = { goal: $('#hud-goal'), escuta: $('#hud-escuta'), heard: $('#hud-heard'), dot: $('#hud-dot'), action: $('#hud-action'), ring: $('#hud-ring'), toast: $('#hud-toast'), lock: $('#hud-lock'), marker: $('#hud-marker'), say: $('#hud-say'), hurt: $('#hud-hurt'), sign: $('#hud-sign') };
   const SG = { arrow: E.sign.querySelector('.arrow'), keys: E.sign.querySelector('.keys'), word: E.sign.querySelector('.word'), bar: E.sign.querySelector('.bar u'), fill: E.sign.querySelector('.fill u'), fillBox: E.sign.querySelector('.fill') };
@@ -55,8 +60,23 @@ export function createUI(root, h = {}) {
     cutHint(text) { bars.querySelector('#cut-skip').textContent = text; },
     fade(a) { fade.style.opacity = String(a); },
     /** The game over, over the black: `spec` = { why, hint } to show it, null to take it away (the fade under it is the game's). */
-    gameOver(spec) { over.hidden = !spec; if (spec) { over.querySelector('.why').textContent = spec.why ?? ''; over.querySelector('.go').textContent = spec.hint ?? ''; } },
+    gameOver(spec) {
+      over.hidden = !spec; if (!spec) return;
+      over.querySelector('.why').textContent = spec.why ?? '';
+      // "E: voltar ao último ponto salvo" is drawn as the key and its words
+      const m = /^([^:]{1,14}): (.+)$/.exec(spec.hint ?? ''), go = over.querySelector('.go');
+      go.innerHTML = m ? `<kbd>${esc(m[1])}</kbd><span>${esc(m[2])}</span>` : esc(spec.hint ?? '');
+    },
     get gameOverShown() { return !over.hidden; },
+    /** The loading screen: `loading(true, 0.4)` shows it if the wait lasts more than 0.4 s, `loading(false)` takes it away. */
+    loading(on, after = 0) {
+      if (!loadEl) return;
+      clearTimeout(loadTimer);
+      if (!on) { loadEl.classList.add('gone'); loadTimer = setTimeout(() => { loadEl.hidden = true; }, 600); return; }
+      const show = () => { const t = loadEl.querySelector('.ld-tip'); if (t) t.textContent = TIPS[tipN++ % TIPS.length]; loadEl.hidden = false; void loadEl.offsetWidth; loadEl.classList.remove('gone'); };
+      if (after > 0) loadTimer = setTimeout(show, after * 1000); else show();
+    },
+    get loadingShown() { return Boolean(loadEl) && !loadEl.hidden && !loadEl.classList.contains('gone'); },
     /** A notice: it waits its turn (a caption goes first, one notice at a time) and the same text is not queued twice. */
     toast(text, now) { if (toastNow?.text === text || toastQueue.some((x) => x.text === text)) return; toastQueue.push({ text, at: now }); if (toastQueue.length > 3) toastQueue.shift(); },
     /** A line that is being said. `dur`: how long it stays; several are queued. */

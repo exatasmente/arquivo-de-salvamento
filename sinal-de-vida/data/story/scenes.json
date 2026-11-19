@@ -31,6 +31,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -291,6 +303,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -760,6 +784,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -1163,7 +1199,8 @@
    },
    {
     "type": "sfx",
-    "name": "bomba"
+    "name": "bomba",
+    "at": "bomba"
    },
    {
     "type": "say",
@@ -1214,6 +1251,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -1661,7 +1710,8 @@
     "name": "corda",
     "if": {
      "flag": "saiAgora"
-    }
+    },
+    "at": "boca-rua"
    },
    {
     "type": "escuta",
@@ -1678,7 +1728,12 @@
     "if": {
      "flag": "saiAgora",
      "is": false
-    }
+    },
+    "pos": [
+     -4.5,
+     1,
+     6.5
+    ]
    },
    {
     "type": "wait",
@@ -1694,7 +1749,12 @@
     "if": {
      "flag": "saiAgora",
      "is": false
-    }
+    },
+    "pos": [
+     -4.5,
+     1,
+     6.5
+    ]
    },
    {
     "type": "goal",
@@ -1789,6 +1849,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -1988,7 +2060,8 @@
    },
    {
     "type": "sfx",
-    "name": "pega"
+    "name": "pega",
+    "at": "radio-bancada"
    },
    {
     "type": "goal",
@@ -2061,6 +2134,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -2332,11 +2417,21 @@
     "sfx": [
      {
       "t": 5.2,
-      "name": "cao-rolar"
+      "name": "cao-rolar",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      },
      {
       "t": 6,
-      "name": "cao-desconfiado"
+      "name": "cao-desconfiado",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      }
     ],
     "tail": 0.4
@@ -2476,11 +2571,21 @@
     "sfx": [
      {
       "t": 4.6,
-      "name": "cao-rolar"
+      "name": "cao-rolar",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      },
      {
       "t": 5.4,
-      "name": "cao-desconfiado"
+      "name": "cao-desconfiado",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      }
     ],
     "tail": 0.4
@@ -2607,19 +2712,39 @@
     "sfx": [
      {
       "t": 0.8,
-      "name": "cao-rolar"
+      "name": "cao-rolar",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      },
      {
       "t": 1.6,
-      "name": "cao-rolar"
+      "name": "cao-rolar",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      },
      {
       "t": 2.4,
-      "name": "cao-desconfiado"
+      "name": "cao-desconfiado",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      },
      {
       "t": 3.6,
-      "name": "cao-busca"
+      "name": "cao-busca",
+      "pos": [
+       9,
+       4.2,
+       0
+      ]
      }
     ],
     "tail": 0.4
@@ -2829,7 +2954,8 @@
     "sfx": [
      {
       "t": 0.2,
-      "name": "radio-solta"
+      "name": "radio-solta",
+      "at": "radio-bancada"
      }
     ],
     "tail": 0.2
@@ -3082,6 +3208,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -3290,6 +3428,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -3498,6 +3648,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -3706,6 +3868,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -3914,6 +4088,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -4122,6 +4308,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -4330,6 +4528,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -4538,6 +4748,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -4746,6 +4968,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {
@@ -4954,6 +5188,18 @@
     ],
     "params": {
      "ligado": true
+    },
+    "components": {
+     "sound": {
+      "name": "chiado",
+      "gain": 0.3,
+      "radius": 9,
+      "offset": [
+       0,
+       0.1,
+       0
+      ]
+     }
     }
    },
    {

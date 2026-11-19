@@ -54,5 +54,6 @@ export default {
     caixa: 'A caixa d\'água alta',
   },
   camera: stage.camera,
+  actor: stage.actor,
   sfx: [{ t: 0, name: 'ambiente', opts: { dur: 85 } }, ...[79.5, 80, 80.5, 81, 81.5, 82, 82.5, 83, 83.5, 84].map((t) => ({ t, name: 'passo' }))],
 };

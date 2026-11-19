@@ -52,6 +52,7 @@ export default {
     bomba: 'A bomba d\'água',
   },
   camera: stage.camera,
+  actor: stage.actor,
   sfx: [
     { t: 0, name: 'ambiente', opts: { dur: 76 } },
     ...[0.8, 1.6, 2.4, 3.2, 4, 4.8, 5.6, 6.4].map((t) => ({ t, name: 'passo' })),

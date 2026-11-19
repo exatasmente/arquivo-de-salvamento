@@ -60,7 +60,7 @@ export function createDirector({ nights, scenes, run, escuta, trust, radio, quic
       case 'pocket': hooks.pocket?.(b.add ?? [], b.remove ?? []); return next();
       case 'thing': hooks.thing?.(b.name, b.state); return next();
       case 'light': hooks.light?.(b.on); return next();
-      case 'sfx': hooks.sfx?.(b.name); return next();
+      case 'sfx': hooks.sfx?.(b.name, b); return next();
       case 'quick': wait = { kind: 'quick', id: b.id, beat: b }; quick.start({ id: b.id, first: b.first, hint: b.hint }); return;   // (off: it answers at once)
       case 'escuta': if (b.n >= 0) escuta.raise(b.n, b.why ?? 'scene'); else escuta.lower(-b.n, b.why ?? 'scene'); return next();
       case 'flag': Object.assign(run.flags, b.set ?? {}); return next();

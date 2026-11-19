@@ -219,7 +219,7 @@ export function createDesk({ r, root, audio, ui, body, getRadio, getWorld, getPl
     if (rad.tune(d)) {
       // Jonas turns the selector: at the grip the pointer starts to run, the number lights when it gets there, with static between the channels
       gesture('radio_seletor', { dir: d });
-      D.tuneTo = { to: Number(rad.view().channelN) || 21, at: D.clock + JONAS_MARKS.radio_seletor.grip, set: false };
+      D.tuneTo = { to: Number(rad.view().channelN) || 21, at: D.clock + JONAS_MARKS.radio_seletor.grip, set: false }; audio.play('radio-sintonia', { gain: 0.3, delay: 0.1 });
       D.shown = null;
       audio.play('radio-solta', { gain: 0.25 });
     } else audio.play('ui-no', { gain: 0.3 });

@@ -8,6 +8,8 @@
 //   chase      a lock (a hit of low dissonance after a held silence), the motor revving up, fast heavy steps
 // Nothing here touches Math.random or the wall clock: a sound is a function of its seed and the context's time.
 import { makeKit, makeNoise, createChain, rng, hash, isOffline } from '../../vendor/engine/sound.js';
+import { createSpace } from './space.js';
+import { createVoiceFactory } from './voice.js';
 
 // One heavy footfall: a low thud, a body of brown noise, a damped metal knock (low partials, very short: no ring)
 // and a soft contact tick. `w` is the weight, 1 = a walk.
@@ -173,30 +175,21 @@ export const SOUND_NAMES = MACHINE_NAMES;
 
 export function createMachineAudio(ctx, opts = {}) {
   const offline = isOffline(ctx);
-  const chain = createChain(ctx, { era: opts.era !== false, volume: opts.volume ?? 0.9, destination: opts.destination, rooms: { galeria: 0.3, rua: 0.08 }, room: opts.room });
+  // its own chain (and compressor) as before, so the approved sound is the same; the rooms and the distance are shared with the rest of the game's sound when `make` and `space` are given
+  const chain = createChain(ctx, { era: opts.era === true, volume: opts.volume ?? 0.9, destination: opts.destination, rooms: { seca: 0 }, room: 'seca' });
+  const space = opts.space ?? createSpace(ctx, { out: chain.bus, seed: opts.seed, room: opts.room });
+  const make = opts.make ?? createVoiceFactory(ctx, { bus: chain.bus, space, rolloff: 0.8 });
   const seed = (opts.seed ?? 1) >>> 0, counts = {}, noises = {};
   const A = { ctx, noise(kind) { return noises[kind] ??= makeNoise(ctx, kind, 4, hash('noise-' + kind, 5)); } };
   for (const k of ['white', 'pink', 'brown']) A.noise(k);
-  function voice(o) {
-    const g = ctx.createGain(); g.gain.value = o.gain ?? o.vol ?? 1;
-    let tail = g;
-    if (o.pos) {
-      const p = ctx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = 2; p.rolloffFactor = 0.8;
-      if (p.positionX) { p.positionX.value = o.pos[0]; p.positionY.value = o.pos[1]; p.positionZ.value = o.pos[2]; } else p.setPosition(...o.pos);
-      g.connect(p); tail = p;
-    }
-    tail.connect(chain.bus);
-    const wet = ctx.createGain(); wet.gain.value = 0.3; tail.connect(wet).connect(chain.rev);
-    return { dest: { node: g, spatial: Boolean(o.pos) }, free: () => { try { g.disconnect(); wet.disconnect(); } catch { /* gone */ } } };
-  }
   function play(name, o = {}) {
     const fx = ONE[name];
     if (!fx) { console.warn('machines audio: unknown sound', name); return 0; }
     const t = o.at ?? ctx.currentTime + (o.delay || 0) + 0.01;
-    const n = counts[name] = (counts[name] || 0) + 1, v = voice(o);
+    const n = counts[name] = (counts[name] || 0) + 1, v = make({ rolloff: 0.8, ...o, wet: o.wet ?? (name === 'camera-lenta' || name === 'fim-de-jogo' ? 0 : 1) }, chain.bus);
     const dur = fx({ K: makeKit(A, v.dest), t, r: rng(hash(name, o.seed !== undefined ? o.seed >>> 0 : seed * 977 + n)), o });
     if (!offline) setTimeout(v.free, (dur + 0.6) * 1000);
     return dur;
   }
-  return { play, start(name, o) { play(name, o); return { gain() {}, stop() {} }; }, names: MACHINE_NAMES, setVolume: chain.setVolume, setEra: chain.setEra, setRoom: chain.setRoom };
+  return { play, start(name, o) { play(name, o); return { gain() {}, stop() {} }; }, names: MACHINE_NAMES, setVolume: chain.setVolume, setEra: chain.setEra, setRoom: (v) => space.setRoom(v) };
 }

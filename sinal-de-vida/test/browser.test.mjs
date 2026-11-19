@@ -26,7 +26,7 @@ async function withGame(fn, { touch = false } = {}) {
   try {
     const page = await browser.newPage(touch ? { viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true } : { viewport: { width: 640, height: 360 } }), errors = [];
     page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-    const open = async (query = '') => { await page.goto(`${url}${query}`); await page.waitForFunction(() => window.__game?.run && window.__game.st.phase); await page.evaluate(() => window.__game.test.manual(true)); await page.waitForTimeout(1500); };
+    const open = async (query = '') => { await page.goto(`${url}${query}`); await page.waitForFunction(() => window.__game?.run && window.__game.st.phase); await page.evaluate(() => window.__game.test.manual(true)); await page.waitForFunction(() => window.__game.st.world && window.__game.st.shot >= 0 && !window.__game.st.cut?.loading, null, { timeout: 120000 }); await page.waitForTimeout(1500); };   // (it waits for the world, not for a guess: a busy machine loads slower)
     await fn({ page, open, errors, url });
     assert.deepEqual(errors, [], 'no console error');
   } finally { await browser.close(); srv.close(); }
@@ -210,9 +210,10 @@ test('the demonstration never writes the card: a saved game (block 1) and "Conti
 test('the options have a volume (0 to 10), not an on/off switch, and it is kept on the card', { skip, timeout: 120000 }, async () => {
   await withGame(async ({ page, open }) => {
     await open('');
-    await page.evaluate(() => window.__game.screens.open('options'));
+    await page.evaluate(() => window.__game.screens.open('options', { tab: 'som' }));       // the volume is on the tab Som, drawn as a fader (not an on/off switch)
     const text = await page.evaluate(() => document.querySelector('#screens .panel').innerText);
-    assert.match(text, /Volume: 9 de 10/); assert.doesNotMatch(text, /Som/);
+    assert.match(text, /Volume/i); assert.match(text, /9 de 10/);
+    assert.equal(await page.evaluate(() => Boolean(document.querySelector('#screens .row.fader[data-o="volume"]')) && !document.querySelector('#screens .row[data-o="volume"][role="switch"]')), true, 'a fader, not a switch');
     await page.click('[data-act="vol-"]'); await page.click('[data-act="vol-"]');
     assert.equal(await page.evaluate(() => window.__game.options.volume), 7);
     for (let i = 0; i < 12; i++) await page.click('[data-act="vol-"]');

@@ -58,6 +58,13 @@ export function makeStage({ buildScene, build: buildOwn, views, shots, actors = 
       };
       return sc;
     },
+    /** Where an actor of the view at time t is, as a point to put a sound on ([x, y, z], a little above the floor), or null when it is not in the view. */
+    actor(id, t) {
+      const [, v] = find(t), f = v.actors?.[id];
+      if (!f) return null;
+      const u = Math.min(1, Math.max(0, (t - v.t[0]) / (v.t[1] - v.t[0]))), q = f(u, t);
+      return q?.pos ? [q.pos[0], (q.y ?? 0) + 0.8, q.pos[1]] : null;
+    },
     /** Where the camera is and looks at time t. */
     camera(t) {
       const [key, v] = find(t);

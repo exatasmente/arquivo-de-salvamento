@@ -6,6 +6,8 @@
 import { createRender } from './render.js';
 import { createAudio, createAudioContext } from './audio/index.js';
 import { createVoices } from './audio/voices.js';
+import { createEmitters } from './audio/emitters.js';
+import { stepFor } from './scenes/surfaces.js';
 import { createCard } from './save.js';
 import { createLook } from '../vendor/engine/input.js';
 import { createInput } from './systems/input.js';
@@ -16,6 +18,7 @@ import { createInteract } from './systems/interact.js';
 import { loadBody } from './systems/body.js';
 import { createUI } from './ui.js';
 import { createScreens } from './screens.js';
+import { titleCamera } from './title-cam.js';
 import { createDesk } from './desk.js';
 import { createHands } from './hands.js';
 import { createEscuta } from './systems/escuta.js';
@@ -62,13 +65,17 @@ const GLYPHS = {
 };
 const DURATIONS_URL = new URL('../assets/audio/n1/durations.json', import.meta.url).href;
 const WALK_HURT = 0.7;
-const OPTIONS0 = { quick: 'normal', patience: false, flashes: false, volume: 9, captions: true, sens: 1, invert: false, gore: true };
+const OPTIONS0 = { quick: 'normal', patience: false, flashes: false, volume: 9, captions: true, sens: 1, invert: false, gore: true, bright: 5, grain: true, textSize: 0, contrast: false };
+/** The flicker of the lamp over the bench on the title: mostly steady, with short dips (deterministic in the time). Calm: only a slow breath. */
+const hash01 = (n) => Math.abs(Math.sin(n * 12.9898) * 43758.5453) % 1;
+const lampFlicker = (t, calm) => { if (calm) return 0.94 + 0.06 * Math.sin(t * 0.8); const s = Math.floor(t * 9); let f = 0.97 + 0.03 * Math.sin(t * 31); if (hash01(s) < 0.09) f *= 0.2 + 0.5 * hash01(s + 99); const c = t % 13; if (c > 6.1 && c < 6.24) f *= 0.15; return f; };
 
 export async function boot() {
   const q = new URLSearchParams(location.search);
   const canvas = document.getElementById('c'), app = document.getElementById('app');
   const r = createRender(canvas);
-  const fit = () => r.resize(innerWidth, innerHeight);
+  let unfreeze = null;
+  const fit = () => { r.resize(innerWidth, innerHeight); unfreeze?.(); };
   fit(); addEventListener('resize', fit);
   const card = createCard();
   const T3 = r.THREE;
@@ -89,9 +96,18 @@ export async function boot() {
   const dur = (id, text) => durOf(id, DURATIONS, text);
   const actx = createAudioContext();
   const audio = createAudio(actx, { seed: card.data.run?.seed ?? 1 });
-  const voices = createVoices(actx, { durations: DURATIONS, volume: options.volume / 10 });
+  const voices = createVoices(actx, { durations: DURATIONS, volume: options.volume / 10, duck: audio.duck, spatial: audio.spatial });   // the effects go down under a line; a line that comes out of a place (the radio's) is heard from there
+  const emitters = createEmitters(audio, { seed: card.data.run?.seed ?? 1 });   // the sound of the objects of a scene (components.sound of an entity): src/audio/emitters.js
+  audio.preload();                                     // the recorded effects load in the background; until one is here the synthesised sound plays
   const setVolume = () => { audio.setVolume?.(options.volume / 10); voices.setVolume(options.volume / 10); };
   setVolume();
+  /** What the options change in the look of the page: the size of the text, the contrast, the grain of the menus, the brightness of the picture, the calm of the transitions. */
+  const applyLook = () => {
+    app.style.setProperty('--ts', String([1, 1.18, 1.4][options.textSize ?? 0] ?? 1));
+    app.dataset.contrast = options.contrast ? 'on' : ''; app.dataset.grain = options.grain === false ? 'off' : 'on'; app.dataset.calm = options.flashes ? 'on' : '';
+    canvas.style.filter = (options.bright ?? 5) === 5 ? '' : `brightness(${(0.6 + (options.bright ?? 5) * 0.08).toFixed(2)})`;
+  };
+  applyLook();
 
   // ---- the state of the game ------------------------------------------------------------------------------------------------
   let run = null, escuta = null, trust = null, radio = null, director = null;
@@ -104,6 +120,7 @@ export async function boot() {
     cut: null, phase: 'title', ctx: 'screen', screen: null, scene: null, world: null, shot: -1, moveYaw: 0, moveLatched: false, fadeIn: 0, goal: '',
     seq: null, camMode: 'plano', examine: null, peek: { yaw: 0, pitch: 0 }, handRadio: false, closeLeft: 0, footAcc: 0, ambience: null, chiado: null, blipAt: 0, lastLine: '', follow: null, reactNow: false, view: null,
   };
+  unfreeze = () => { st.frozen = 0; };
   const body = await loadBody(r, { seed: 1, role: 'jonas' });
   r.scene.add(body.root);
   const quick = createQuick({ options, emit: onQuick });
@@ -116,6 +133,7 @@ export async function boot() {
   const device = () => input.device;
   const G = {
     card, options, audio,
+    device: () => input.device, goal: () => fmt(st.goal), escuta: () => escuta?.value ?? 0,
     run: () => run, sceneTitle: () => (run ? titleOf(run.night, run.scene) : ''), titleOf,
     onScreen(name, open) { st.screen = open ? name : null; if (!open && st.phase === 'play') app.dataset.ctx = ctxName(); if (open) { app.dataset.ctx = 'screen'; if (document.pointerLockElement === canvas) document.exitPointerLock?.(); } },
     actions: null,
@@ -127,7 +145,7 @@ export async function boot() {
 
   // ---- the world of a scene -------------------------------------------------------------------------------------------------
   const targets = new Map();
-  const hooks = { sound: { play: (n, o) => audio.play(n, o), start: (n, o) => audio.start(n, o) }, target() { return () => {}; } };
+  const hooks = { sound: { play: (n, o) => audio.play(n, o), start: (n, o) => emitters.start(n, o) }, target() { return () => {}; } };
   const glyph = (k) => (GLYPHS[device()] ?? GLYPHS.keyboard)[k];
   // "Correr ({run})" on touch would read "Correr (Correr)": a word followed by its own button name drops the parenthesis.
   const fmt = (text) => String(text ?? '')
@@ -137,7 +155,7 @@ export async function boot() {
   async function loadWorld(scene) {
     const extra = scene.entities ?? [], key = `${scene.world}:${extra.map((e) => e.id).join(',')}`;
     if (st.world?.key === key) return st.world;
-    if (st.world) { st.world.sc.group.removeFromParent(); st.world.sc.group.traverse((o) => { o.geometry?.dispose?.(); }); }
+    if (st.world) { st.world.sc.place?.dispose?.(); st.footY = undefined; st.world.sc.group.removeFromParent(); st.world.sc.group.traverse((o) => { o.geometry?.dispose?.(); }); }
     const mod = await import(`./scenes/${scene.world}.js`);
     const base = scene.world === 'rua' ? RUA_LAYOUT : LAYOUT;
     const layout = { ...base, entities: [...base.entities, ...extra] };
@@ -201,6 +219,7 @@ export async function boot() {
   let sceneSeq = 0;
   async function enterScene(scene) {
     const seq = ++sceneSeq;
+    ui.loading(true, 0.45);                                           // a long wait shows the loading screen; a short one shows nothing
     st.scene = scene; st.goal = ''; st.examine = null; st.cut = null; ui.cut(false); app.dataset.cutfx = ''; st.shot = -1; interact.reset(); placeTargets(scene); st.aiming = false; st.camMode = scene.camera ?? 'plano'; app.dataset.hide = ''; delete app.dataset.hide; delete app.dataset.seq;
     st.ready = (async () => {
       const w = await loadWorld(scene);
@@ -214,6 +233,7 @@ export async function boot() {
       setupStreet(scene, w);
       app.dataset.ctx = ctxName();
     })();
+    st.ready.finally(() => { if (seq === sceneSeq) ui.loading(false); });
     return st.ready;
   }
 
@@ -249,7 +269,7 @@ export async function boot() {
     if (p.put) for (const item of [].concat(p.put)) if (!run.pocket.includes(item)) run.pocket.push(item);
     if (p.thing) st.world?.sc.setThing?.(p.thing[0], p.thing[1]);
     if (p.set) Object.assign(run.flags, p.set);
-    if (p.sfx) audio.play(p.sfx, { gain: 0.8 });
+    if (p.sfx) audio.play(p.sfx, { gain: 0.8, pos: [p.pos[0], 1, p.pos[1]] });
     if (p.once) { const t = targets.get(p.id); if (t) t.done = true; }
   }
   /** After the hands or the radio: back to walking, and the button that closed it must be let go before it can use anything (E would open the notebook again). */
@@ -309,7 +329,7 @@ export async function boot() {
       if (l.who !== undefined || l.text) ui.say(l.who ?? '', fmt(l.text), l.dur ?? (l.voice ? Math.max(1, dur(l.voice, l.text) - from) : 3));
       if (l.voice) c.voices.push(voices.play(l.voice, { filter: l.filter ?? 'radio', from }));
     }
-    for (const x of c.sfx) if (!x.played && c.t >= x.t) { x.played = true; audio.play(x.name, { gain: x.gain ?? 0.7 }); }
+    for (const x of c.sfx) if (!x.played && c.t >= x.t) { x.played = true; audio.play(x.name, { gain: x.gain ?? 0.7, ...placed(x, c) }); }
     for (const { a, d } of c.actors) {
       const u = Math.max(0, Math.min(1, (c.t - a.t0) / Math.max(0.01, a.t1 - a.t0))), { pos: p, yaw } = routeAt(a, u);   // (its way may have corners: `via`)
       d.root.visible = c.t >= a.t0 - 0.01;
@@ -338,12 +358,29 @@ export async function boot() {
   function leaveRadio() { if (desk.active && desk.phase === 'on') desk.leave(); }
   /** At once, with no animation: a new game, the title, the end of a night. */
   function closeRadio() { if (!desk) return; if (desk.active) desk.reset(); hands?.end(); input.capture(false); st.closeLeft = 0; st.radioVoice?.stop(); st.txVoice?.stop(); if (st.phase === 'play') app.dataset.ctx = ctxName(); }
+  /** Where the station's radio stands in the scene (what its voices come out of while Jonas is not at the bench), or null when this scene has none. */
+  function radioSpot() { const p = st.world?.sc.ents?.pos?.('radio-bancada'); return p ? [p[0], p[1] + 0.15, p[2]] : null; }
+  /** Where a sound of a cutscene, a point or a beat comes from: `pos` ([x, z] or [x, y, z]), or `at`: the id of an entity of the scene, or a dog of the cutscene (`ator`, `ator2`). Null: it is the listener's own. */
+  function soundAt(x, c = null) {
+    if (Array.isArray(x.pos)) return x.pos.length === 2 ? [x.pos[0], 1, x.pos[1]] : x.pos;
+    if (typeof x.at !== 'string') return null;
+    const m = /^ator(\d*)$/.exec(x.at), a = m && c ? c.actors[m[1] ? Number(m[1]) - 1 : 0] : null;
+    if (a) { const q = a.d.root.position; return [q.x, q.y + 0.8, q.z]; }
+    const p = st.world?.sc.ents?.pos?.(x.at);
+    return p ? [p[0], Math.max(p[1], 0.8), p[2]] : null;
+  }
+  /** The footstep for Jonas at (x, z) of scene `w`: what is under his feet (a grate rings, a drain too), a stair when the ground changed by a step since the last footstep, else the scene's own floor. */
+  function footName(w, x, z) {
+    const gy = w.sc.ground?.(x, z) ?? 0, dy = st.footY === undefined ? 0 : gy - st.footY; st.footY = gy;
+    return stepFor(w.sc.place?.surfaceAt?.(x, z) ?? null, w.step, dy);
+  }
+  const placed = (x, c = null) => { const pos = soundAt(x, c); return pos ? { pos } : {}; };
   function onRadio(e) {
     if (e.type === 'heard') { ui.heard(now()); audio.play('ouvido', { gain: 0.7 }); }
-    else if (e.type === 'line') { st.radioVoice?.stop(); st.radioVoice = e.id && DURATIONS[e.id] ? voices.play(e.id, { filter: e.id === REPRESA_VOICE || e.id === 'r-represa-alt' ? 'tape' : 'radio' }) : null; }
+    else if (e.type === 'line') { st.radioVoice?.stop(); st.radioVoice = e.id && DURATIONS[e.id] ? voices.play(e.id, { filter: e.id === REPRESA_VOICE || e.id === 'r-represa-alt' ? 'tape' : 'radio', spot: radioSpot() }) : null; }
     else if (e.type === 'ask') st.radioVoice?.stop();
     else if (e.type === 'open') { const c = radio.conv; if (c?.phase === 'line' && !(st.radioVoice && !st.radioVoice.stopped)) {   // (opening on a line that has just started: its voice is already playing, once)
-       const n = c.def.nodes[c.node]; if (n.voice && DURATIONS[n.voice]) st.radioVoice = voices.play(n.voice, { filter: n.voice === REPRESA_VOICE ? 'tape' : 'radio', from: Math.min(c.t, DURATIONS[n.voice] - 0.05) }); } }
+       const n = c.def.nodes[c.node]; if (n.voice && DURATIONS[n.voice]) st.radioVoice = voices.play(n.voice, { filter: n.voice === REPRESA_VOICE ? 'tape' : 'radio', from: Math.min(c.t, DURATIONS[n.voice] - 0.05), spot: radioSpot() }); } }
     else if (e.type === 'close') { st.radioVoice?.stop(); st.txVoice?.stop(); }
     else if (e.type === 'tx-start') { audio.play('radio-tx', { gain: 0.35 }); st.txVoice?.stop(); st.txVoice = e.voice && DURATIONS[e.voice] ? voices.play(e.voice, { filter: 'none', gain: 1 }) : null; }
     else if (e.type === 'tx-end') { audio.play('radio-solta', { gain: 0.4 }); st.txVoice?.stop(); st.txVoice = null; }
@@ -613,7 +650,7 @@ export async function boot() {
       pocket: (add, remove) => { for (const x of remove) dropFrom(run.pocket, x); for (const x of add) if (!run.pocket.includes(x)) run.pocket.push(x); },
       thing: (name, state) => { st.ready?.then(() => st.world?.sc.setThing?.(name, state)); },
       light: (on) => { player.light = Boolean(on); },
-      sfx: (name) => audio.play(name, { gain: 0.8 }),
+      sfx: (name, b = {}) => audio.play(name, { gain: 0.8, ...placed(b) }),
       blink: (on) => radio.setBlink(on),
       handRadio: () => st.handRadio,
     } });
@@ -682,17 +719,39 @@ export async function boot() {
     toggleOption(name) {
       if (name === 'quick') options.quick = { normal: 'long', long: 'off', off: 'normal' }[options.quick];
       else { options[name] = !options[name]; if (name === 'captions') ui.setCaptions(options.captions); if (name === 'flashes') S4?.machines.setReduceFlash(options.flashes); }
-      saveOptions();
+      applyLook(); saveOptions();
     },
+    /** A choice of a list, one step either way (the options screen's arrows). */
+    choose(name, d = 1) {
+      if (name === 'quick') { const l = ['normal', 'long', 'off']; options.quick = l[(l.indexOf(options.quick) + d + l.length) % l.length]; }
+      else if (name === 'textSize') options.textSize = ((options.textSize ?? 0) + d + 3) % 3;
+      else if (name === 'patience') options.patience = !options.patience;
+      applyLook(); saveOptions();
+    },
+    bright(d) { options.bright = Math.max(0, Math.min(10, (options.bright ?? 5) + d)); applyLook(); saveOptions(); },
     volume(d) { options.volume = Math.max(0, Math.min(10, options.volume + d)); setVolume(); saveOptions(); },
     sens(d) { options.sens = Math.max(0.4, Math.min(2.4, +(options.sens + d * 0.2).toFixed(1))); saveOptions(); },
     /** The first time the menu opens it says what it is (once, kept on the card). */
     menuTip() { if (card.data.meta?.menuTip) return false; card.setMeta({ menuTip: true }); return true; },
   };
   function showTitle() {
-    st.phase = 'title'; ui.sayClear(); app.dataset.ctx = 'screen'; teardownStreet();
+    st.phase = 'title'; st.titleAt = undefined; ui.sayClear(); app.dataset.ctx = 'screen'; teardownStreet();
     enterScene(SCENES['demo-1']).then(() => { st.fadeIn = 0; });
     screens.open('title');
+  }
+  /** The title is alive: the lamp over the bench flickers, the radio on the bench listens (its dial drifts, its light breathes) and a low hiss plays under the menu. Back to normal when the title closes. */
+  function titleLife(t, w) {
+    const lamp = w.sc.place?.lamps?.get('lamp-oficina'), prop = w.sc.ents?.made?.['radio-bancada']?.radioProp;
+    if (st.phase === 'title') {
+      const tt = t - (st.titleAt ?? t);
+      if (lamp) { lamp.base0 ??= { color: lamp.base.color }; lamp.base.color = `#${new T3.Color(lamp.base0.color).multiplyScalar(lampFlicker(t, options.flashes)).getHexString()}`; }
+      if (prop) { if (!st.titleRadio) { st.titleRadio = true; prop.setDisplay('ESCUTANDO\nCANAL 21', { lit: true }); prop.setLed('tx', 0); } prop.setDial(21 + Math.sin(tt * 0.13) * 4); prop.setLed('rx', 0.55 + 0.45 * Math.sin(tt * 1.7)); prop.setVu(0.12 + 0.1 * Math.sin(tt * 2.3)); }
+      if (!st.hiss) st.hiss = audio.start('chiado', { gain: 0.05 });
+    } else {
+      if (lamp?.base0) { lamp.base.color = lamp.base0.color; lamp.base0 = null; }
+      if (st.titleRadio) { st.titleRadio = false; if (prop) { prop.setDisplay('', { lit: false }); prop.setLed('rx', 0); prop.setVu(0); } }
+      if (st.hiss) { st.hiss.stop(); st.hiss = null; }
+    }
   }
   let dying = false;
   const die = () => { if (dying) return; dying = true; ui.toast('Jonas caiu', now()); setTimeout(() => { dying = false; }, 400); G.actions.restartScene(); };
@@ -801,7 +860,7 @@ export async function boot() {
     if (it.crouch && !player.hidden) { player.crouch = !player.crouch; if (player.crouch) player.run = false; }
     if (it.toggleRun) { player.run = !player.run; if (player.run) player.crouch = false; }
     if (it.light) { player.light = !player.light; audio.play('lanterna'); if (player.light) director.signal('light'); }
-    if (it.handRadio) { st.handRadio = !st.handRadio; audio.play('radio-tx', { gain: 0.4 }); ui.toast(st.handRadio ? 'Rádio de mão ligado' : 'Rádio de mão desligado', now()); }
+    if (it.handRadio) { st.handRadio = !st.handRadio; audio.play('radio-tx', { gain: 0.4 }); if (st.handRadio) audio.play('radio-mao', { gain: 0.35 }); ui.toast(st.handRadio ? 'Rádio de mão ligado' : 'Rádio de mão desligado', now()); }
     if (it.pocket) { interact.reset(); hands.start('bolso', { items: run.pocket, onEnd: backToWalking }); app.dataset.ctx = 'hands'; director.signal('pocket'); return; }
     // the plane: it cuts when Jonas leaves its zone; the stick keeps meaning what it meant until it is let go
     const cur = st.shot, next = ombro ? cur : pickShot(scene.shots, player.pos, cur);
@@ -837,7 +896,9 @@ export async function boot() {
       st.footAcc += walked;
       const stride = wantRun ? 1.45 : player.crouch ? 0.9 : 0.8;
       if (st.footAcc > stride) {
-        st.footAcc = 0; audio.play(w.step, { gain: player.crouch ? 0.2 : wantRun ? 1.0 : 0.55 });
+        st.footAcc = 0;
+        const fx = player.pos[0], fz = player.pos[1];
+        audio.play(footName(w, fx, fz), { gain: player.crouch ? 0.2 : wantRun ? 1.0 : 0.55, pos: [fx, 0.05, fz] });   // the surface under his feet (a grate rings, a platform is a step up), at his feet
         if (S4) bus.emit('noise', { pos: [...player.pos], loud: noiseOf('step', { crouch: player.crouch, run: wantRun }), kind: wantRun ? 'run' : player.crouch ? 'crouch' : 'step', src: 'jonas' });
       }
     }
@@ -913,7 +974,7 @@ export async function boot() {
       else if (cutting) cam = cutCamera();
       else if (fp) cam = fp;
       else if (atDesk) cam = atDesk;
-      else if (st.phase === 'title') { const u = Math.sin(t * 0.12) * 0.5; cam = shotCamera({ ...shot, eye: [shot.eye[0] + u * 3, shot.eye[1], shot.eye[2]] }); }
+      else if (st.phase === 'title') { st.titleAt ??= t; const c = titleCamera(t - st.titleAt, { calm: options.flashes }), dv = [c.at[0] - c.eye[0], c.at[1] - c.eye[1], c.at[2] - c.eye[2]]; cam = { eye: c.eye, at: c.at, dir: dv, fov: c.fov, aim: { pos: c.eye, dir: dv } }; }
       else if (st.examine) cam = examineCamera(st.examine.point.examine, st.examine.look);
       else if (st.seq && st.seq.pose) { const c = st.seq.pose.cam; const dv = [c.at[0] - c.eye[0], c.at[1] - c.eye[1], c.at[2] - c.eye[2]]; cam = { eye: c.eye, at: c.at, dir: dv, fov: c.fov ?? null, aim: { pos: c.eye, dir: dv } }; }
       else if (st.camMode === 'ombro' && st.phase === 'play') cam = cam3.pose(player.pos, worldColliders(), { hidden: Boolean(player.hidden), ground: w.sc.ground?.(player.pos[0], player.pos[1]) ?? 0 });
@@ -962,8 +1023,16 @@ export async function boot() {
           for (let i = 0; i < 64; i++) { const q = a.points[Math.min(i, n - 1)]; arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; }
           aimGeo.attributes.position.needsUpdate = true;
         }
+        audio.setListener(cam.eye, cam.dir);
+        const dull = player.hidden ? 0.7 : 0; if (dull !== st.dull) { st.dull = dull; audio.setOcclusion(dull); }          // in a hiding place the world is heard through the walls of it
+        titleLife(t, w);
+        // the radio of the station: from its place while Jonas walks, in front of him, centred and dry, when he sits at the bench (the title has its own hiss)
+        st.deskNear = (st.deskNear ?? 0) + ((desk.active ? 1 : 0) - (st.deskNear ?? 0)) * Math.min(1, dtReal * 3.5);
+        voices.setNear(st.deskNear); emitters.group('radio', st.phase === 'title' ? 0 : 1 - st.deskNear); emitters.setClock(t);
         w.sc.update(t, { listener: cam.eye, dir: cam.dir, hour: 21 });
-        if (!st.manual || st.forceDraw > 0) { r.draw(); if (st.forceDraw > 0) st.forceDraw--; }   // (the tests draw on demand: a software renderer is slow)
+        // the pause holds the picture: nothing moves behind the blurred menu, so the scene is not drawn again (the blur is then drawn once, not on every frame)
+        st.frozen = st.screen === 'menu' && !st.manual ? (st.frozen ?? 0) + 1 : 0;
+        if ((!st.manual || st.forceDraw > 0) && !(st.frozen > 4)) { r.draw(); if (st.forceDraw > 0) st.forceDraw--; }   // (the tests draw on demand: a software renderer is slow)
       }
     }
     // the HUD
@@ -1011,11 +1080,15 @@ export async function boot() {
   requestAnimationFrame(frame);
 
   window.__game = {
-    G, st, player, card, input, options, screens, ui, audio, voices, quick, body, r, bus, cam: cam3,
+    G, st, player, card, input, options, screens, ui, audio, voices, emitters, quick, body, r, bus, cam: cam3,
     gore, get run() { return run; }, get escuta() { return escuta; }, get trust() { return trust; }, get radio() { return radio; }, get desk() { return desk; }, get hands() { return hands; }, get director() { return director; }, get street() { return S4; }, get conversations() { return CONVERSATIONS; },
     // for the tests and the captures: nothing of the game's rules
     test: {
       teleport(x, z) { player.pos = [x, z]; },
+      /** The footstep that would sound at (x, z) now, and where a sound of a cutscene, point or beat (`pos` or `at`) comes from; and a change of scene. */
+      footName: (x, z) => footName(st.world, x, z),
+      soundAt: (x) => soundAt(x, st.cut),
+      enter: (id) => enterScene(SCENES[id]),
       colliders: () => worldColliders(),
       die,
       manual(on = true) { st.manual = on; st.forceDraw = 0; },

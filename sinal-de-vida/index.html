@@ -10,11 +10,17 @@
   // inside the site the game shares its app manifest and icons (../); opened alone (tests, a local copy) those do not exist
   if (/\/sinal-de-vida\//.test(location.pathname)) for (const [rel, href, type] of [['manifest', '../manifest.webmanifest'], ['icon', '../icons/icon.svg', 'image/svg+xml'], ['apple-touch-icon', '../icons/apple-touch-icon.png']]) { const l = document.createElement('link'); l.rel = rel; l.href = href; if (type) l.type = type; document.head.append(l); }
 </script>
+<link rel="preload" href="./assets/fonts/BigShouldersDisplay.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="./assets/fonts/BarlowSemiCondensed-Regular.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./menus.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
 </head>
 <body>
-<div id="app"><canvas id="c"></canvas><div id="hint">Clique para jogar · WASD anda · E usa · Espaço reage · Esc abre o menu</div></div>
+<div id="app"><canvas id="c"></canvas>
+<div id="loading" role="status" aria-live="polite"><div class="ld-grain"></div><div class="ld-col"><small class="ld-kick">Arquivo de Salvamento</small><h1 class="ld-name"><span>SINAL</span> <span>DE VIDA</span></h1>
+<div class="ld-scale" aria-hidden="true"><i class="ld-needle"></i></div><p class="ld-word">Carregando</p><p class="ld-tip">Falar no rádio é ser ouvido.</p></div></div><div id="hint">Clique para jogar · WASD anda · E usa · Espaço reage · Esc abre o menu</div></div>
+<script>if (/[?&](film|editor)(=|&|$)/.test(location.search)) document.getElementById('loading').remove();</script>
 <script type="module" src="./src/main.js"></script>
 <script>
   // the site's service worker keeps the games for offline play, also when this page is the first one opened (only inside the site, where ../sw.js exists)

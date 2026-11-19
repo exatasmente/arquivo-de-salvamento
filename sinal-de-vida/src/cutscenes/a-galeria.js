@@ -33,11 +33,12 @@ export default {
   views,
   anchors: { centro: 'O centro do cenário, no chão', boca: 'A boca de inspeção: a corda e o cabo', radio: 'O rádio quebrado na prateleira', bomba: 'A bomba d\'água parada' },
   camera: stage.camera,
+  actor: stage.actor,
   sfx: [
     { t: 0, name: 'ambiente', opts: { dur: 37 } },
     ...[0.8, 1.6, 2.4, 3.2, 4, 4.8, 5.6, 6.4].map((t) => ({ t, name: 'passo' })),
     ...[24.6, 25.2, 25.8, 26.4, 27, 27.6, 28.2, 28.8].map((t) => ({ t, name: 'passo' })),
     { t: 18.6, name: 'bip' }, { t: 21.2, name: 'bip' },
-    { t: 33, name: 'bomba' },
+    { t: 33, name: 'bomba', at: 'bomba' },
   ],
 };

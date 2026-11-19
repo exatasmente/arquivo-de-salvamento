@@ -5,6 +5,7 @@ import { createEntities } from '../../vendor/engine/entities.js';
 import { ENTITY_TYPES, buildEntity } from '../entities.js';
 import { SOUND_NAMES } from '../audio/index.js';
 import { kitOf, flatten } from '../models/kit.js';
+import { patchOf } from './surfaces.js';
 
 /** The triangles of everything drawn by a scene's group. */
 export { countTris } from '../models/kit.js';
@@ -16,7 +17,7 @@ export { countTris } from '../models/kit.js';
  */
 export function placeEntities({ r, layout, editor, hooks, group, chunk = 0, night = () => 1, points = 8, override = null }) {
   const T = r.THREE, kit = kitOf(r);
-  const lamps = new Map(), colliders = [], hides = new Map(), grounds = new Map(), daylights = new Map(), boxes = new Map();
+  const lamps = new Map(), colliders = [], hides = new Map(), grounds = new Map(), daylights = new Map(), boxes = new Map(), surfaces = new Map();
   // Sound sources of this scene's entities, held so the scene can silence them while it is not the active one.
   const handles = new Set();
   let active = true;
@@ -60,8 +61,9 @@ export function placeEntities({ r, layout, editor, hooks, group, chunk = 0, nigh
       if (m.hide) { const p = toWorld(m, 0, 0, 0); hides.set(id, { id, pos: [p[0], 0, p[2]], radius: m.hide.radius }); }
       if (m.ground) { const p = toWorld(m, 0, 0, 0), g = m.ground; grounds.set(id, { min: [p[0] - g.w / 2, p[2] - g.d / 2], max: [p[0] + g.w / 2, p[2] + g.d / 2], y: g.h }); }
       if (m.daylight) daylights.set(id, m);
+      const patch = patchOf(e); if (patch) surfaces.set(id, patch);
     },
-    onRemoved(id) { lamps.delete(id); boxes.delete(id); for (const k of [...boxes.keys()]) if (k.startsWith(id + '#')) boxes.delete(k); for (const k of [...hides.keys()]) if (k === id || k.startsWith(id + '#')) hides.delete(k); grounds.delete(id); daylights.delete(id); },
+    onRemoved(id) { lamps.delete(id); boxes.delete(id); for (const k of [...boxes.keys()]) if (k.startsWith(id + '#')) boxes.delete(k); for (const k of [...hides.keys()]) if (k === id || k.startsWith(id + '#')) hides.delete(k); grounds.delete(id); surfaces.delete(id); daylights.delete(id); },
   });
   ents.all();
   let merged = null;
@@ -94,6 +96,11 @@ export function placeEntities({ r, layout, editor, hooks, group, chunk = 0, nigh
     tick(t) { for (const m of Object.values(ents.made)) m.animate?.(t); },
     /** Silences (false) or restores (true) the sound sources of this scene's entities. */
     setActive(on) { active = on; for (const h of handles) if (!on) h.raw.gain(0); },
+    /** What is under a point besides the scene's own floor (a grate, a drain): the surface of the last patch that holds it, else null. */
+    surfaceAt(x, z) { let k = null; for (const p of surfaces.values()) if (x >= p.min[0] && x <= p.max[0] && z >= p.min[1] && z <= p.max[1]) k = p.kind; return k; },
+    surfaces,
+    /** The scene is over: every sound source of its entities is stopped (the game builds the next scene on top of nothing of this one). */
+    dispose() { handles.clear(); ents.dispose(); },
     /** The floor height at a point: the highest platform under it, else 0. */
     ground(x, z) { let y = 0; for (const g of grounds.values()) if (x >= g.min[0] && x <= g.max[0] && z >= g.min[1] && z <= g.max[1]) y = Math.max(y, g.y); return y; },
   };
@@ -130,6 +137,8 @@ export function makeThings(ents, table) {
         for (const [k, v] of Object.entries(params)) ents.setParam(id, k, v);
         now[id] = state;
       }
+      // the things that sound by their state (the pump running, the board on) hear it as an event: 'bomba-funcionando', 'quadro-ligado'
+      if (typeof state === 'string') ents.event?.(`${name}-${state}`);
       return true;
     },
     thing: (id) => now[id] ?? null,

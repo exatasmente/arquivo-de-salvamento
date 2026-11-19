@@ -1,0 +1,770 @@
+{
+ "passo-concreto": {
+  "file": "passo-concreto.mp3",
+  "loop": false,
+  "dur": 5.575,
+  "channels": 1,
+  "gain_db": -3.8,
+  "slices": [
+   [
+    0.05,
+    0.375
+   ],
+   [
+    0.74,
+    0.87
+   ],
+   [
+    1.515,
+    2.15
+   ],
+   [
+    2.315,
+    2.475
+   ],
+   [
+    3.09,
+    3.725
+   ],
+   [
+    3.85,
+    4.01
+   ],
+   [
+    4.58,
+    5.215
+   ],
+   [
+    5.345,
+    5.525
+   ]
+  ]
+ },
+ "passo-grade": {
+  "file": "passo-grade.mp3",
+  "loop": false,
+  "dur": 5.8,
+  "channels": 1,
+  "gain_db": 5.7,
+  "slices": [
+   [
+    0.05,
+    0.435
+   ],
+   [
+    0.66,
+    1.04
+   ],
+   [
+    1.275,
+    1.655
+   ],
+   [
+    1.995,
+    2.63
+   ],
+   [
+    2.66,
+    3.075
+   ],
+   [
+    3.37,
+    3.988
+   ],
+   [
+    3.975,
+    4.46
+   ],
+   [
+    4.695,
+    5.09
+   ],
+   [
+    5.33,
+    5.75
+   ]
+  ]
+ },
+ "passo-escada": {
+  "file": "passo-escada.mp3",
+  "loop": false,
+  "dur": 4.49,
+  "channels": 1,
+  "gain_db": 8.2,
+  "slices": [
+   [
+    0.05,
+    0.685
+   ],
+   [
+    0.725,
+    1.328
+   ],
+   [
+    1.315,
+    1.928
+   ],
+   [
+    1.915,
+    2.528
+   ],
+   [
+    2.515,
+    3.15
+   ],
+   [
+    3.14,
+    3.775
+   ],
+   [
+    3.805,
+    4.44
+   ]
+  ]
+ },
+ "passo-hall": {
+  "file": "passo-hall.mp3",
+  "loop": false,
+  "dur": 4.46,
+  "channels": 1,
+  "gain_db": 5.1,
+  "slices": [
+   [
+    0.05,
+    0.685
+   ],
+   [
+    0.725,
+    1.36
+   ],
+   [
+    1.4,
+    2.035
+   ],
+   [
+    2.715,
+    3.35
+   ],
+   [
+    3.35,
+    3.985
+   ],
+   [
+    4.025,
+    4.41
+   ]
+  ]
+ },
+ "cabo-puxa": {
+  "file": "cabo-puxa.mp3",
+  "loop": false,
+  "dur": 2.8,
+  "channels": 1,
+  "gain_db": -8.2,
+  "slices": [
+   [
+    0.05,
+    2.75
+   ]
+  ]
+ },
+ "cabo-torce": {
+  "file": "cabo-torce.mp3",
+  "loop": false,
+  "dur": 1.815,
+  "channels": 1,
+  "gain_db": -0.1,
+  "slices": [
+   [
+    0.05,
+    1.765
+   ]
+  ]
+ },
+ "cabo-conector": {
+  "file": "cabo-conector.mp3",
+  "loop": false,
+  "dur": 0.74,
+  "channels": 1,
+  "gain_db": -8.5,
+  "slices": [
+   [
+    0.05,
+    0.69
+   ]
+  ]
+ },
+ "isca-lanca-cai": {
+  "file": "isca-lanca-cai.mp3",
+  "loop": false,
+  "dur": 1.955,
+  "channels": 1,
+  "gain_db": -1.8,
+  "slices": [
+   [
+    0.05,
+    1.905
+   ]
+  ]
+ },
+ "isca-estalo": {
+  "file": "isca-estalo.mp3",
+  "loop": false,
+  "dur": 3.685,
+  "channels": 1,
+  "gain_db": 20.8,
+  "slices": [
+   [
+    0.05,
+    0.243
+   ],
+   [
+    0.23,
+    0.423
+   ],
+   [
+    0.41,
+    0.573
+   ],
+   [
+    0.56,
+    0.758
+   ],
+   [
+    0.745,
+    0.908
+   ],
+   [
+    0.895,
+    1.063
+   ],
+   [
+    1.05,
+    1.233
+   ],
+   [
+    1.22,
+    1.418
+   ],
+   [
+    1.405,
+    1.608
+   ],
+   [
+    1.595,
+    1.773
+   ],
+   [
+    1.76,
+    1.938
+   ],
+   [
+    1.925,
+    2.093
+   ],
+   [
+    2.08,
+    2.253
+   ],
+   [
+    2.24,
+    2.438
+   ],
+   [
+    2.425,
+    2.618
+   ],
+   [
+    2.605,
+    2.793
+   ],
+   [
+    2.78,
+    2.948
+   ],
+   [
+    2.935,
+    3.098
+   ],
+   [
+    3.085,
+    3.268
+   ],
+   [
+    3.255,
+    3.483
+   ],
+   [
+    3.47,
+    3.635
+   ]
+  ]
+ },
+ "radio-chiado": {
+  "file": "radio-chiado.mp3",
+  "loop": true,
+  "dur": 6.8,
+  "channels": 1,
+  "gain_db": 11.6
+ },
+ "radio-squelch": {
+  "file": "radio-squelch.mp3",
+  "loop": false,
+  "dur": 0.73,
+  "channels": 1,
+  "gain_db": 5.1,
+  "slices": [
+   [
+    0.05,
+    0.68
+   ]
+  ]
+ },
+ "radio-ptt": {
+  "file": "radio-ptt.mp3",
+  "loop": false,
+  "dur": 1.815,
+  "channels": 1,
+  "gain_db": 7.8,
+  "slices": [
+   [
+    0.05,
+    0.21
+   ],
+   [
+    1.15,
+    1.343
+   ],
+   [
+    1.33,
+    1.765
+   ]
+  ]
+ },
+ "radio-sintonia": {
+  "file": "radio-sintonia.mp3",
+  "loop": false,
+  "dur": 3.34,
+  "channels": 1,
+  "gain_db": 9.5,
+  "slices": [
+   [
+    0.05,
+    3.29
+   ]
+  ]
+ },
+ "radio-mao": {
+  "file": "radio-mao.mp3",
+  "loop": false,
+  "dur": 3.14,
+  "channels": 1,
+  "gain_db": 20.3,
+  "slices": [
+   [
+    0.05,
+    3.09
+   ]
+  ]
+ },
+ "ui-ok": {
+  "file": "ui-ok.mp3",
+  "loop": false,
+  "dur": 2.165,
+  "channels": 1,
+  "gain_db": 1.8,
+  "slices": [
+   [
+    0.05,
+    0.21
+   ],
+   [
+    1.58,
+    2.115
+   ]
+  ]
+ },
+ "ui-move": {
+  "file": "ui-move.mp3",
+  "loop": false,
+  "dur": 2.21,
+  "channels": 1,
+  "gain_db": 18.1,
+  "slices": [
+   [
+    0.05,
+    0.585
+   ],
+   [
+    0.78,
+    1.183
+   ],
+   [
+    1.17,
+    1.638
+   ],
+   [
+    1.625,
+    2.16
+   ]
+  ]
+ },
+ "ui-no": {
+  "file": "ui-no.mp3",
+  "loop": false,
+  "dur": 0.69,
+  "channels": 1,
+  "gain_db": -7.4,
+  "slices": [
+   [
+    0.05,
+    0.64
+   ]
+  ]
+ },
+ "qte-pulso": {
+  "file": "qte-pulso.mp3",
+  "loop": false,
+  "dur": 1.765,
+  "channels": 1,
+  "gain_db": -1.2,
+  "slices": [
+   [
+    0.05,
+    1.715
+   ]
+  ]
+ },
+ "qte-acerto": {
+  "file": "qte-acerto.mp3",
+  "loop": false,
+  "dur": 1.79,
+  "channels": 1,
+  "gain_db": -5.1,
+  "slices": [
+   [
+    0.05,
+    1.74
+   ]
+  ]
+ },
+ "qte-erro": {
+  "file": "qte-erro.mp3",
+  "loop": false,
+  "dur": 1.47,
+  "channels": 1,
+  "gain_db": 1.3,
+  "slices": [
+   [
+    0.05,
+    1.445
+   ]
+  ]
+ },
+ "impacto-lixeira": {
+  "file": "impacto-lixeira.mp3",
+  "loop": false,
+  "dur": 2.645,
+  "channels": 1,
+  "gain_db": -2.1,
+  "slices": [
+   [
+    0.05,
+    2.595
+   ]
+  ]
+ },
+ "queda-corpo": {
+  "file": "queda-corpo.mp3",
+  "loop": false,
+  "dur": 0.705,
+  "channels": 1,
+  "gain_db": 0,
+  "slices": [
+   [
+    0.05,
+    0.655
+   ]
+  ]
+ },
+ "vidro-aramado": {
+  "file": "vidro-aramado.mp3",
+  "loop": false,
+  "dur": 1.985,
+  "channels": 1,
+  "gain_db": -4.8,
+  "slices": [
+   [
+    0.05,
+    1.935
+   ]
+  ]
+ },
+ "cao-servo": {
+  "file": "cao-servo.mp3",
+  "loop": false,
+  "dur": 2.82,
+  "channels": 1,
+  "gain_db": 3.3,
+  "slices": [
+   [
+    0.05,
+    2.77
+   ]
+  ]
+ },
+ "cao-hidraulica": {
+  "file": "cao-hidraulica.mp3",
+  "loop": false,
+  "dur": 1.45,
+  "channels": 1,
+  "gain_db": -7.2,
+  "slices": [
+   [
+    0.01,
+    1.4
+   ]
+  ]
+ },
+ "cao-pisada": {
+  "file": "cao-pisada.mp3",
+  "loop": false,
+  "dur": 3.67,
+  "channels": 1,
+  "gain_db": -9.2,
+  "slices": [
+   [
+    0.05,
+    0.625
+   ],
+   [
+    1.055,
+    1.67
+   ],
+   [
+    2.12,
+    2.458
+   ],
+   [
+    3.115,
+    3.62
+   ]
+  ]
+ },
+ "amb-rua": {
+  "file": "amb-rua.mp3",
+  "loop": true,
+  "dur": 20.8,
+  "channels": 2,
+  "gain_db": 13.6
+ },
+ "amb-estacao": {
+  "file": "amb-estacao.mp3",
+  "loop": true,
+  "dur": 20.8,
+  "channels": 2,
+  "gain_db": 21.2
+ },
+ "amb-poco": {
+  "file": "amb-poco.mp3",
+  "loop": true,
+  "dur": 20.8,
+  "channels": 2,
+  "gain_db": 12.2
+ },
+ "amb-predio": {
+  "file": "amb-predio.mp3",
+  "loop": true,
+  "dur": 20.8,
+  "channels": 2,
+  "gain_db": 10.4
+ },
+ "ui-ok-b": {
+  "file": "ui-ok-b.mp3",
+  "loop": false,
+  "dur": 1.655,
+  "channels": 1,
+  "gain_db": 16.3,
+  "slices": [
+   [
+    0.05,
+    0.303
+   ],
+   [
+    1.07,
+    1.605
+   ]
+  ]
+ },
+ "ui-no-b": {
+  "file": "ui-no-b.mp3",
+  "loop": false,
+  "dur": 0.69,
+  "channels": 1,
+  "gain_db": -7,
+  "slices": [
+   [
+    0.05,
+    0.64
+   ]
+  ]
+ },
+ "radio-squelch-b": {
+  "file": "radio-squelch-b.mp3",
+  "loop": false,
+  "dur": 1.04,
+  "channels": 1,
+  "gain_db": -9.6,
+  "slices": [
+   [
+    0.05,
+    0.99
+   ]
+  ]
+ },
+ "cabo-conector-b": {
+  "file": "cabo-conector-b.mp3",
+  "loop": false,
+  "dur": 0.425,
+  "channels": 1,
+  "gain_db": -4,
+  "slices": [
+   [
+    0.05,
+    0.375
+   ]
+  ]
+ },
+ "queda-corpo-b": {
+  "file": "queda-corpo-b.mp3",
+  "loop": false,
+  "dur": 0.775,
+  "channels": 1,
+  "gain_db": -4.4,
+  "slices": [
+   [
+    0.05,
+    0.725
+   ]
+  ]
+ },
+ "qte-erro-b": {
+  "file": "qte-erro-b.mp3",
+  "loop": false,
+  "dur": 0.49,
+  "channels": 1,
+  "gain_db": -2.3,
+  "slices": [
+   [
+    0.05,
+    0.44
+   ]
+  ]
+ },
+ "zumbido-lampada": {
+  "file": "zumbido-lampada.mp3",
+  "loop": true,
+  "dur": 2.4,
+  "channels": 1,
+  "gain_db": 16.3
+ },
+ "bomba-motor": {
+  "file": "bomba-motor.mp3",
+  "loop": true,
+  "dur": 2.78,
+  "channels": 1,
+  "gain_db": 12.6
+ },
+ "rele-semaforo": {
+  "file": "rele-semaforo.mp3",
+  "loop": false,
+  "dur": 2.69,
+  "channels": 1,
+  "gain_db": 9,
+  "slices": [
+   [
+    0.035,
+    0.338
+   ],
+   [
+    0.325,
+    1.06
+   ],
+   [
+    1.16,
+    1.895
+   ],
+   [
+    1.905,
+    2.64
+   ]
+  ]
+ },
+ "vento-grade": {
+  "file": "vento-grade.mp3",
+  "loop": true,
+  "dur": 3.3,
+  "channels": 1,
+  "gain_db": 13
+ },
+ "gota-cano": {
+  "file": "gota-cano.mp3",
+  "loop": false,
+  "dur": 1.188,
+  "channels": 1,
+  "gain_db": 17.2,
+  "slices": [
+   [
+    0.05,
+    0.418
+   ],
+   [
+    0.405,
+    0.608
+   ],
+   [
+    0.595,
+    1.138
+   ]
+  ]
+ },
+ "ui-voltar": {
+  "file": "ui-voltar.mp3",
+  "loop": false,
+  "dur": 0.365,
+  "channels": 1,
+  "gain_db": 7.3,
+  "slices": [
+   [
+    0.05,
+    0.315
+   ]
+  ]
+ },
+ "ui-aba": {
+  "file": "ui-aba.mp3",
+  "loop": false,
+  "dur": 0.635,
+  "channels": 1,
+  "gain_db": 2.8,
+  "slices": [
+   [
+    0.05,
+    0.585
+   ]
+  ]
+ },
+ "ui-fader": {
+  "file": "ui-fader.mp3",
+  "loop": false,
+  "dur": 0.215,
+  "channels": 1,
+  "gain_db": 6.4,
+  "slices": [
+   [
+    0.05,
+    0.165
+   ]
+  ]
+ }
+}

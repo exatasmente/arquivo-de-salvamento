@@ -12,6 +12,9 @@
 // internal resolution (near the video's own for animacao, low and enlarged without smoothing for ps2); never a HUD.
 import { createRender } from './render.js';
 import { CUTSCENES } from './cutscenes/index.js';
+import { filmEmitterEvents, worldPos } from './audio/film-sounds.js';
+import GALERIA from '../data/scenes/galeria.json' with { type: 'json' };
+import RUA from '../data/scenes/rua.json' with { type: 'json' };
 
 /** Actions: optional variations of a view, switched on at the start of the shot or at "name@0.6". */
 export const ACTIONS = {
@@ -46,7 +49,20 @@ export function manifest() {
 }
 
 /** Long sounds that keep going across a cut: a stretch that starts inside them gets the rest of them. */
-const BEDS = new Set(['ambiente', 'ambiente-rua']);
+const BEDS = new Set(['ambiente', 'ambiente-rua', 'ambiente-poco', 'ambiente-predio']);
+
+/** The layout each cutscene films, for the sound of the objects in it (the two of the radio, with their own lamps and voices, have none). */
+const LAYOUT_OF = { galeria: GALERIA, 'a-galeria': GALERIA, rua: RUA, noite1: RUA, emenda: RUA };
+
+/** Where a sound of a cutscene is (its `pos`, or `at`: an actor of the cutscene, or the id of an entity of its layout), at cutscene time t; null: the camera's own. */
+function placeOf(def, layout, e, t) {
+  if (e.pos) return e.pos.length === 2 ? [e.pos[0], 1, e.pos[1]] : e.pos;
+  if (typeof e.at !== 'string') return null;
+  try { const a = def.actor?.(e.at, t); if (a) return a; } catch { /* no such actor in this view */ }
+  const ent = layout?.entities.find((x) => x.id === e.at);
+  if (ent) { const p = worldPos(ent); return [p[0], Math.max(p[1], 0.8), p[2]]; }
+  return null;
+}
 
 /** The sound events of a shot from `from` to `to` (see the head of this file; the same rules as the shots). */
 export function sounds(from, to = from) {
@@ -56,9 +72,12 @@ export function sounds(from, to = from) {
   if (va.cutscene !== vb.cutscene) throw new Error(`views of different cutscenes: ${from} -> ${to}`);
   const a = va.t0, b = vb.t1, natural = b - a;
   if (natural <= 0) throw new Error(`view ${to} comes before ${from}`);
-  const r = (x) => +x.toFixed(4), events = [];
-  for (const e of CUTSCENES[va.cutscene].sfx ?? []) {
+  const r = (x) => +x.toFixed(4), events = [], def = CUTSCENES[va.cutscene], layout = LAYOUT_OF[va.cutscene] ?? null;
+  // the listener and the objects of the scene that sound (components.sound of the layout's entities), from the camera of the stretch
+  if (layout && def.camera) events.push(...filmEmitterEvents({ layout, camera: def.camera, a, b }));
+  for (const e of def.sfx ?? []) {
     const opts = { ...(e.opts ?? {}) };
+    if (e.t >= a && e.t < b) { const pos = placeOf(def, layout, e, e.t); if (pos) opts.pos = pos.map((v) => +v.toFixed(2)); }
     if (e.t >= a && e.t < b) {
       if (BEDS.has(e.name) && opts.dur !== undefined) opts.dur = r(Math.min(opts.dur, b - e.t));
       events.push({ u: r((e.t - a) / natural), name: e.name, opts });

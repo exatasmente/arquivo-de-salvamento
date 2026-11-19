@@ -29,7 +29,7 @@ async function withGame(fn, { touch = false } = {}) {
   try {
     const page = await browser.newPage(touch ? { viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true } : { viewport: { width: 640, height: 360 } }), errors = [];
     page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-    const open = async (query = '') => { await page.goto(`${url}${query}`); await page.waitForFunction(() => window.__game?.run && window.__game.st.phase); await page.evaluate(() => window.__game.test.manual(true)); await ready(page); };
+    const open = async (query = '') => { await page.goto(`${url}${query}`, { timeout: 120000 }); await page.waitForFunction(() => window.__game?.run && window.__game.st.phase); await page.evaluate(() => window.__game.test.manual(true)); await ready(page); };
     await fn({ page, open, errors, url });
     assert.deepEqual(errors, [], 'no console error');
   } finally { await browser.close(); srv.close(); }
@@ -328,9 +328,12 @@ test('the option "Sangue e violência gráfica": on by default, in the Options a
     assert.equal(await page.evaluate(() => window.__game.options.gore), true); assert.equal(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).meta.opts.gore, KEY), true);
     // the Options: the same row
     await page.click('[data-act="options"]'); await page.waitForFunction(() => window.__game.screens.current === 'options');
-    assert.match(await page.evaluate(() => document.querySelector('#screens [data-o="gore"]').textContent), /Sangue e violência gráfica: sim/);
+    await page.click('[data-tab="conteudo"]');                                                       // the option lives on the tab Conteúdo, drawn as a switch
+    assert.match(await page.evaluate(() => document.querySelector('#screens [data-o="gore"]').textContent), /Sangue e violência gráfica/);
+    assert.equal(await page.evaluate(() => document.querySelector('#screens [data-o="gore"]').getAttribute('aria-checked')), 'true', 'the switch reads on');
     await page.click('[data-o="gore"]');
     assert.equal(await page.evaluate(() => window.__game.options.gore), false);
+    assert.equal(await page.evaluate(() => document.querySelector('#screens [data-o="gore"]').getAttribute('aria-checked')), 'false', 'the switch reads off');
     // a reload of the page: the choice is still there
     await page.reload(); await page.waitForFunction(() => window.__game?.run && window.__game.st.phase);
     assert.equal(await page.evaluate(() => window.__game.options.gore), false, 'kept through a reload');

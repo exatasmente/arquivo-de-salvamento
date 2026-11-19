@@ -1,0 +1,384 @@
+{
+ "model": "eleven_text_to_sound_v3",
+ "output_format": "mp3_44100_128",
+ "sounds": [
+  {
+   "id": "passo-concreto",
+   "cat": "passo",
+   "dur": 6,
+   "influence": 0.7,
+   "text": "Close-miked single footsteps of a man in heavy leather boots walking slowly on rough concrete pavement outdoors at night, eight separate steps evenly spaced about every 0.7 seconds, gritty sole scuff on each step, clear silence between the steps, dry, no music, no voices, no background ambience",
+   "mode": "hits"
+  },
+  {
+   "id": "passo-grade",
+   "cat": "passo",
+   "dur": 6,
+   "influence": 0.7,
+   "text": "Close-miked single footsteps of a man in heavy leather boots walking slowly on a metal grate walkway, a hollow metallic ring under each step, eight separate steps evenly spaced about every 0.7 seconds, clear silence between the steps, dry, no music, no voices, no background ambience",
+   "mode": "hits"
+  },
+  {
+   "id": "passo-escada",
+   "cat": "passo",
+   "dur": 6,
+   "influence": 0.7,
+   "text": "Close-miked single footsteps of a man in heavy leather boots climbing concrete interior stairs, eight separate steps evenly spaced about every 0.7 seconds, each step a short dull knock with a faint echo in a stairwell, clear silence between the steps, no music, no voices",
+   "mode": "hits"
+  },
+  {
+   "id": "passo-hall",
+   "cat": "passo",
+   "dur": 6,
+   "influence": 0.7,
+   "text": "Single footsteps of a man in heavy leather boots walking slowly on a tiled floor of a large empty hall, eight separate steps evenly spaced about every 0.7 seconds, a sharp heel click followed by a short room reverb, clear silence between the steps, no music, no voices",
+   "mode": "hits"
+  },
+  {
+   "id": "cabo-puxa",
+   "cat": "cabo",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "A heavy thick electrical cable being dragged and pulled taut across a concrete floor, rubber insulation rubbing, a strained creak, close microphone, dry, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "cabo-torce",
+   "cat": "cabo",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "Close-up of someone twisting bare copper wires together by hand, a soft metallic squeak and rasp, small squeezes of pliers, quiet workshop, no music, no voices",
+   "mode": "whole"
+  },
+  {
+   "id": "cabo-conector",
+   "cat": "cabo",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "A heavy industrial electrical connector snapping shut onto a socket with a solid mechanical click and latch, close microphone, dry, twice with a pause between, no music",
+   "mode": "whole",
+   "max": 0.6
+  },
+  {
+   "id": "isca-lanca-cai",
+   "cat": "isca",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "A small plastic and metal device is thrown through the air and lands on asphalt, a short clatter, a bounce and a small roll, outdoors at night, dry, close microphone, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "isca-estalo",
+   "cat": "isca",
+   "dur": 4,
+   "influence": 0.6,
+   "text": "A small mechanical device repeating a dry sharp clicking, like a relay or a ratchet, slow irregular clicks, lonely on asphalt at night, no beeps, no music, no voices",
+   "mode": "hits"
+  },
+  {
+   "id": "radio-chiado",
+   "cat": "radio",
+   "dur": 8,
+   "influence": 0.5,
+   "loop": true,
+   "text": "Static hiss of a real shortwave transceiver between stations, a steady noise bed with faint crackle and a low electronic hum, no voices, no music",
+   "mode": "loop"
+  },
+  {
+   "id": "radio-squelch",
+   "cat": "radio",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "Walkie-talkie squelch tail: a short burst of noise that drops away when a transmission ends, followed by silence, analog transceiver, repeated twice with a pause between, no voices, no music",
+   "mode": "whole",
+   "max": 0.9
+  },
+  {
+   "id": "radio-ptt",
+   "cat": "radio",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "The push-to-talk button of a transceiver pressed and released, a mechanical click down and a click up, close, three times separated by pauses, no beeps, no voices, no music",
+   "mode": "hits"
+  },
+  {
+   "id": "radio-sintonia",
+   "cat": "radio",
+   "dur": 4,
+   "influence": 0.6,
+   "text": "The tuning dial of a shortwave radio turned slowly, noise sweeping through static and a whistling heterodyne squeal between stations, analog, no voices, no music",
+   "mode": "whole",
+   "max": 3.2
+  },
+  {
+   "id": "radio-mao",
+   "cat": "radio",
+   "dur": 4,
+   "influence": 0.6,
+   "text": "Handheld walkie-talkie speaker crackle, a small cheap speaker, bursts of static and crackle in the mid frequencies, no voices, no music",
+   "mode": "whole",
+   "max": 3.0
+  },
+  {
+   "id": "ui-ok",
+   "cat": "ui",
+   "dur": 3,
+   "influence": 0.7,
+   "text": "Four soft mechanical button clicks of a good quality switch, tactile and muted, each separated by half a second of silence, very subtle, no beeps, no music",
+   "mode": "hits"
+  },
+  {
+   "id": "ui-move",
+   "cat": "ui",
+   "dur": 3,
+   "influence": 0.7,
+   "text": "Four very light small plastic ticks, like a thumb on a ratchet dial, light and quiet, one every 0.6 seconds, silence between, no beeps, no music",
+   "mode": "hits"
+  },
+  {
+   "id": "ui-no",
+   "cat": "ui",
+   "dur": 3,
+   "influence": 0.7,
+   "text": "Three muted low dull thunks of a heavy switch that refuses to move, soft and low, spaced about 0.8 seconds apart, silence between, no beeps, no music",
+   "mode": "whole",
+   "max": 0.55
+  },
+  {
+   "id": "qte-pulso",
+   "cat": "qte",
+   "dur": 2,
+   "influence": 0.6,
+   "text": "A short low sub-bass tension pulse, felt more than heard, like a single slow heartbeat thump with a faint rising air, no melody, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "qte-acerto",
+   "cat": "qte",
+   "dur": 2,
+   "influence": 0.6,
+   "text": "A quick dry breath of effort and a quick movement of a cloth jacket, as a person dodges and grabs something, close microphone, no spoken words",
+   "mode": "whole"
+  },
+  {
+   "id": "qte-erro",
+   "cat": "qte",
+   "dur": 2,
+   "influence": 0.6,
+   "text": "A dull heavy body thud on a floor with a cloth rustle, short and low, no voice, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "impacto-lixeira",
+   "cat": "impacto",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "A heavy robot body hits a large metal dumpster at speed, a loud boom and sheet metal rattling, then a dying resonance, outdoors in an alley at night, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "queda-corpo",
+   "cat": "impacto",
+   "dur": 2,
+   "influence": 0.6,
+   "text": "A heavy body falls onto asphalt pavement, a dull thud with a cloth and a scrape, outdoors at night, no voice, no music",
+   "mode": "whole",
+   "max": 0.9
+  },
+  {
+   "id": "vidro-aramado",
+   "cat": "impacto",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "A hard impact on a pane of wired glass that cracks, a dull thump and then a fracturing crackle, the glass does not fully shatter and the mesh holds, close microphone, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "cao-servo",
+   "cat": "cao",
+   "dur": 3,
+   "influence": 0.6,
+   "text": "A heavy robotic servo motor whining low and mechanical, rising and falling, a hydraulic actuator, industrial, close, no beeps, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "cao-hidraulica",
+   "cat": "cao",
+   "dur": 2,
+   "influence": 0.6,
+   "text": "A short hydraulic pressure hiss release of a heavy machine, a low pneumatic exhale, close, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "cao-pisada",
+   "cat": "cao",
+   "dur": 4,
+   "influence": 0.7,
+   "text": "Heavy metal footfalls of a large four-legged robot walking slowly on concrete, dull metallic thuds, four steps evenly spaced, no music, no voices",
+   "mode": "hits",
+   "max": 0.8
+  },
+  {
+   "id": "amb-rua",
+   "cat": "amb",
+   "dur": 22,
+   "influence": 0.4,
+   "loop": true,
+   "text": "A quiet city street at night with no traffic, a distant low hum of the city, soft wind moving between tall buildings, a faint far-off metal creak, empty and tense, no music, no voices, no animals",
+   "mode": "loop"
+  },
+  {
+   "id": "amb-estacao",
+   "cat": "amb",
+   "dur": 22,
+   "influence": 0.4,
+   "loop": true,
+   "text": "An abandoned underground metro station, a large empty concrete room, occasional distant water drips echoing, low air movement, a faint deep hum, eerie quiet, no music, no voices",
+   "mode": "loop"
+  },
+  {
+   "id": "amb-poco",
+   "cat": "amb",
+   "dur": 22,
+   "influence": 0.4,
+   "loop": true,
+   "text": "Inside a narrow metal ventilation shaft, a low airflow whoosh, faint metallic resonance and a distant fan hum, a tight enclosed space, no music, no voices",
+   "mode": "loop"
+  },
+  {
+   "id": "amb-predio",
+   "cat": "amb",
+   "dur": 22,
+   "influence": 0.4,
+   "loop": true,
+   "text": "An empty apartment building stairwell at night, concrete and metal, a faint distant hum of pipes, an occasional far-away door closing, quiet reverberant air, no music, no voices",
+   "mode": "loop"
+  },
+  {
+   "id": "ui-ok-b",
+   "cat": "ui",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "One soft mechanical click of a high quality latching switch, tactile and muted, dry, very subtle, then silence, no beeps, no music",
+   "mode": "hits",
+   "max": 0.55
+  },
+  {
+   "id": "ui-no-b",
+   "cat": "ui",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "One short muted low thunk of a heavy toggle switch hitting its stop, soft and low pitched, dry, then silence, no beeps, no music",
+   "mode": "whole",
+   "max": 0.55
+  },
+  {
+   "id": "radio-squelch-b",
+   "cat": "radio",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "One short burst of radio squelch noise cutting off abruptly as a transmission ends, then silence, analog transceiver, no voices, no music",
+   "mode": "whole",
+   "max": 0.9
+  },
+  {
+   "id": "cabo-conector-b",
+   "cat": "cabo",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "One heavy industrial connector snapping into a socket with a solid mechanical click, close microphone, dry, then silence, no music",
+   "mode": "whole",
+   "max": 0.6
+  },
+  {
+   "id": "queda-corpo-b",
+   "cat": "impacto",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "A person falls heavily on a concrete pavement, a dull thud, cloth and a short scrape, outdoors at night, no voice, no music",
+   "mode": "whole",
+   "max": 0.9
+  },
+  {
+   "id": "qte-erro-b",
+   "cat": "qte",
+   "dur": 2,
+   "influence": 0.7,
+   "text": "A dull heavy body thud against a wall with a cloth rustle, short and low, no voice, no music",
+   "mode": "whole"
+  },
+  {
+   "id": "zumbido-lampada",
+   "cat": "emissor",
+   "dur": 3,
+   "influence": 0.5,
+   "loop": true,
+   "xfade": 0.6,
+   "mode": "loop",
+   "text": "The steady electric hum of an old caged industrial lamp on a concrete ceiling, a low mains buzz around 100 hertz with a faint thin ballast whine, close microphone, constant, no clicks, no music, no voices"
+  },
+  {
+   "id": "bomba-motor",
+   "cat": "emissor",
+   "dur": 3.5,
+   "influence": 0.5,
+   "loop": true,
+   "xfade": 0.7,
+   "mode": "loop",
+   "text": "A small electric water pump motor running steadily in a concrete room, a low rhythmic mechanical drone with water flowing through a pipe, constant, close microphone, no music, no voices"
+  },
+  {
+   "id": "rele-semaforo",
+   "cat": "emissor",
+   "dur": 4,
+   "influence": 0.6,
+   "mode": "hits",
+   "text": "An electrical relay inside a traffic light controller box, a few dry mechanical clacks and clicks spaced seconds apart in a quiet outdoor night, metallic cabinet resonance, no beeps, no music, no voices"
+  },
+  {
+   "id": "vento-grade",
+   "cat": "emissor",
+   "dur": 4,
+   "influence": 0.5,
+   "loop": true,
+   "xfade": 0.7,
+   "mode": "loop",
+   "text": "Wind blowing through a metal grate over a ventilation shaft, a low hollow whistling and breathy airflow with a faint metallic resonance, steady, no music, no voices"
+  },
+  {
+   "id": "gota-cano",
+   "cat": "emissor",
+   "dur": 4,
+   "influence": 0.6,
+   "mode": "hits",
+   "text": "A single slow water drip from a leaking pipe falling into a shallow puddle in a big empty concrete room, a few separate drops spaced seconds apart, clear plink, quiet, no music, no voices"
+  },
+  {
+   "id": "ui-voltar",
+   "cat": "ui",
+   "dur": 1.5,
+   "influence": 0.7,
+   "mode": "hits",
+   "max": 0.45,
+   "text": "One soft low mechanical release of a latching switch springing back, a short muted click-thunk, dry and subtle, then silence, no beeps, no music"
+  },
+  {
+   "id": "ui-aba",
+   "cat": "ui",
+   "dur": 1.5,
+   "influence": 0.7,
+   "mode": "hits",
+   "max": 0.4,
+   "text": "One light dry mechanical click of a small rotary band selector clicking into the next position, crisp and quiet, then silence, no beeps, no music"
+  },
+  {
+   "id": "ui-fader",
+   "cat": "ui",
+   "dur": 1.5,
+   "influence": 0.7,
+   "mode": "hits",
+   "max": 0.25,
+   "text": "Three very tiny soft ticks of a slider potentiometer passing detents, a light plastic tick every 0.4 seconds, very quiet, silence between, no beeps, no music"
+  }
+ ]
+}

@@ -74,17 +74,18 @@ export default {
   views,
   anchors: { corte: 'A ponta do cabo cortado, na calçada, onde Jonas emenda', grade: 'A grade do chão onde o cabo fica preso depois do salto', canto: 'O canto entre os carros parados por onde o cão sai da pista', cacamba: 'A caçamba onde o cão bate e onde Jonas se esconde' },
   camera: stage.camera,
+  actor: stage.actor,
   sfx: [
-    { t: 0.3, name: 'cao-rolar' }, { t: 0.75, name: 'cao-rolar' }, { t: 1.2, name: 'cao-rolar' }, { t: 1.65, name: 'cao-rolar' }, { t: 2.1, name: 'cao-rolar' }, { t: 2.55, name: 'cao-rolar' },
-    { t: 3.0, name: 'corte' }, { t: 3.4, name: 'cao-desconfiado' }, { t: 4.3, name: 'corte' },
+    ...[0.3, 0.75, 1.2, 1.65, 2.1, 2.55].map((t) => ({ t, name: 'cao-rolar', at: 'cao' })),
+    { t: 3.0, name: 'corte' }, { t: 3.4, name: 'cao-desconfiado', at: 'cao' }, { t: 4.3, name: 'corte' },
     // the quiet way
-    { t: T0 + A, name: 'cao-salta' }, { t: T0 + A, name: 'camera-lenta' }, { t: T0 + R(A + 0.5), name: 'reacao-acerto' }, { t: T0 + R(A + W + DUMP.slide), name: 'cao-bate' },
-    { t: T0 + R(8.5), name: 'isca-perto' }, { t: T0 + R(10.1), name: 'cao-surdo' }, { t: T0 + R(11.6), name: 'cabo-puxa' }, { t: T0 + R(12.2), name: 'cabo-puxa' }, { t: T0 + R(12.8), name: 'cabo-solta' },
-    { t: T0 + R(13.7), name: 'consertar' },
+    { t: T0 + A, name: 'cao-salta', at: 'cao' }, { t: T0 + A, name: 'camera-lenta' }, { t: T0 + R(A + 0.5), name: 'reacao-acerto' }, { t: T0 + R(A + W + DUMP.slide), name: 'cao-bate', at: 'cao' },
+    { t: T0 + R(8.5), name: 'isca-perto', at: 'cao' }, { t: T0 + R(10.1), name: 'cao-surdo', at: 'cao' }, { t: T0 + R(11.6), name: 'cabo-puxa', at: 'jonas' }, { t: T0 + R(12.2), name: 'cabo-puxa', at: 'jonas' }, { t: T0 + R(12.8), name: 'cabo-solta', at: 'jonas' },
+    { t: T0 + R(13.7), name: 'consertar', at: 'jonas' },
     // the loud way
-    { t: T0 + LOUD_OFF + A, name: 'cao-salta' }, { t: T0 + LOUD_OFF + A, name: 'camera-lenta' }, { t: T0 + LOUD_OFF + R(A + W + DUMP.slide), name: 'cao-bate' },
-    { t: T0 + LOUD_OFF + R(8.9), name: 'curto' }, { t: T0 + LOUD_OFF + R(11.5), name: 'cabo-puxa' }, { t: T0 + LOUD_OFF + R(12.6), name: 'cabo-puxa' }, { t: T0 + LOUD_OFF + R(13.9), name: 'cabo-solta' }, { t: T0 + LOUD_OFF + R(14.9), name: 'consertar' },
+    { t: T0 + LOUD_OFF + A, name: 'cao-salta', at: 'cao' }, { t: T0 + LOUD_OFF + A, name: 'camera-lenta' }, { t: T0 + LOUD_OFF + R(A + W + DUMP.slide), name: 'cao-bate', at: 'cao' },
+    { t: T0 + LOUD_OFF + R(8.9), name: 'curto', at: 'cao' }, { t: T0 + LOUD_OFF + R(11.5), name: 'cabo-puxa', at: 'jonas' }, { t: T0 + LOUD_OFF + R(12.6), name: 'cabo-puxa', at: 'jonas' }, { t: T0 + LOUD_OFF + R(13.9), name: 'cabo-solta', at: 'jonas' }, { t: T0 + LOUD_OFF + R(14.9), name: 'consertar', at: 'jonas' },
     // the dodge missed
-    { t: T0 + KNOCK_OFF + A, name: 'cao-salta' }, { t: T0 + KNOCK_OFF + A, name: 'camera-lenta' }, { t: T0 + KNOCK_OFF + R(A + W), name: 'cao-ataque' },
+    { t: T0 + KNOCK_OFF + A, name: 'cao-salta', at: 'cao' }, { t: T0 + KNOCK_OFF + A, name: 'camera-lenta' }, { t: T0 + KNOCK_OFF + R(A + W), name: 'cao-ataque', at: 'cao' },
   ],
 };

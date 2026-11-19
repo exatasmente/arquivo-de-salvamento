@@ -59,10 +59,11 @@ export default {
   views,
   anchors: { cao: 'O cão quebrado junto à caçamba', corte: 'A ponta do cabo cortado, na calçada', poco: 'A grade do poço, na calçada sob o viaduto' },
   camera: stage.camera,
+  actor: stage.actor,
   sfx: [
     { t: 0, name: 'ambiente-rua', opts: { dur: CID_T } },
-    { t: 21, name: 'cao-rolar' }, { t: 23, name: 'cao-rolar' }, { t: 25, name: 'cao-rolar' },
-    { t: 28.2, name: 'isca-cai' }, ...[29.2, 30.2, 31.2, 32.2, 33.2].map((t) => ({ t, name: 'isca-estalo' })), { t: 30, name: 'cao-desconfiado' },
-    { t: 36, name: 'consertar' }, { t: 38.5, name: 'consertar' },
+    { t: 21, name: 'cao-rolar', at: 'cao' }, { t: 23, name: 'cao-rolar', at: 'cao' }, { t: 25, name: 'cao-rolar', at: 'cao' },
+    { t: 28.2, name: 'isca-cai', at: 'isca' }, ...[29.2, 30.2, 31.2, 32.2, 33.2].map((t) => ({ t, name: 'isca-estalo', at: 'isca' })), { t: 30, name: 'cao-desconfiado', at: 'cao' },
+    { t: 36, name: 'consertar', at: 'jonas' }, { t: 38.5, name: 'consertar', at: 'jonas' },
   ],
 };
