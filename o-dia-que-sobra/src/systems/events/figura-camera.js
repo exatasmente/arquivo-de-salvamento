@@ -1,11 +1,11 @@
-// "A figura na câmera": on the store camera (cam1) somebody in an old attendant's uniform stands behind the counter, still. It is
-// drawn only in the camera's render. When the player goes back to the store it is there, behind the counter, for real; when the
-// player looks away, nobody. Needs the CameraSystem (`cameras`); without it, or with the player already in the store, it does not run.
-const SPOT = [12.4, 9.6], YAW = Math.PI;           // behind the counter, facing the shop
+// "A figura na câmera": on the store camera (cam1) somebody in an old attendant's uniform stands behind the attendant at the counter, still. It is
+// drawn only in the camera's render, seen on the CRT at the counter. Some seconds after the player has seen it there, with the spot
+// behind the counter out of sight, it is there for real; when the player looks away, nobody. Needs the CameraSystem (`cameras`).
+const SPOT = [13.5, 10.85], YAW = Math.PI;         // behind the attendant at the counter (he works at the till, z 9.4), facing his back
 const ABANDON = 150, AFTER_SEEN = 70;              // real seconds
 
 export function run({ cameras, kit, world, bus, sanity, progression, event, ui, forced }) {
-  if (!cameras || (!forced && kit.area() === 'loja')) return { update: () => true };
+  if (!cameras) return { update: () => true };
   const eye = kit.v3(SPOT[0], 1.35, SPOT[1]);
   let ghost = cameras.ghost('cam1', { kind: 'figura', x: SPOT[0], z: SPOT[1], yaw: YAW, pose: 'fixo', seed: 12 });
   let fig = null, shopT = 0, seen = false, t = 0, tSeen = 0, watch = 0, gazed = 0, away = 0, st = 'cam';
@@ -25,7 +25,8 @@ export function run({ cameras, kit, world, bus, sanity, progression, event, ui, 
         if (ghost && cameras.watchingCam('cam1')) watch += dt; else watch = Math.max(0, watch - dt * 0.5);
         if (!seen && watch > 1.6) sighted('(Na câmera da loja. Atrás do balcão.)');
         // the player is back in the store: it stands there, placed while the player is not looking at the spot
-        if (kit.area() === 'loja' && (kit.look(eye) < 0.55 || kit.dist(eye) > 13)) {
+        // it turns real behind the attendant only after the figure was seen on the monitor (the tube at the counter counts), and when the spot is out of sight
+        if (kit.area() === 'loja' && seen && t - tSeen > 3 && !cameras.watchingCam('cam1') && kit.look(eye) < 0.55) {
           fig = kit.figure('frentista-antigo', 12);
           fig.root.position.set(SPOT[0], 0, SPOT[1]); fig.root.rotation.y = YAW; fig.root.visible = true; fig.setPose('fixo', 0);
           ghost?.remove(); ghost = null; st = 'shop'; t = Math.min(t, 100); gazed = 0; away = 0;

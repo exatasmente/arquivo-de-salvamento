@@ -26,6 +26,11 @@ export function createCash(bus, { items }) {
       stock[bill] = (stock[bill] || 0) + 1;
       if (isTorn) { torn += bill; tornList.push(bill); }
     },
+    /**
+     * The payment of a customer who does not exist is not money: the notes it handed over leave the drawer after the change was given (so the player cannot see it
+     * coming) and nothing takes their place. The register still rang the sale up, so at close the drawer is short of the report.
+     */
+    vanish(bills) { for (const b of bills) if ((stock[b] || 0) > 0) stock[b]--; },
     /** pieces: values handed back as change. The ones the drawer does not have are refused before this is called. */
     give(pieces) { for (const v of pieces) stock[v] = Math.max(0, (stock[v] || 0) - 1); },
     ring(cents) { sales += Math.round(cents); },

@@ -81,7 +81,7 @@ const FOOT = {
   cabine: (p) => [-(p.largura / 2 + 0.02), -(p.profundidade / 2), p.largura / 2 + 0.02, p.profundidade / 2, 1.9],
   armario: () => [-0.45, -0.25, 0.45, 0.25, 1.9], cofre: () => [-0.25, -0.3, 0.25, 0.25, 0.5], 'mesa-escritorio': () => [-1.1, -0.4, 1.1, 0.4, 0.8],
   'estante-estoque': () => [-1.25, -0.3, 1.25, 0.3, 2.3], 'quadro-forca': () => [-0.4, 0, 0.4, 0.3, 2.0],
-  pia: () => [-0.4, -0.325, 0.4, 0.275, 0.9], geladeira: () => [-0.6, 0, 0.6, 0.8, 2.0],
+  pia: () => [-0.4, -0.325, 0.4, 0.275, 0.9], geladeira: () => [-0.6, -0.35, 0.6, 0.45, 2.0],
   conteiner: () => [-1, -0.6, 1, 0.6, 1.4, 'fixed'], poste: () => [-0.2, -0.2, 0.2, 0.2, 7, 'fixed'], 'placa-sol': () => [-0.3, -0.3, 0.3, 0.3, 10, 'fixed'],
 };
 /** World min/max of a local footprint rect turned by `ry` about (x, z). */

@@ -1,4 +1,4 @@
-// R7, night 12: an old VHS tape lies in front of the security monitor in the office, labelled by hand ("NÃO APAGAR"). Look at it, then choose:
+// R7, night 12: an old VHS tape lies in front of the security monitor, on the counter beside the register, labelled by hand ("NÃO APAGAR"). Look at it, then choose:
 //   see it   the picture (branches/tape.js: the station, the attendant from behind, the sign, a month and a year in the corner, never a day), -15 sanity,
 //            and the man of 03:33 says other things afterwards (a flag, `r7:viu`, read by data/recurring.pt-BR.json) with one more hint for whoever asks him again;
 //   erase it the manager asked for secrecy (trust up, the Sun's attention down);
@@ -7,7 +7,7 @@
 import { makeThing, examinable, unseen } from './common.js';
 import { showTape } from './tape.js';
 
-export const TAPE_AT = [5.95, 0.775, 18.45];
+export const TAPE_AT = [15.4, 1.0, 8.62];      // on the counter, to the right of the monitor
 export const can = ({ narrative }) => !narrative.ringing;
 export function run(ctx) {
   const { render, kit, ui, branches, bus, time } = ctx;
@@ -29,7 +29,7 @@ export function run(ctx) {
     } else if (k === 'apagar') {
       bus.emit('sfx', 'secretaria_fita', { opts: { dur: 3 } });
       await ui.dialogue('Heitor', ['(Gravo por cima, sem ver. Chiado, só.)', '(O gerente pediu para isso não circular. Pelo menos nisso eu obedeço.)'], 12, { self: true });
-    } else await ui.dialogue('Heitor', ['(Guardo na gaveta de baixo da mesa. Não é hoje.)'], 12, { self: true });
+    } else await ui.dialogue('Heitor', ['(Guardo na gaveta de baixo do balcão. Não é hoje.)'], 12, { self: true });
     tape.visible = false; st = 'done'; after = 0;
   }
   tid = examinable(ctx, 'fita-r7', at, { text: 'Ver a fita', tap: () => look(), enabled: () => st === 'there', r: 0.3 });

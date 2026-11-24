@@ -1,7 +1,8 @@
-// SecurityCameraSystem: the six ceiling cameras of the monitor in the office. Each picture is a second render of
+// SecurityCameraSystem: the six ceiling cameras of the monitor at the counter (beside the register; it used to be in the office). Each picture is a second render of
 // the real posto from the camera's own anchor (cam1 .. cam6) into a 160 x 120 target, turned into black and white
 // with a dotted (ordered) dither and the camera / clock stamp in the corner. The monitor shows one camera or the grid
-// of six. Nothing is drawn while the monitor is closed; in the grid one camera is drawn per frame, in turn.
+// of six. While the monitor is closed (the tube at the counter, seen in passing) only the shop camera (cam1) is drawn, a few times a second, and only when the
+// player is near enough to see it; in the grid one camera is drawn per frame, in turn.
 //
 // What the cameras do to the truth (all functions of the game clock and the seeds, nothing reads a real clock):
 //   fail(cam, { kind: 'chiado' | 'atraso' | 'queda', secs, level, delay })   snow / a picture some seconds old / signal lost
@@ -12,6 +13,14 @@
 //   const cameras = createCameras(bus, { render, world, ui, time, sanity, input, data, player, interaction, office, lighting, progression });
 //   step(): cameras.update(dt, simT)  (also while the monitor is open: `cameras.watching`)      draw(): cameras.draw() before render.draw()
 //   the events get `cameras` in their context.
+//
+// What the cameras say about who is in the shop (systems/nonexistent.js): `track(root, { hide, delay, stare, blur })` makes a person or a car show up wrong in
+// the cameras' render only (never in the main view): `hide` (0..1: the share of the time it is missing), `delay` (seconds late), `stare` (0..1: how far it turns to look
+// at the lens) and `blur` (a mosaic over the face, in picture pixels).
+//
+// Typing on the monitor: `digit(d)` is the one place a key typed on it goes through. 1 to 6 pick a camera, 7 is the secret one; every digit also goes to a
+// buffer of the last typed (`typed()`), and `onCode(fn)` registers `fn(typed, d)` to be called after each digit, so a code typed on the monitor can be added
+// without touching the cameras (the 1998 mode of stage 3 plugs in there).
 //
 // There is one rule for the ids: an id that is not in CAMERAS is ignored everywhere (ghost, fail, shoot, open).
 import { mulberry32 } from '../rng.js';
@@ -111,6 +120,9 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
   let walked = 0, lastSamplePos = null;
   const stats = { shots: 0, shotMs: 0, composeMs: 0, lastDrawMs: 0 };
   let chiadoLoop = false, lastDevice = '';
+  const tracked = [];  // see track()
+  const amb = { n: 0, shown: false, dirty: false };   // the tube at the counter: cam1 live while nobody has the monitor open
+  const codeBuf = { s: '', at: 0 }; const codeHooks = [];
 
   // ------------------------------------------------------------------ the conditions of a camera now
   const BASE_CHIADO = 0.035;
@@ -229,6 +241,69 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     g.body.update(t, st);
   }
 
+  // ------------------------------------------------------------------ the ones that show up wrong (track)
+  const TRACK_DT = 0.1, TRACK_SECS = 8;
+  const _v = new THREE.Vector3();
+  /**
+   * Makes `root` (a person's or a car's group) show up wrong in the cameras' render. spec: { hide: 0..1, delay: seconds, stare: 0..1, blur: px, head: metres }.
+   * Returns { remove(), set(spec) }. Nothing changes in the main view: the pose is put back right after each camera's shot.
+   */
+  function track(root, spec = {}) {
+    const T = { root, spec: { ...spec }, hist: [], acc: 0, phase: hash(root.id * 3.1 + 7) * 10, saved: null, alive: true };
+    tracked.push(T);
+    return { set(o) { Object.assign(T.spec, o); }, remove() { T.alive = false; const k = tracked.indexOf(T); if (k >= 0) tracked.splice(k, 1); } };
+  }
+  function sampleTracked(dt) {
+    for (const T of tracked) {
+      T.acc += dt; if (T.acc < TRACK_DT) continue; T.acc = 0;
+      const p = T.root.position; T.hist.push({ t: now, x: p.x, z: p.z, ry: T.root.rotation.y, on: Boolean(T.root.parent) });
+      while (T.hist.length > TRACK_SECS / TRACK_DT) T.hist.shift();
+    }
+  }
+  /** Before the shot of camera i: puts every tracked body as the camera shows it. Returns the marks (faces to cover) for the picture. */
+  function adjustTracked(i, camPos, t) {
+    const marks = [];
+    for (const T of tracked) {
+      const r = T.root, sp = T.spec; T.saved = null;
+      if (!r.parent) continue;
+      T.saved = { v: r.visible, x: r.position.x, z: r.position.z, ry: r.rotation.y };
+      if (!r.visible) continue;
+      if (sp.delay > 0) {
+        const want = t - sp.delay, h = T.hist;
+        if (!h.length || h[0].t > want) r.visible = false;         // it was not there yet: it shows up late
+        else { let e = h[0]; for (const q of h) { if (q.t <= want) e = q; else break; } r.position.x = e.x; r.position.z = e.z; r.rotation.y = e.ry; }
+      }
+      if (sp.hide > 0 && ((t * 0.31 + T.phase) % 1) < sp.hide) r.visible = false;      // missing from the picture, not all the time
+      if (sp.stare > 0 && r.visible) {
+        const want = Math.atan2(camPos.x - r.position.x, camPos.z - r.position.z);
+        let dy = want - r.rotation.y; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        r.rotation.y += dy * Math.min(1, sp.stare);
+      }
+      if (sp.blur > 0 && r.visible) {
+        _v.set(r.position.x, (sp.head ?? 1.62), r.position.z).project(aux);
+        if (_v.z < 1 && Math.abs(_v.x) < 1.2 && Math.abs(_v.y) < 1.2) marks.push({ x: (_v.x * 0.5 + 0.5) * CAM_W, y: (-_v.y * 0.5 + 0.5) * CAM_H, r: sp.blur / Math.max(1, Math.hypot(camPos.x - r.position.x, camPos.z - r.position.z) / 6) });
+      }
+    }
+    return marks;
+  }
+  function restoreTracked() {
+    for (const T of tracked) { const o = T.saved; if (!o) continue; T.root.visible = o.v; T.root.position.x = o.x; T.root.position.z = o.z; T.root.rotation.y = o.ry; T.saved = null; }
+  }
+  /** A mosaic over the faces: the picture's cells (5 x 5) averaged inside a box around each mark. Returns a copy of `src`. */
+  function mosaic(src, marks) {
+    const out = new Uint8Array(src);
+    for (const m of marks) {
+      const rad = Math.max(4, m.r), x0 = Math.max(0, Math.floor(m.x - rad)), x1 = Math.min(CAM_W, Math.ceil(m.x + rad)), y0 = Math.max(0, Math.floor(m.y - rad * 1.15)), y1 = Math.min(CAM_H, Math.ceil(m.y + rad * 1.15));
+      for (let cy = y0; cy < y1; cy += 5) for (let cx = x0; cx < x1; cx += 5) {
+        let sum = 0, n = 0;
+        for (let y = cy; y < Math.min(y1, cy + 5); y++) for (let x = cx; x < Math.min(x1, cx + 5); x++) { sum += src[y * CAM_W + x]; n++; }
+        const v = Math.min(255, sum / n + 28);
+        for (let y = cy; y < Math.min(y1, cy + 5); y++) for (let x = cx; x < Math.min(x1, cx + 5); x++) out[y * CAM_W + x] = v;
+      }
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ the shot
   /** Renders camera i from its anchor and leaves its exposed grey picture in pics[i].gray. */
   function render1(i, t, wait = true) {
@@ -244,12 +319,14 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     U.uAmbient.value.set(0x5a5e70); U.uRes.value.set(CAM_W, CAM_H); U.uSpotOn.value = 0;
     render.camera.visible = false;    // the hands ride on it
     for (const g of ghosts) { if (g.visible && g.cams.has(i)) { placeGhost(g, t); g.root.visible = true; } }
+    pics[i].marks = adjustTracked(i, a.pos, t);
     const r = render.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(rt); r.render(render.scene, aux);
     // the read is queued behind the render: asynchronous, the game never waits for the GPU (the picture lands a frame or two later)
     const later = wait ? (r.readRenderTargetPixels(rt, 0, 0, CAM_W, CAM_H, px), null) : r.readRenderTargetPixelsAsync(rt, 0, 0, CAM_W, CAM_H, pxs[i]);
     r.setRenderTarget(prev);
     for (const g of ghosts) g.root.visible = false;
+    restoreTracked();
     render.camera.visible = camVis;
     for (let k = 0; k < PL; k++) { U.uPointPos.value[k].copy(keep.pos[k]); U.uPointColor.value[k].copy(keep.col[k]); U.uPointRange.value[k] = keep.range[k]; }
     U.uAmbient.value.copy(keep.amb); U.uRes.value.copy(keep.res); U.uSpotOn.value = keep.spotOn;
@@ -281,6 +358,7 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
   /** The picture of camera i with the failures on it and dithered, into pics[i].canvas (the stamp is drawn by the screen, at its own scale). `src` is the grey picture to use. */
   function develop(i, t, minutes, cond, src) {
     const P = pics[i], d = P.id.data, rnd = mulberry32((i * 7919 + Math.floor(t * 12) * 104729 + seed * 31) >>> 0);
+    if (P.marks?.length && !cond.down) src = mosaic(src, P.marks);
     const lv = 7, gain = 255 / (lv - 1);
     const snow = cond.down ? 0.9 : cond.chiado;
     // a roll bar and a tear while there is snow
@@ -331,10 +409,11 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     const p = render1(i, t, false);
     stats.renderMs = performance.now() - t0;
     p.then(() => {
-      inflight[i] = false; if (!open) return;
+      inflight[i] = false; if (!open && !amb.on) return;
       toGray(i, pxs[i]); remember(i, t);
       develop(i, t, minutes, cond, cond.delay > 0 ? histAt(i, t - cond.delay) : pics[i].gray);
       stats.shots++; stats.landed = performance.now();
+      if (!open && i === 0) composeAmb();
     }, (e) => { inflight[i] = false; sync = true; console.warn('cameras: async read failed, going synchronous', e?.message); });
   }
 
@@ -372,6 +451,20 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
   }
   idle();
   props.monitor?.setScreen?.(tex);
+  // the tube at the counter shows the shop camera while the monitor is not open (the glance that goes with serving)
+  const ambAnchor = world.anchor?.('monitorTela') || null;
+  const mobile = Boolean(input?.touch?.mobile);
+  function composeAmb() { const pm = mode, pc = cur; mode = 'single'; cur = 0; compose(); mode = pm; cur = pc; amb.shown = true; }
+  function ambientTick(dt) {
+    const want = !open && cams.length > 0 && ambAnchor && player && time.minutes >= -30 && Math.hypot(player.st.x - ambAnchor.pos.x, player.st.z - ambAnchor.pos.z) < 9;
+    amb.on = Boolean(want);
+    if (!want) { if (amb.shown) { idle(); amb.shown = false; } amb.acc = 0; return; }
+    amb.acc = (amb.acc || 0) + dt;
+    if (amb.acc < (mobile ? 0.34 : 0.17)) return;
+    amb.acc = 0;
+    const was = sync; shootLater(0);
+    if (was || sync) composeAmb();
+  }
 
   // ------------------------------------------------------------------ the monitor as a screen
   let wrap = null, btnEls = null, h = null;
@@ -439,6 +532,8 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
   }
   /** A digit typed on the monitor (or on the keys of the touch screen): 1 to 6 pick a camera; 7 is the one the list does not show. */
   function digit(d) {
+    codeBuf.s = ((now - codeBuf.at > 5 ? '' : codeBuf.s) + d).slice(-8); codeBuf.at = now;
+    for (const f of [...codeHooks]) { try { f(codeBuf.s, d); } catch (e) { console.warn('monitor code hook', e.message); } }
     if (d >= 1 && d <= N) select(d - 1);
     else if (d === 7 && NA > N) { cur = N; mode = 'single'; sfx('ui_ok'); bus.emit('sfx', 'tecla', {}); refresh(); }
   }
@@ -515,6 +610,8 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
       }
     }
     for (let k = faults.length - 1; k >= 0; k--) if (now >= faults[k].t1) faults.splice(k, 1);
+    sampleTracked(dt);
+    ambientTick(dt);
     if (open) {
       const c = condition(cur);
       setChiado(c.down || c.chiado > 0.25);
@@ -541,19 +638,29 @@ export function createCameras(bus, { render, world, ui, time, sanity = null, inp
     for (const hh of hist) hh.length = 0;
     if (open) stopView();
     setChiado(false);
+    for (const T of [...tracked]) tracked.splice(tracked.indexOf(T), 1);
+    codeBuf.s = '';
   }
 
   return {
     ids: CAMERA_IDS.filter((id) => world.has(id)), names: cams.map((c) => c.nome),
-    update, draw, shoot, reset, ghost,
+    update, draw, shoot, reset, ghost, track,
+    /** What was typed on the monitor (the last eight digits). */
+    typed: () => codeBuf.s,
+    /** `fn(typed, digit)` is called after every digit typed on the monitor (a code goes in here). Returns the function that takes it out. */
+    onCode(fn) { codeHooks.push(fn); return () => { const k = codeHooks.indexOf(fn); if (k >= 0) codeHooks.splice(k, 1); }; },
+    /** A digit as if typed on the monitor (the touch keys, the tests). */
+    digit,
     /** Opens / closes the monitor (opening it is what interacting with the monitor does). */
     open: openMonitor, close,
     get isOpen() { return open; },
+    /** The tube at the counter is showing the shop camera on its own (the monitor is closed and the player is near). */
+    get ambient() { return amb.shown; },
     /** True while the game must keep running behind the monitor (the world does not stop when you look at the cameras). */
     get watching() { return open; },
     get view() { return { open, mode, cam: cams[cur]?.id }; },
     /** Is the player looking at this camera right now? (single: its picture; grid: any, when `grid`) */
-    watchingCam: (id, { grid = true } = {}) => { const i = idxOf(id); return open && valid(i) && (mode === 'single' ? cur === i : grid); },
+    watchingCam: (id, { grid = true } = {}) => { const i = idxOf(id); if (!open) return i === 0 && amb.shown && amb.on; return valid(i) && (mode === 'single' ? cur === i : grid); },
     /** Failures: { kind: 'chiado' | 'atraso' | 'queda', secs, level (snow, 0..1), delay (seconds behind) } on a camera or 'all'. */
     fail(cam, { kind = 'chiado', secs = 4, level = 0.7, delay = 4 } = {}) {
       const i = idxOf(cam); if (cam !== 'all' && !valid(i)) return null;

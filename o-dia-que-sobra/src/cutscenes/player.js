@@ -240,9 +240,11 @@ export function playCutscene(nome, opts = {}) {
     fireSfx(t0 === 0 && !state.started ? -1 : t0, state.t >= def.duration ? Infinity : state.t); state.started = true;
     const st = stage.frame(nome, state.t, { flashMode: reduce ? 'dark' : 'flash' });
     const a = getAudio(); if (a?.listener) { const cam = render.camera, d = new THREE.Vector3(); cam.getWorldDirection(d); a.listener([cam.position.x, cam.position.y, cam.position.z], [d.x, d.y, d.z]); }
-    const w = Math.round(render.size.w * OVERLAY_SCALE), h = Math.round(render.size.h * OVERLAY_SCALE);
+    const ovK = render.size.w > 700 ? 1 : OVERLAY_SCALE;   // (the overlay is twice the 3D only when the 3D is small: the 1998 mode)
+    const w = Math.round(render.size.w * ovK), h = Math.round(render.size.h * ovK);
     if (ov.width !== w || ov.height !== h) { ov.width = w; ov.height = h; }
     ov.style.width = render.size.cssW + 'px'; ov.style.height = render.size.cssH + 'px';
+    render.time(state.t);
     canvas.style.filter = st.blur > 0.02 ? `blur(${(st.blur * 2.4).toFixed(2)}px)` : '';
     stage.draw();
     drawOverlay(g, w, h, st);

@@ -403,7 +403,7 @@ async function openPage(browser, base, kind, query) {
   const errs = [];
   page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });      // (the tests block service workers so that a route can see every request)
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}${mobile ? '&touch' : ''}`);   // (the checks play a dry night unless they ask for a weather: `wx=`)
+  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}${mobile ? '&touch' : ''}${process.env.LOOK ? '&look=' + process.env.LOOK : ''}`);       // (LOOK=1998 plays the old picture, which is faster on a machine with no GPU)   // (the checks play a dry night unless they ask for a weather: `wx=`)
   return { page, errs, ctx };
 }
 const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}f6d-${name}.png` }); };
@@ -798,6 +798,97 @@ async function doorDropCheck(browser, base, kind, tag) {
 }
 
 /** Actions that overlap in the aim: all are listed (one line each, with its key / button / touch area) and the player chooses; with one action nothing changes. */
+/** The customers who do not exist (stage 2): serving one leaves a gap in the till and feeds the Sun; refusing one (a held action, like any other) sends it to stand outside the glass; refusing a person costs trust and points; the monitor at the counter. */
+async function entityCheck(browser, base, kind, tag) {
+  const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:8&manual&silent&skiptutorial&nointro&seed=1');
+  await page.waitForFunction(() => window.__odq?.game?.state === 'play', null, { timeout: 90000 });
+  await botInstall(page);
+  const r = await page.evaluate(async () => {
+    const G = window.__odq.game, B = window.__bot, out = {};
+    const tick = () => new Promise((res) => setTimeout(res, 0));
+    G.customers.enable(false);
+    for (let i = 0; i < 40 && !G.cash.opened; i++) { B.decide(); await tick(); }
+    const to = async (c, states) => { let n = 0; while (!states.includes(c.state) && n++ < 3000) { B.step(10); await tick(); } return states.includes(c.state); };
+    // the monitor is a small tube at the counter, not in the office: the anchor is beside the register and the office has no such interaction
+    const a = G.world.anchor('monitor').pos, r = G.world.anchor('caixa').pos;
+    out.monitorAtCounter = Math.hypot(a.x - r.x, a.z - r.z) < 2 && G.world.anchor('monitorTela').dir.z > 0;
+    // 1. serve one that does not exist
+    const e = G.customers.spawnWalker({ seed: 4242, ent: { level: 0 } });
+    out.isEnt = Boolean(e?.isEnt); out.tells = e?.entTells;
+    const san0 = G.sanity.value, sol0 = G.progression.ties.sol, gap0 = G.cash.real() - G.cash.expected();
+    let n = 0; while (e && !e.done && n++ < 3000) { if (!B.decide()) B.step(20); await tick(); }
+    out.served = { gap: G.cash.real() - G.cash.expected() - gap0, bill: e.bill, solUp: G.progression.ties.sol - sol0, remembered: G.progression.st.ent.known.some((k) => k.seed === 4242) };
+    const res = G.cash.close(G.cash.real()); G.cash.restore({ ...G.cash.state(), closed: false });    // (what the 06:00 count would say; then the till is left as it was)
+    out.count = { divergence: res.divergence, gap: res.drawerGap };
+    // 2. refuse one that does not exist: it goes outside the glass and looks in, the Sun is not fed, no gap
+    const e2 = G.customers.spawnWalker({ seed: 777, ent: { level: 0 } });
+    await to(e2, ['placing', 'scanning', 'ready']);
+    const s1 = G.sanity.value, sol1 = G.progression.ties.sol, gap1 = G.cash.real() - G.cash.expected();
+    out.refuseHeld = B.hold(`recusa${e2.id}`, () => e2.refused, 4);
+    out.toGaze = await to(e2, ['gaze']);
+    out.gaze = { slow: e2.slow, at: e2.gazeAt, sanDrop: s1 - G.sanity.value };
+    n = 0; while (G.customers.list.includes(e2) && n++ < 4000) { B.step(30); await tick(); }
+    out.refusedE = { gone: !G.customers.list.includes(e2), solSame: G.progression.ties.sol === sol1, gapSame: G.cash.real() - G.cash.expected() === gap1, mem: G.progression.st.ent.refusedE };
+    // 3. refuse a person (a seed that is not odd or one of them): trust down, a complaint, the lost sale weighs
+    const conf0 = G.progression.ties.conf, pts0 = G.progression.night.pontos, rec0 = G.progression.night.reclamacoes;
+    const h = G.customers.spawnWalker({ seed: 31337 });
+    await to(h, ['placing', 'scanning', 'ready']);
+    B.hold(`recusa${h.id}`, () => h.refused, 4);
+    n = 0; while (G.customers.list.includes(h) && n++ < 3000) { B.step(30); await tick(); }
+    out.refusedH = { refused: h.refused, conf: G.progression.ties.conf - conf0, pts: G.progression.night.pontos - pts0, complaints: G.progression.night.reclamacoes - rec0, ent: Boolean(h.isEnt) };
+    // 4. the tube at the counter shows the shop camera on its own; E opens the monitor; 7 shows the secret camera; the last digits typed are kept for a code
+    G.player.st.x = 14.2; G.player.st.z = 9.7; G.player.st.yaw = 0; G.player.st.pitch = -0.2;
+    // (waits for the tube itself, not for a time: the first camera picture takes seconds on a machine with no GPU)
+    const tubeT0 = Date.now();
+    for (let i = 0; i < 90 || (!G.cameras.ambient && Date.now() - tubeT0 < 120000); i++) { G.step(1 / 60); if (i % 10 === 0) await new Promise((res) => setTimeout(res, 30)); }
+    out.tube = G.cameras.ambient;
+    out.openMonitor = B.use('monitor-cameras', 'glance'); B.step(3);
+    out.view0 = G.cameras.view;
+    const press = (code) => { B.kd(code); B.step(1); B.ku(code); B.step(2); };
+    press('Digit7'); out.view7 = G.cameras.view;
+    press('Digit2'); press('Digit1'); press('Digit9'); press('Digit9'); press('Digit8');
+    out.typed = G.cameras.typed();
+    B.kd('Escape'); B.step(1); B.ku('Escape'); B.step(2);
+    out.closed = !G.cameras.view.open;
+    return out;
+  });
+  ok(r.monitorAtCounter, `${tag}: the camera monitor is at the counter, beside the register, facing the attendant`);
+  ok(r.isEnt && /,|[a-z]/.test(r.tells || ''), `${tag}: an entity customer has its tells (${r.tells})`);
+  ok(r.served.gap === -r.served.bill && r.served.solUp === 1 && r.served.remembered, `${tag}: serving it leaves a gap of its bill in the drawer, the Sun's attention +1 and the face remembered (${JSON.stringify(r.served)})`);
+  ok(r.count.divergence === r.served.bill && r.count.gap < 0, `${tag}: the 06:00 count shows the divergence (${JSON.stringify(r.count)})`);
+  ok(r.refuseHeld && r.toGaze && r.gaze.slow && r.gaze.at.z < 3 && r.gaze.sanDrop >= 3, `${tag}: refusing one that does not exist sends it outside the glass to look in, sanity -3 (${JSON.stringify(r.gaze)})`);
+  ok(r.refusedE.gone && r.refusedE.solSame && r.refusedE.gapSame && r.refusedE.mem >= 1, `${tag}: it gained no strength and left no gap (${JSON.stringify(r.refusedE)})`);
+  ok(r.refusedH.refused && r.refusedH.conf < 0 && r.refusedH.pts < 0 && r.refusedH.complaints === 1 && !r.refusedH.ent, `${tag}: refusing a person: a complaint, the manager's trust down, the sale lost (${JSON.stringify(r.refusedH)})`);
+  ok(r.tube, `${tag}: the tube at the counter shows the shop camera while the monitor is closed`);
+  ok(r.openMonitor && r.view0.open && r.view7.cam === 'cam7' && r.typed === '721998' && r.closed, `${tag}: E opens the monitor, 7 shows the seventh camera, the digits typed are kept (${r.typed}) and Escape closes it`);
+  if (kind === 'mobile') {
+    // on the phone the refusal is one of the actions by the thumb (a held one: a ring fills), and holding it does the same
+    const t = await page.evaluate(async () => {
+      const G = window.__odq.game, B = window.__bot, tick = () => new Promise((res) => setTimeout(res, 0));
+      G.cameras.close?.(); B.step(5);
+      const h = G.customers.spawnWalker({ seed: 2025 });
+      let n = 0; while (!['placing', 'scanning', 'ready'].includes(h.state) && n++ < 3000) { B.step(10); await tick(); }
+      const tg = G.interaction.targets.get(`recusa${h.id}`);
+      const spot = B.aimAt(B.centerOf(tg), () => B.settle(`recusa${h.id}`)); B.step(4);
+      window.__h = h;
+      return { spot: Boolean(spot) };
+    });
+    const acts = await mobileActs(page);
+    const idx = acts ? acts.texts.findIndex((x) => /^Recusar atendimento/.test(x)) : -1;
+    ok(t.spot && idx >= 0, `${tag}: the thumb's list has the refusal as an action (${JSON.stringify(acts)})`);
+    if (idx >= 0) {
+      await page.evaluate((i) => { const b = document.querySelector(`#mobile .m-act[data-i="${i}"]`), r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 43, pointerType: 'touch', isPrimary: true }; b.dispatchEvent(new PointerEvent('pointerdown', o)); window.__o = o; }, idx);
+      await page.evaluate(() => { for (let i = 0; i < 80; i++) window.__odq.game.step(1 / 60); const b = document.querySelector('#mobile .m-act[data-i]'); void b; });
+      await page.evaluate((i) => { const b = document.querySelector(`#mobile .m-act[data-i="${i}"]`); (b || document.querySelector('#mobile .m-act')).dispatchEvent(new PointerEvent('pointerup', window.__o)); }, idx);
+      await page.evaluate(() => window.__odq.advance(10));
+      ok(await page.evaluate(() => window.__h.refused === true), `${tag}: holding the refusal by the thumb refuses the customer`);
+    }
+  }
+  if (!OUT) { /* no screenshots asked */ } else await shot(page, `entidades-${tag}`);
+  ok(errs.length === 0, `${tag}: console clean in the entity check (${errs.slice(0, 3).join(' | ')})`);
+  await ctx.close();
+}
+
 async function overlapCheck(browser, base, kind, tag) {
   const touch = kind === 'mobile';
   const { page, errs, ctx } = await openPage(browser, base, kind, 'debug=day:3&manual&silent&skiptutorial&nointro');
@@ -2080,6 +2171,7 @@ async function fullCheck(browser, base, kind, full) {
   await calcCheck(browser, base, kind, tag);
   await doorDropCheck(browser, base, kind, tag);
   await overlapCheck(browser, base, kind, tag);
+  await entityCheck(browser, base, kind, tag);
   await smallChecks(browser, base, kind, tag);
   await prepCheck(browser, base, kind, tag);
   await tutorialCheck(browser, base, kind, tag);
@@ -2115,6 +2207,7 @@ try {
   else if (ARGS[0] === '--mobile') await fullCheck(browser, base, 'mobile', false);
   else if (ARGS[0] === '--doors') { await doorDropCheck(browser, base, 'desktop', 'desktop'); await doorDropCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--overlap') { await overlapCheck(browser, base, 'desktop', 'desktop'); await overlapCheck(browser, base, 'mobile', 'celular'); }
+  else if (ARGS[0] === '--entities') { await entityCheck(browser, base, 'desktop', 'desktop'); await entityCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--small') { await smallChecks(browser, base, 'desktop', 'desktop'); }
   else if (ARGS[0] === '--prep') { await prepCheck(browser, base, 'desktop', 'desktop'); await prepCheck(browser, base, 'mobile', 'celular'); await tutorialCheck(browser, base, 'desktop', 'desktop'); await tutorialCheck(browser, base, 'mobile', 'celular'); }
   else if (ARGS[0] === '--phone') { await phoneCheck(browser, base, 'desktop', 'desktop'); await phoneCheck(browser, base, 'mobile', 'celular'); }

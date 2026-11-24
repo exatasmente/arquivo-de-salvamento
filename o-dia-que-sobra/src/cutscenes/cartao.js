@@ -27,7 +27,7 @@ const BASE = {
       anchors: { bloco13: () => [0, 0, 0] },
       pose(t) {
         const c = cam(t);
-        if (t >= 12) return { eye: c.eye, look: c.look, fade: 0, dialog: null, dim: 0.35, world: { state: { hora: 6 }, ambient: 0x2c2e38, on: [] } }; // the dark office, the monitor off (only the box of scene 59 shows)
+        if (t >= 12) return { eye: c.eye, look: c.look, fade: 0, dialog: null, dim: 0.35, world: { state: { hora: 6 }, ambient: 0x2c2e38, on: [] } }; // the dark office, the computer off (only the box of scene 59 shows)
         const blocks = ctx.blocks ?? defaultBlocks({ rinha: hasRinha() });
         return {
           eye: c.eye, look: c.look, fade: Math.max(1 - smooth(ramp(t, 0, 0.6)), smooth(ramp(t, 11.2, 11.95))), dialog: say.at(t),
@@ -42,7 +42,7 @@ const BASE = {
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
   { name: 'c58-salvando', desc: 'Cena 58: a tela do cartão de memória salvando a noite, o bloco 13 de ícone quebrado à vista, sem zoom; sem texto', pieces: [{ src: 1.0, d: 3.5 }] },
-  { name: 'c59-nem-todo', desc: 'Cena 59: o escritório às escuras, o monitor apagado; a última caixa por cima', pieces: [{ src: 12.0, d: 3.2 }],
+  { name: 'c59-nem-todo', desc: 'Cena 59: o escritório às escuras, o computador apagado; a última caixa por cima', pieces: [{ src: 12.0, d: 3.2 }],
     say: [{ t: 0.3, who: '', text: 'Nem todo arquivo foi salvo.', seed: BABBLE_SEEDS.heitor, hold: 1.0 }] },
 ];
 const FULL = withSegments(BASE, SEGS);

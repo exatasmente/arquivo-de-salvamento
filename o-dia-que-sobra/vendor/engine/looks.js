@@ -13,6 +13,14 @@
 //     post(p): optional, GLSL that defines `vec3 post(vec2 uv)` over the whole picture once drawn (a tape's
 //       colour bleed, scanlines): it reads `tFrame` (the picture), `uRes` (its size in pixels), `uTime` (the
 //       game's clock) and the look's params as `p_<param>` (numbers, yes/no as 0/1, colours as vec3).
+//     postDepth: optional, true when `post` also wants the scene's depth: it then reads `tDepth` (a depth
+//       texture, 0..1 non-linear), `uNear` and `uFar` (the camera's), as in `uNear * uFar / (uFar - d * (uFar - uNear))`,
+//       and `uTanHalf` (the tangent of half the vertical field of view, to turn pixels into metres).
+//     pre(ctx): optional, called by `draw()` before the scene is drawn, with ctx = { renderer, scene, camera, U, p,
+//       THREE, size }: a look that needs another pass first (a shadow map) makes it there. It must leave the
+//       renderer's target and the scene as it found them.
+//     smooth: optional, true when the picture should be enlarged with smoothing (a look at a high resolution),
+//       false (the default) for the blocky enlargement of the low-resolution looks.
 //   defineShader({ id, label, desc, params, surface })
 //     surface: GLSL that defines `vec3 surface(vec3 base, vec2 uv, vec3 world, float t)`, the colour of the
 //     surface before light and fog; its params are uniforms named `s_<param>`; `t` is the game's clock in
@@ -29,6 +37,7 @@ export function defineLook(def) {
   if (!def || typeof def.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(def.id)) throw new Error('a look needs an id (lowercase letters, digits, -)');
   defineTypes({ [def.id]: { label: def.label ?? def.id, params: def.params ?? {} } });
   for (const k of ['uniforms', 'fill', 'size']) if (typeof def[k] !== 'function') throw new Error(`look ${def.id}: ${k} is missing`);
+  if (def.pre !== undefined && typeof def.pre !== 'function') throw new Error(`look ${def.id}: pre must be a function`);
   // A param of a look with a pass over the picture becomes the uniform p_<param>: a name GLSL takes.
   for (const k of Object.keys(def.params ?? {})) if (!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)) throw new Error(`look ${def.id}: param ${k} must be letters, digits or _ (it becomes the uniform p_${k})`);
   if (LOOKS.ps1 && def.id === 'ps1') throw new Error('ps1 is the engine\'s own look: give a new look another id');

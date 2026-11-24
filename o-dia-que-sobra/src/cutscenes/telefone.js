@@ -92,8 +92,8 @@ const BASE = {
 // ---- one window per scene of the video (see withSegments in common.js)
 const SEGS = [
   { name: 'c49-toca', desc: 'Cena 49: o aparelho grande no quadro, visto de baixo e de lado: o telefone toca e treme, de madrugada; sem texto', pieces: [{ src: 60.0, d: 4.6 }] },
-  { name: 'c50-atende', desc: 'Cena 50: a mão já no fone, de perto e de frente, sem a mesa nem o monitor; levanta o fone; sem texto', pieces: [{ src: 70.0, d: 5.0 }] },
-  { name: 'c51-voz', desc: 'Cena 51: o vidro escuro do monitor e, pela lateral do quadro, o fone sobe até o ouvido; a caixa do telefone diz a frase', pieces: [{ src: 75.0, d: 5.0 }],
+  { name: 'c50-atende', desc: 'Cena 50: a mão já no fone, de perto e de frente, sem a mesa nem o computador; levanta o fone; sem texto', pieces: [{ src: 70.0, d: 5.0 }] },
+  { name: 'c51-voz', desc: 'Cena 51: o vidro escuro do computador da mesa e, pela lateral do quadro, o fone sobe até o ouvido; a caixa do telefone diz a frase', pieces: [{ src: 75.0, d: 5.0 }],
     say: [{ t: 0.5, who: 'Telefone', text: 'Não saia da loja.', seed: TH, hold: 1.6 }] },
   { name: 'c52-minha-voz', desc: 'Cena 52: a porta da loja vista do escritório, aberta, com o fone na lateral do quadro; o pensamento curto', pieces: [{ src: 80.0, d: 3.0 }],
     say: [{ t: 0.2, who: '', text: 'É a minha voz.', seed: TH, hold: 0.8 }] },

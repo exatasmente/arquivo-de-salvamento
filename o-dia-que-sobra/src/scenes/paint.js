@@ -378,6 +378,13 @@ export function paintPoster(g, w, h) {
 // material colour, one material per area.
 
 /** Material descriptor: a colour, a texture name and the r.mat options. */
+/**
+ * A decal: a flat picture laid a few millimetres off a surface (a sticker, a road mark, a label strip). Its material draws a little
+ * nearer in the depth buffer (polygon offset), by an amount that follows the buffer's own resolution, so the picture never flickers
+ * against its surface, however far the player is. The engine's `r.mat` has no option for it, so the offset is set on the material.
+ */
+export const lift = (m, k = 1) => { m.polygonOffset = true; m.polygonOffsetFactor = -k; m.polygonOffsetUnits = -2 * k; return m; };
+export const decalOf = (d) => (d.decal ? d : { ...d, key: d.key + '|decal', decal: true });
 export const D = (color, map = null, opts = null) => ({ key: color + '|' + (map ?? '') + '|' + (opts ? JSON.stringify(opts) : ''), color, map, opts: opts ?? {} });
 
 /** Merge geometries (each with a matrix) into one non-indexed geometry. A part may carry `tint` (vertex colour, grey). */
@@ -436,6 +443,7 @@ export function createBuilder(r, { tint = () => 1 } = {}) {
     if (mats.has(k)) return mats.get(k);
     const lit = vc || (d.opts.emissive ?? 0) > 0 ? 1 : tint(area);
     const m = r.mat(new T.Color(d.color).multiplyScalar(lit), { ...d.opts, vertexColors: vc, map: d.map ? tex(r, d.map) : d.texture });
+    if (d.decal) lift(m);
     mats.set(k, m); return m;
   }
   function add(geo, d, matrix, area) {
@@ -464,7 +472,7 @@ export function createBuilder(r, { tint = () => 1 } = {}) {
       quad: (w, h, d, p, rot, uvr = [0, 0, 1, 1]) => {
         const g = new T.PlaneGeometry(w, h), uv = g.attributes.uv;
         for (let i = 0; i < 4; i++) uv.setXY(i, uvr[uv.getX(i) ? 2 : 0], uvr[uv.getY(i) ? 3 : 1]);
-        put(g, d, p, rot);
+        put(g, decalOf(d), p, rot);
       },
       geo: (g, d, p, rot, sc) => put(g, d, p, rot, sc),
       /** loose mesh (own draw call), in the frame of `dyn` */

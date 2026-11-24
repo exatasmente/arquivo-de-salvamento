@@ -82,6 +82,7 @@ export function captureNight(S) {
     office: { registered: clone(office.registered), incidents: clone(office.incidents) },
     events: { ...events.snapshotState(), active: events.active || null },
     branches: S.branches ? S.branches.snapshotState() : null,
+    ent: S.nonexistent ? S.nonexistent.snapshotState() : null,
     weather: S.weather ? S.weather.state() : null,
     recurring: [...(customers.nightRecurring || [])],
     customers: customers.describeAll(),
@@ -225,6 +226,7 @@ export function restoreNight(S, snap) {
   office.incidents.length = 0; office.incidents.push(...(snap.office?.incidents || []));
   events.restoreState(snap.events || {}, m);
   if (S.branches && snap.branches) S.branches.restoreState(snap.branches, m);
+  if (S.nonexistent && snap.ent) S.nonexistent.restoreState(snap.ent);
   if (S.weather && snap.weather) S.weather.restore(snap.weather, m);
   customers.dropRecurringBefore(m);
   for (const n of snap.recurring || []) if (!customers.nightRecurring.includes(n)) customers.nightRecurring.push(n);
@@ -360,7 +362,7 @@ export function parseCardFile(text, size = 0, { lastNight = 24 } = {}) {
   const c = f.card;
   if (!isObj(c) || c.v !== 1) return { ok: false, reason: 'O cartão dentro do arquivo é de outro formato.' };
   try {
-    const card = { v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], endings: [], meta: { intro: Boolean(c.meta && c.meta.intro) } };
+    const card = { v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], endings: [], meta: { intro: Boolean(c.meta && c.meta.intro), look1998: Boolean(c.meta && c.meta.look1998) } };
     if (c.run !== null && c.run !== undefined) {
       if (!isObj(c.run)) throw new Error('run');
       const r = safeClone(c.run);

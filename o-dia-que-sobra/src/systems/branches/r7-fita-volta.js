@@ -3,7 +3,7 @@
 import { makeThing, examinable, unseen } from './common.js';
 import { TAPE_AT } from './r7-fita.js';
 
-const AT = [TAPE_AT[0], 1.12, TAPE_AT[2] + 0.25];   // on top of the monitor
+const AT = [14.72, 1.345, 8.55];   // on top of the monitor (the small tube at the counter)
 function tapeProp(ctx, seenAlready) {
   const { render, ui, sanity, bus, kit } = ctx;
   const tape = makeThing(render, 'fita');
@@ -15,7 +15,7 @@ function tapeProp(ctx, seenAlready) {
     tap: async () => {
       if (seen) { ui.say('Heitor', '(Continua aí em cima. Rebobinada.)', { seed: 12, ms: 2600 }); return; }
       seen = true; bus.emit('sfx', 'cracha_pega', {});
-      await ui.dialogue('Heitor', ['(A fita. Eu a guardei na gaveta de baixo, e ela está em cima do monitor.)', '(A ponta da fita está rebobinada até o começo.)'], 12, { self: true });
+      await ui.dialogue('Heitor', ['(A fita. Eu a guardei na gaveta de baixo do balcão, e ela está em cima do monitor.)', '(A ponta da fita está rebobinada até o começo.)'], 12, { self: true });
       sanity.add(-1, 'r7-fita');
     },
   });

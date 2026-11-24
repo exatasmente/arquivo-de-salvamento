@@ -372,7 +372,7 @@
   {
     "id": "figura-camera",
     "nome": "A figura na câmera",
-    "descricao": "Na câmera da loja há uma figura atrás do balcão que não está lá. (Fase 4: depende das câmeras.)",
+    "descricao": "Na câmera da loja, no monitor do balcão, há uma figura parada atrás de Heitor, no balcão em que ele está, que não está lá.",
     "semanaMin": 2,
     "horario": [
       "02:00",
@@ -385,7 +385,7 @@
         "tutorial"
       ],
       "jogadorEm": [
-        "escritorio"
+        "loja"
       ]
     },
     "sanidade": -6,
@@ -400,7 +400,7 @@
   {
     "id": "voce-na-camera",
     "nome": "Você na câmera",
-    "descricao": "A câmera do estoque mostra você lá dentro, agora; você está no escritório. (Fase 4: depende das câmeras.)",
+    "descricao": "A câmera do estoque mostra você lá dentro, agora; você está na loja, no balcão. (Fase 4: depende das câmeras.)",
     "semanaMin": 2,
     "horario": [
       "02:00",
@@ -413,7 +413,7 @@
         "tutorial"
       ],
       "jogadorEm": [
-        "escritorio"
+        "loja"
       ]
     },
     "sanidade": -8,
@@ -575,7 +575,7 @@
   {
     "id": "sol-por-dentro",
     "nome": "O Sol por dentro",
-    "descricao": "O Sol aparece dentro da loja: nos copos, na tela do monitor do escritório. Ninguém pôs.",
+    "descricao": "O Sol aparece dentro da loja: nos copos, na moldura do monitor do balcão. Ninguém pôs.",
     "semanaMin": 3,
     "horario": [
       "01:30",

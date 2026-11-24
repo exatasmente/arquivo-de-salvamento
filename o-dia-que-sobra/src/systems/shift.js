@@ -15,7 +15,7 @@ import { PREP_FROM } from './prep.js';
 const label = (v) => (v >= 100 ? `R$ ${v / 100}` : `${String(v).padStart(2, '0')} cent.`);
 
 export function createShift(bus, d) {
-  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep, branches } = d, closeHour = d.closing;
+  const { time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, cash, office, chores, medication, coffee, mirror, prep, branches, nonexistent } = d, closeHour = d.closing;
   let open = false, closing = false, rng = mulberry32(1), counting = false, doubled = false;
   const lastNight = rules.campanha.ultimaNoite;
   const endMin = time.parse(rules.expediente.fim), noNewMin = time.parse(rules.expediente.semClientesApos);
@@ -24,7 +24,7 @@ export function createShift(bus, d) {
   bus.on('tutorial:done', () => { if (open) customers.enable(true, progression.st.seed * 3 + progression.st.day); });
   bus.on('customer:done', (c, errors) => {
     if (!c) return;
-    if (errors || c.tipRange || rng() > 0.4) return;
+    if (errors || c.tipRange || c.isEnt || rng() > 0.4) return;
     const tip = 100 * (1 + Math.floor(rng() * 4)); progression.pay(tip / 100); bus.emit('hint', `Gorjeta: ${money(tip)}`);
   });
   bus.on('time:minute', (m) => {
@@ -95,7 +95,7 @@ export function createShift(bus, d) {
       progression.startNight(day, seed);
       sanity.reset(startOfNight(rules, day, progression.st.sanBase), seed);
       customers.clear(); chores.clear(); tasks.clear(); events.reset(); cash.reset(); office.reset(); closeHour.begin();
-      customers.beginNight(seed, day);
+      customers.beginNight(seed, day); nonexistent?.beginNight(seed, day);
       inventory.slots.splice(0, 4, 'lanterna', 'pilha', 'pilha', progression.st.pilhasExtra > 0 ? 'pilha' : null); if (progression.st.pilhasExtra > 0) progression.st.pilhasExtra--; inventory.flash.charge = inventory.flash.max; inventory.flash.on = false; inventory.clearCarry();
       medication.beginNight(); coffee.reset(); mirror.reset();
       player.st.carryHeavy = false; player.st.pushing = false; player.st.liftTo = 0; player.st.lift = 0;

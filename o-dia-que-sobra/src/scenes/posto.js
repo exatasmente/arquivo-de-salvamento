@@ -219,38 +219,38 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   wall({ axis: 'x', at: 20, a: 9, b: 17, lo: 'estoque', hi: 'externa', matLo: M.wallDark, matHi: M.wall, hHi: H_OUT, openings: SW });
   wall({ axis: 'x', at: 20, a: 17, b: 24.1, lo: 'servico', hi: 'externa', matLo: M.wallDark, matHi: M.wall, hHi: H_OUT, openings: SW });
   const WW = [win(15.75, 2.4, 1.1, 2.2)];
-  wall({ axis: 'z', at: 2, a: 2.9, b: 12, lo: 'estacionamento', hi: 'loja', matLo: M.wall, matHi: M.wallIn, hLo: H_OUT, openings: WW });
-  wall({ axis: 'z', at: 2, a: 12, b: 20.1, lo: 'estacionamento', hi: 'escritorio', matLo: M.wall, matHi: M.wallIn, hLo: H_OUT, openings: WW });
-  wall({ axis: 'z', at: 24, a: 2.9, b: 12, lo: 'banheiros', hi: 'externa', matLo: M.tileWall, matHi: M.wall, hHi: H_OUT });
-  wall({ axis: 'z', at: 24, a: 12, b: 20.1, lo: 'servico', hi: 'externa', matLo: M.wallDark, matHi: M.wall, hHi: H_OUT });
+  wall({ axis: 'z', at: 2, a: 3.1, b: 12, lo: 'estacionamento', hi: 'loja', matLo: M.wall, matHi: M.wallIn, hLo: H_OUT, openings: WW });
+  wall({ axis: 'z', at: 2, a: 12, b: 19.9, lo: 'estacionamento', hi: 'escritorio', matLo: M.wall, matHi: M.wallIn, hLo: H_OUT, openings: WW });
+  wall({ axis: 'z', at: 24, a: 3.1, b: 12, lo: 'banheiros', hi: 'externa', matLo: M.tileWall, matHi: M.wall, hHi: H_OUT });
+  wall({ axis: 'z', at: 24, a: 12, b: 19.9, lo: 'servico', hi: 'externa', matLo: M.wallDark, matHi: M.wall, hHi: H_OUT });
   // interior
-  wall({ axis: 'x', at: 12, a: 1.9, b: 9, lo: 'loja', hi: 'escritorio', matLo: M.wallIn, matHi: M.wallIn, openings: [dr(5), dr(13, 1.0)] });
+  wall({ axis: 'x', at: 12, a: 2, b: 9, lo: 'loja', hi: 'escritorio', matLo: M.wallIn, matHi: M.wallIn, openings: [dr(5), dr(13, 1.0)] });
   wall({ axis: 'x', at: 12, a: 9, b: 16, lo: 'loja', hi: 'estoque', matLo: M.wallIn, matHi: M.wallDark, openings: [dr(5), dr(13, 1.0)] });
   wall({ axis: 'x', at: 12, a: 16, b: 17, lo: 'banheiros', hi: 'estoque', matLo: M.tileWall, matHi: M.wallDark });
-  wall({ axis: 'x', at: 12, a: 17, b: 24.1, lo: 'banheiros', hi: 'servico', matLo: M.tileWall, matHi: M.wallDark });
-  wall({ axis: 'z', at: 16, a: 3, b: 12.1, lo: 'loja', hi: 'banheiros', matLo: M.wallIn, matHi: M.tileWall, openings: [dr(10.5, 0.9)] });
-  wall({ axis: 'z', at: 20, a: 2.9, b: 9, lo: 'banheiroM', hi: 'banheiroF', matLo: M.tileWall, matHi: M.tileWall });
-  wall({ axis: 'x', at: 9, a: 16, b: 24.1, lo: 'banheiros', hi: 'banheiros', matLo: M.tileWall, matHi: M.wallDark });
-  wall({ axis: 'z', at: 9, a: 12, b: 20.1, lo: 'escritorio', hi: 'estoque', matLo: M.wallIn, matHi: M.wallDark, openings: [dr(16)] });
-  wall({ axis: 'z', at: 17, a: 12, b: 20.1, lo: 'estoque', hi: 'servico', matLo: M.wallDark, matHi: M.wallDark, openings: [dr(16)] });
-  wall({ axis: 'z', at: 21, a: 14, b: 20.1, lo: 'servico', hi: 'deposito', matLo: M.wallDark, matHi: M.wallDark, openings: [dr(17.5)] });
-  wall({ axis: 'x', at: 14, a: 21, b: 24.1, lo: 'servico', hi: 'deposito', matLo: M.wallDark, matHi: M.wallDark });
+  wall({ axis: 'x', at: 12, a: 17, b: 24, lo: 'banheiros', hi: 'servico', matLo: M.tileWall, matHi: M.wallDark });
+  wall({ axis: 'z', at: 16, a: 3, b: 12, lo: 'loja', hi: 'banheiros', matLo: M.wallIn, matHi: M.tileWall, openings: [dr(10.5, 0.9)] });
+  wall({ axis: 'z', at: 20, a: 3, b: 9, lo: 'banheiroM', hi: 'banheiroF', matLo: M.tileWall, matHi: M.tileWall });
+  wall({ axis: 'x', at: 9, a: 16, b: 24, lo: 'banheiros', hi: 'banheiros', matLo: M.tileWall, matHi: M.wallDark });
+  wall({ axis: 'z', at: 9, a: 12, b: 20, lo: 'escritorio', hi: 'estoque', matLo: M.wallIn, matHi: M.wallDark, openings: [dr(16)] });
+  wall({ axis: 'z', at: 17, a: 12, b: 20, lo: 'estoque', hi: 'servico', matLo: M.wallDark, matHi: M.wallDark, openings: [dr(16)] });
+  wall({ axis: 'z', at: 21, a: 14, b: 20, lo: 'servico', hi: 'deposito', matLo: M.wallDark, matHi: M.wallDark, openings: [dr(17.5)] });
+  wall({ axis: 'x', at: 14, a: 21, b: 24, lo: 'servico', hi: 'deposito', matLo: M.wallDark, matHi: M.wallDark });
 
   // floors and ceilings
   const floors = [['loja', 2, 3, 16, 12, M.tileStore, [2.6, 2.6]], ['banheiroM', 16, 3, 20, 9, M.tileBath, [1.3, 1.3]], ['banheiroF', 20, 3, 24, 9, M.tileBath, [1.3, 1.3]],
     ['banheiros', 16, 9, 24, 12, M.concrete, [2.6, 2.6]], ['escritorio', 2, 12, 9, 20, M.carpet, [1.6, 1.6]], ['estoque', 9, 12, 17, 20, M.concrete, [2.6, 2.6]],
     ['servico', 17, 12, 21, 20, M.concrete, [2.6, 2.6]], ['servico', 21, 12, 24, 14, M.concrete, [2.6, 2.6]], ['deposito', 21, 14, 24, 20, M.concrete, [2.6, 2.6]]];
   for (const [a, x0, z0, x1, z1, mat, tile] of floors) { flat(x0, z0, x1, z1, 0.005, mat, tile, a, true, 2); flat(x0, z0, x1, z1, H_IN, M.ceiling, [1.3, 1.3], a, false, 1.5); }
-  C.box([22.4, 0.2, 17.4], M.concrete, [13, H_IN + 0.1, 11.5], [0, 0, 0], [2.6, 2.6]);
+  C.box([22.4, 0.19, 17.4], M.concrete, [13, H_IN + 0.115, 11.5], [0, 0, 0], [2.6, 2.6]);
   // front fascia above the facade, with the Sun
-  C.box([22.4, 0.5, 0.3], M.band, [13, 3.4, 2.8], [0, 0, 0], [0.8, 0.8]);
-  for (const x of [5, 13, 21]) C.quad(0.5, 0.5, M.sol, [x, 3.4, 2.652], [0, Math.PI, 0]);
+  C.box([22.5, 0.5, 0.3], M.band, [13, 3.4, 2.8], [0, 0, 0], [0.8, 0.8]);
+  for (const x of [5, 13, 21]) C.quad(0.5, 0.5, M.sol, [x, 3.4, 2.654], [0, Math.PI, 0]);
 
   // ------------------------------------------------------------------ canopy and pumps
   flat(-1, -13, 25, 0, CANOPY_Y, M.under, [2.6, 2.6], 'bombas', false, 1.2);
   C.box([26, 0.5, 13], M.band, [12, CANOPY_Y + 0.26, -6.5], [0, 0, 0], [1, 1]);
   for (const z of [-13.05, 0.05]) C.box([26.2, 0.9, 0.12], M.band, [12, CANOPY_Y + 0.1, z], [0, 0, 0], [0.8, 0.8]);
-  for (const x of [-1.05, 25.05]) C.box([0.12, 0.9, 13.1], M.band, [x, CANOPY_Y + 0.1, -6.5], [0, 0, 0], [0.8, 0.8]);
+  for (const x of [-1.05, 25.05]) C.box([0.12, 0.9, 12.88], M.band, [x, CANOPY_Y + 0.1, -6.5], [0, 0, 0], [0.8, 0.8]);
   for (const x of [5, 12, 19]) { C.quad(0.8, 0.8, M.sol, [x, CANOPY_Y + 0.1, 0.115], [0, 0, 0]); C.quad(0.8, 0.8, M.sol, [x, CANOPY_Y + 0.1, -13.115], [0, Math.PI, 0]); }
   const cb = B.ctx({ area: 'bombas' });
   for (const x of [0.4, 12, 24.6]) for (const z of [-12.2, -0.8]) {
@@ -353,6 +353,14 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   inter('leitor', 'leitor', lei.dyn.children.find((m) => m.userData.interactId), 'leitor');
   props.caixa = cash; props.leitor = lei; updaters.push(lei.update);
   anchor('balcao', AT('balcao', -0.05, 0, -1.2), [0, 0, 1]); anchor('caixa', AT('caixa', 0, -1.0, 0.9), [0, 0, -1]); anchor('leitor', AT('leitor', 0, -1.0, 1.15), [0, 0, -1]);
+  // the camera monitor: a small tube beside the register, turned to the attendant (it was in the office; the office keeps the computer and the phone)
+  {
+    const mon = X('monitor'), ms = ents.entity('monitor').scale?.[1] ?? 1;
+    props.monitor = mon; regSticker('monitor', mon.sticker); updaters.push(mon.update);
+    inter('monitor', 'monitor', mon.dyn.children.find((m) => m.userData.interactId), 'monitor');
+    anchor('monitor', AT('monitor', 0, -1.0, 0.9), [0, 0, -1]);
+    anchor('monitorTela', AT('monitor', 0, 0.23 * ms, 0.17 * ms), [0, 0, 1]);
+  }
   anchor('copoBalcao1', [11.2, 1.0, 8.35]); anchor('copoBalcao2', [11.5, 1.0, 8.35]);
   anchor('esconderijo4', AT('balcao', -0.75, 0, 0.9), [0, 0, -1]);
   const hb = new T.Mesh(new T.BoxGeometry(1.4, 1.0, 0.9), new T.MeshBasicMaterial({ visible: false })); hb.position.set(...AT('balcao', -0.75, 0.5, 0.8)); group.add(hb);
@@ -371,7 +379,7 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   [1, 2].forEach((k) => {
     const gid = 'geladeira' + k, g = X(gid);
     inter(gid, 'geladeira', g.dyn.children.find((m) => m.userData.interactId), gid); updaters.push(g.update);
-    anchor(gid, AT(gid, 1.6, 0, 0), [-1, 0, 0]); props[gid] = g; regSticker(gid, g.sticker);
+    anchor(gid, AT(gid, 1.25, 0, 0), [-1, 0, 0]); props[gid] = g; regSticker(gid, g.sticker);
   });
   { const a = made.geladeira1.colliders[0], b = made.geladeira2.colliders[0]; collide([Math.min(a.min[0], b.min[0]), 0, Math.min(a.min[2], b.min[2])], [Math.max(a.max[0], b.max[0]), 2.0, Math.max(a.max[2], b.max[2])]); }
   // shelves: two gondolas and wall units. Each row is an interactable with setStock().
@@ -424,7 +432,7 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
         inter(tag === 'm' ? 'esconderijo1' : 'esconderijo2', 'esconderijo', cab.hit, tag === 'm' ? 'esconderijo1' : 'esconderijo2');
         cab.setOpen(0); // closed leaf is not walkable-through: the hide point is inside, so the leaf is passable by design
         cab.hit.visible = true;
-      } else cab.setOpen(0.55);
+      } else { cab.setOpen(0.55); cab.door.rotation.y = 0.6; }   // the free stall's leaf stands ajar INTO the stall (it used to swing out into the room, through the collider's edge)
     });
     [4.4, 5.3].forEach((z, i) => {
       X(`pia-${tag}${i + 1}`);
@@ -455,14 +463,13 @@ export function buildPosto(r, { seed = 1, darkness = 1, layout = LAYOUT, editor 
   const OF = 'escritorio';
   const desk = X('mesa-escritorio');
   colOf('mesa-escritorio');
-  const pc = X('computador'), mon = X('monitor'), tel = X('telefone');
+  const pc = X('computador'), tel = X('telefone');
   const lampL = lampLight('escritorio-mesa');
-  props.computador = pc; props.monitor = mon; props.telefone = tel; regSticker('monitor', mon.sticker); props.cadeira = desk; updaters.push(pc.update, mon.update, tel.update);
+  props.computador = pc; props.telefone = tel; props.cadeira = desk; updaters.push(pc.update, tel.update);
   inter('computador', 'computador', pc.dyn.children.find((m) => m.userData.interactId), 'computador');
-  inter('monitor', 'monitor', mon.dyn.children.find((m) => m.userData.interactId), 'monitor');
   inter('telefone', 'telefone', tel.dyn.children.find((m) => m.userData.interactId), 'telefone');
-  anchor('computador', AT('computador', 0, -0.765, -1.15), [0, 0, 1]); anchor('monitor', AT('monitor', 0, -0.765, -1.15), [0, 0, 1]); anchor('telefone', AT('telefone', 0, -0.765, -1.0), [0, 0, 1]);
-  anchor('computadorTela', AT('computador', -0.18, 0.235, -0.35), [0, 0, -1]); anchor('monitorTela', AT('monitor', 0, 0.235, -0.35), [0, 0, -1]);
+  anchor('computador', AT('computador', 0, -0.765, -1.15), [0, 0, 1]); anchor('telefone', AT('telefone', 0, -0.765, -1.0), [0, 0, 1]);
+  anchor('computadorTela', AT('computador', -0.18, 0.235, -0.35), [0, 0, -1]);
   anchor('cadeira', AT('mesa-escritorio', 0.2, 0, -0.9), [0, 0, 1]);
   lights.push(lampL);
   lights.push(lampLight('escritorio-teto'));

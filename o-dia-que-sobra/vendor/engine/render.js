@@ -191,6 +191,8 @@ export function createRender(canvas, opts = {}) {
     if (post) { post.rt.dispose(); post.mat.dispose(); post.quad.geometry.dispose(); post = null; }
     if (!src) return;
     const uniforms = { tFrame: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uTime: { value: 0 } };
+    // A look that asks for it (postDepth) also gets the scene's depth, and the camera's near and far to linearise it.
+    if (look.postDepth) { uniforms.tDepth = { value: null }; uniforms.uNear = { value: camera.near }; uniforms.uFar = { value: camera.far }; uniforms.uTanHalf = { value: Math.tan(camera.fov * Math.PI / 360) }; }
     const decl = [];
     for (const [k, d] of Object.entries(look.params ?? {})) {
       if (!glslT[d.type]) continue;
@@ -201,7 +203,7 @@ export function createRender(canvas, opts = {}) {
     const mat = new THREE.ShaderMaterial({
       uniforms, depthTest: false, depthWrite: false,
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-      fragmentShader: `uniform sampler2D tFrame; uniform vec2 uRes; uniform float uTime; ${decl.join(' ')}
+      fragmentShader: `uniform sampler2D tFrame; uniform vec2 uRes; uniform float uTime; ${look.postDepth ? 'uniform sampler2D tDepth; uniform float uNear, uFar, uTanHalf;' : ''} ${decl.join(' ')}
 varying vec2 vUv;
 ${src}
 void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
@@ -211,10 +213,12 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
     const pscene = new THREE.Scene();
     pscene.add(quad);
     const rt = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
+    if (look.postDepth) { rt.depthTexture = new THREE.DepthTexture(1, 1); rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter; }
     post = { rt, mat, quad, scene: pscene, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, look };
     if (size.w) { rt.setSize(size.w, size.h); mat.uniforms.uRes.value.set(size.w, size.h); }
   }
 
+  let wroteIR = false;   // (whether the engine set the canvas's image-rendering for the look: see imageRenderingFor)
   const size = { w: 0, h: 0, cssW: 0, cssH: 0 };
   /** Internal size from the look (enlarged by CSS without smoothing); the vertical field of view by shape. */
   function resize(cssW, cssH) {
@@ -223,6 +227,8 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
     renderer.setSize(w, h, false);
     if (post) { post.rt.setSize(w, h); post.mat.uniforms.uRes.value.set(w, h); }
     canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+    const ir = imageRenderingFor(look, wroteIR);
+    if (ir) { canvas.style.imageRendering = ir; wroteIR = look.smooth !== undefined; }
     U.uRes?.value.set(w, h);
     camera.aspect = w / h;
     camera.baseFov = camera.aspect < 1 ? fov.portrait : fov.landscape; camera.fov = camera.baseFov;
@@ -240,14 +246,10 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
     const np = paramsOf(next, next === look ? { ...p, ...(params ?? {}) } : params ?? {});
     const old = U;
     const nu = next.uniforms(THREE, np);
-    for (const [k, u] of Object.entries(nu)) {
-      const was = old[k];
-      // The resolution is the new look's (resize sets it from its size).
-      if (!was || k === 'uRes') continue;
-      if (Array.isArray(u.value) && Array.isArray(was.value)) u.value.forEach((v, i) => { if (i < was.value.length) (v?.copy ? v.copy(was.value[i]) : (u.value[i] = was.value[i])); });
-      else if (u.value?.copy && was.value?.copy) u.value.copy(was.value);
-      else if (typeof u.value === typeof was.value) u.value = was.value;
-    }
+    // The same uniform of the two looks (the same name and shape) stays the same object: the game's code that
+    // took one (a camera monitor that writes the lights) and the programs three already made for a material
+    // keep seeing the live one. The ones only the new look has are its own.
+    shareUniforms(old, nu);
     look = next; p = np; U = nu;
     // Everything the game set goes on again, as it was (the copy above only reaches what both looks have).
     if (Object.keys(set.light).length) light({ ...set.light });
@@ -263,6 +265,7 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
 
   makePost();
   const draw = () => {
+    if (look.pre) look.pre({ renderer, scene, camera, U, p, THREE, size });
     if (!post) { renderer.render(scene, camera); return; }
     // The scene into the target, then the pass over it to the screen (an orthographic quad: the editor's
     // free camera leaves such passes alone).
@@ -270,6 +273,7 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
     renderer.render(scene, camera);
     renderer.setRenderTarget(null);
     post.mat.uniforms.tFrame.value = post.rt.texture;
+    if (post.mat.uniforms.tDepth) { post.mat.uniforms.tDepth.value = post.rt.depthTexture; post.mat.uniforms.uNear.value = camera.near; post.mat.uniforms.uFar.value = camera.far; post.mat.uniforms.uTanHalf.value = Math.tan(camera.fov * Math.PI / 360); }
     post.mat.uniforms.uTime.value = U.uTime?.value ?? 0;
     renderer.render(post.scene, post.cam);
   };
@@ -286,6 +290,37 @@ void main() { gl_FragColor = vec4(clamp(post(vUv), 0.0, 1.0), 1.0); }`,
   };
   current = api;
   return api;
+}
+
+
+/**
+ * A change of look keeps the uniform objects the two looks share (the same name and the same shape): `nu` (the new look's
+ * uniforms) takes the object of `old` where they fit, so the game's code that holds one and the programs three already
+ * made keep seeing the live one. Where the shape differs (an array of another length) the new object takes the old values
+ * it can (a copy); a uniform only the new look has stays its own. `uRes` is always kept (resize sets it).
+ */
+export function shareUniforms(old, nu) {
+  const same = (a, b) => (Array.isArray(a) ? Array.isArray(b) && a.length === b.length && a.every((v, i) => same(v, b[i])) : a?.isColor ? Boolean(b?.isColor) : a?.isVector2 ? Boolean(b?.isVector2) : a?.isVector3 ? Boolean(b?.isVector3) : typeof a === typeof b && !(a && typeof a === 'object'));
+  for (const [k, u] of Object.entries(nu)) {
+    const was = old[k];
+    if (!was) continue;
+    if (k === 'uRes') { nu[k] = was; continue; }
+    if (same(u.value, was.value)) { nu[k] = was; continue; }
+    if (Array.isArray(u.value) && Array.isArray(was.value)) u.value.forEach((v, i) => { if (i < was.value.length) (v?.copy ? v.copy(was.value[i]) : (u.value[i] = was.value[i])); });
+    else if (u.value?.copy && was.value?.copy) u.value.copy(was.value);
+    else if (typeof u.value === typeof was.value) u.value = was.value;
+  }
+  return nu;
+}
+
+/**
+ * What the engine writes to the canvas's `image-rendering` for a look: 'auto' or 'pixelated' when the look declares `smooth`
+ * (true or false), nothing when it does not (the page, or a game that sets it itself, keeps its own value). `wrote` is whether
+ * the engine wrote it for the look before: a look without `smooth` that follows one with it puts the default 'pixelated' back.
+ */
+export function imageRenderingFor(look, wrote) {
+  if (look.smooth !== undefined) return look.smooth ? 'auto' : 'pixelated';
+  return wrote ? 'pixelated' : null;
 }
 
 /** Merge geometries (each with a matrix) into one non-indexed geometry. */

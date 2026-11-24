@@ -1,0 +1,16 @@
+{
+  "about": "What tools/clipping-check.mjs lets pass, each with the reason it stays (2026-11-23, stage 1). `match` is a regular expression on \"idA/materialA <> idB/materialB axN+\".",
+  "exceptions": [
+    { "match": "^bomba\\d/bico-\\w+ <> bomba\\d/(rubber|bico-\\w+) ax1[+-]", "reason": "the nozzle sits inside its holder on the pump: 4 cm2 of faces, hidden by the holder's own walls" },
+    { "match": "^bomba\\d/rubber <> bomba\\d/rubber ax", "reason": "boxes of the same pump parts (holders, plates) with the same material: same colour and texture, nothing to see" },
+    { "match": "^\\?/concrete <> (bomba\\d/concrete|lixeira\\d/green) ax1-", "reason": "undersides of the pump and bin bottoms on the island: they face down and are under the island's top, never seen" },
+    { "match": "^geladeira\\d/fridge <> geladeira\\d/plastic ax2", "reason": "1 cm strip of the fridge's back panel against the sides, against the wall: hidden" },
+    { "match": "^\\?/(wallIn|wallDark|tileWall) <> \\?/(wallIn|wallDark|tileWall) ax1\\+", "reason": "tops of interior walls at ceiling height: above the ceiling, inside the slab, never seen" },
+    { "match": "^(telefone|caixa|cafeteira|mesa-escritorio)/", "reason": "less than 1 cm2 of coplanar faces between small parts of the same object (phone body and keys, register, coffee machine, chair arm), same colour; not visible at play distance" },
+    { "match": "^(monitor|computador)/ <> (monitor|computador)/plastic", "reason": "the screen is 0.4 mm off the tube's face and drawn with polygon offset (lift): it does not flicker" },
+    { "match": "^\\?/mangueira <> \\?/mangueira", "reason": "two hose segments that meet end to end, same material" },
+    { "match": "^\\?/lineW <> \\?/lineW", "reason": "two white road lines crossing: same colour, the overlap cannot be told apart" },
+    { "match": "^\\?/grass <> \\?/grass ax1-", "reason": "undersides of the pines' stacked cones: seen only by looking up from under a tree, same material" },
+    { "match": "^carro-[a-z]+/(grass|#[0-9a-f]+|) ?<> carro-[a-z]+/(grass|plastic|rubber) ax1", "reason": "cars' undersides and the roof cap of the cabin (same material): the undersides are never seen, the roof cap is one colour" }
+  ]
+}

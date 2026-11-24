@@ -1,0 +1,44 @@
+{
+  "_nota": "Os que não existem (etapa 2): quantos vêm por noite, as pistas, o dreno de sanidade, a recusa e os textos do jogo. A lógica está em src/systems/nonexistent.js; nada aqui é resposta de segredo.",
+  "primeiraNoite": 2,
+  "contagem": { "1": [0, 1], "2": [1, 2], "3": [2, 3], "4": [3, 4] },
+  "atencao": { "extraAPartir": 6, "extra": 1, "tetoSemana": 5 },
+  "janela": ["00:25", "04:50"],
+  "bombaChance": 0.3,
+  "pistasPorSemana": { "1": [2, 3], "2": [2, 3], "3": [1, 2], "4": [1, 2] },
+  "sutileza": { "1": 0.0, "2": 0.34, "3": 0.67, "4": 1.0 },
+  "sutilezaPorNivel": 0.25,
+  "humano": { "estranhoChance": 0.22, "pistas": ["cam-olha", "cam-atraso", "data-errada", "sabe-nome"] },
+  "pistas": {
+    "cam-ausente": { "peso": 3, "onde": "monitor" },
+    "cam-atraso": { "peso": 3, "onde": "monitor" },
+    "cam-olha": { "peso": 3, "onde": "monitor", "so": "loja" },
+    "cam-rosto": { "peso": 2, "onde": "monitor", "so": "loja" },
+    "sem-sombra": { "peso": 3, "onde": "loja", "so": "loja" },
+    "sino-mudo": { "peso": 2, "onde": "loja", "so": "loja" },
+    "carro-mudo": { "peso": 2, "onde": "patio", "so": "carro" },
+    "carro-vazio": { "peso": 2, "onde": "patio", "so": "carro" },
+    "embalagem-antiga": { "peso": 2, "onde": "loja", "so": "loja" },
+    "data-errada": { "peso": 2, "onde": "fala" },
+    "sabe-nome": { "peso": 2, "onde": "fala" }
+  },
+  "falas": {
+    "sabeNome": ["Boa noite, Heitor.", "Heitor. Faz tempo.", "Tá cansado, Heitor?"],
+    "dataErrada": ["Hoje é {dia}, né?", "Ainda é {dia}, não é?", "{dia}... sempre me confundo."]
+  },
+  "dreno": { "base": 0.022, "porAtencao": 0.3, "porNivel": 0.35, "unidade": 1 },
+  "forca": { "atendida": 1, "voltaDeAtencao": 3, "maxConhecidas": 4, "nivelMax": 3, "pertoPorNivel": 0.35 },
+  "recusa": {
+    "falaHeitor": ["Desculpa, o caixa tá fechado.", "Desculpa, o caixa tá fechado agora."],
+    "entidade": { "sanidade": -3, "olhar": [28, 44], "falas": ["...", "Tá.", "Eu espero."], "dica": "Ele não vai embora. Fica do lado de fora, olhando." },
+    "humano": {
+      "falas": ["Como assim, fechado? Tá aberto!", "Que absurdo. Vou reclamar com o gerente.", "Fechado? Com a luz acesa?"],
+      "conf": -1, "reclamacao": "recusa"
+    }
+  },
+  "acoes": {
+    "recusar": "Recusar atendimento",
+    "recusarCarro": "Recusar o cliente"
+  },
+  "dicas": {}
+}

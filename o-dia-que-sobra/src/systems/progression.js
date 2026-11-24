@@ -5,6 +5,7 @@
 // closed nights add up to the week's score, the sixth night closes the week (goal met or missed, the salary), two missed
 // goals are the dismissal, and the wallet is paid and charged here (`money:pay`, `money:spend`, from the day off).
 import { freshTies, cleanTies, createTies } from './ties.js';
+import { freshEnt, cleanEnt } from './nonexistent.js';
 
 export function createProgression(bus, { rules }) {
   const fresh = () => ({
@@ -19,6 +20,8 @@ export function createProgression(bus, { rules }) {
     fase: 'noite', atraso: 0, fim: 0, billsPaid: [], paidSum: 0, pilhasExtra: 0,
     // the story branches (systems/branches.js, systems/ties.js): the hidden measures, the choices made, the goal changes by week
     ties: freshTies(), escolhas: [], metaPct: {},
+    // the customers who do not exist (systems/nonexistent.js): what was served and refused, and the faces that can come back
+    ent: freshEnt(),
   };
   const ties = createTies(st, bus);
   const C = rules.campanha;
@@ -54,6 +57,7 @@ export function createProgression(bus, { rules }) {
         sanBase: run.sanBase ?? rules.sanidade.inicio, sanidade: run.sanidade ?? rules.sanidade.inicio,
         fase: run.fase || 'noite', atraso: run.atraso || 0, fim: run.fim || 0, billsPaid: [], pilhasExtra: run.pilhasExtra || 0,
         ties: cleanTies(run.ties), escolhas: Array.isArray(run.escolhas) ? run.escolhas.map((e) => ({ ...e })) : [], metaPct: { ...(run.metaPct || {}) },
+        ent: cleanEnt(run.ent),
       });
     },
     toRun() {
@@ -65,6 +69,7 @@ export function createProgression(bus, { rules }) {
         collapse: { total: st.collapse.total, byWeek: { ...st.collapse.byWeek } },
         sanBase: st.sanBase, sanidade: st.sanidade, fase: st.fase, atraso: st.atraso, fim: st.fim, pilhasExtra: st.pilhasExtra,
         ties: JSON.parse(JSON.stringify(st.ties)), escolhas: st.escolhas.map((e) => ({ ...e })), metaPct: { ...st.metaPct },
+        ent: JSON.parse(JSON.stringify(st.ent)),
       };
     },
     // ---------------------------------------------------------------- the campaign
@@ -105,7 +110,7 @@ export function createProgression(bus, { rules }) {
     newRun() {
       Object.assign(st, { day: 1, week: 1, wallet: rules.carteiraInicial, tutorialDone: false, flags: [], eventsSeen: [], recurringSeen: [], occurrences: [], doses: {}, frasco: null, cafe: { streak: 0, last: 0 },
         misses: 0, weekPts: 0, weekLog: [], collapse: { total: 0, byWeek: {} }, sanBase: rules.sanidade.inicio, sanidade: rules.sanidade.inicio, fase: 'noite', atraso: 0, fim: 0, billsPaid: [], pilhasExtra: 0,
-        ties: freshTies(), escolhas: [], metaPct: {} });
+        ties: freshTies(), escolhas: [], metaPct: {}, ent: freshEnt() });
     },
     ok(kind) {
       if (kind === 'abastecimento') { st.night.abastecimentos++; points(P.abastecimento); }

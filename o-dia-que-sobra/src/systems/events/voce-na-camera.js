@@ -1,7 +1,7 @@
-// "Você na câmera": the camera of the store room (cam4) shows you in there, now, while you are in the office. It is a figure of you
+// "Você na câmera": the camera of the store room (cam4) shows you in there, now, while you are in the shop, at the counter. It is a figure of you
 // (models/human.js, dressed as Heitor) that repeats a stretch of your own recorded path in the store room (or, if you were never in
 // there tonight, a walk along the shelves). It is drawn only in the camera's render. After it has been seen it stops, turns to the
-// camera for a moment and the picture drops. Needs the CameraSystem (`cameras`) and the player in the office.
+// camera for a moment and the picture drops. Needs the CameraSystem (`cameras`) and the player in the shop.
 const ABANDON = 140, TURN_AFTER = 10, TURN_FOR = 4;   // real seconds
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -23,7 +23,7 @@ function walk(points, speed) {
 const SHELF_WALK = [[13.0, 12.7], [13.0, 14.6], [11.6, 16.2], [11.6, 18.3], [14.4, 18.3], [14.4, 15.6], [13.0, 14.2], [13.0, 12.7]];
 
 export function run({ cameras, kit, world, bus, sanity, progression, event, ui, forced }) {
-  if (!cameras || (!forced && kit.area() !== 'escritorio')) return { update: () => true };
+  if (!cameras || (!forced && kit.area() !== 'loja')) return { update: () => true };
   const path = cameras.segment({ area: 'estoque', min: 5, max: 14 }) || walk(SHELF_WALK, 1.35);
   let ghost = cameras.ghost('cam4', { kind: 'voce', path, loop: true });
   cameras.fail('cam4', { kind: 'chiado', secs: 0.9, level: 0.5 });

@@ -11,7 +11,7 @@
 // A view is a named stretch of a cutscene ("chegada.placa"). A shot from `from` to `to` plays from the
 // start of `from` to the end of `to` (consecutive views of one cutscene), stretched or squeezed to
 // `duration`. Everything is a function of the time: no real clock, no Math.random. The picture is the
-// PS1 render at low internal resolution, enlarged without smoothing, plus the cutscene overlay (fade,
+// game's picture (the new look at the full size of the video, or the 1998 mode when `look: '1998'` is given), plus the cutscene overlay (fade,
 // flashes, static, the dialogue box, the clipboard, the screens); never the game HUD.
 //
 // `build(opts)` is the same thing as a plain function: it returns { views, actions, anchors, tick } for
@@ -48,7 +48,7 @@ export function manifest() {
   return {
     id: 'o-dia-que-sobra',
     label: 'O Dia que Sobra',
-    description: 'O jogo O Dia que Sobra por dentro, em primeira pessoa e no visual PS1: as duas cenas do começo (a chegada a pé e o gerente) e os expedientes roteirizados da primeira semana (a rotina, as noites que passam, a bomba 4, o telefone, o corte no auge e o cartão de memória). Cada vista é um trecho nomeado de uma cutscene do próprio jogo; um plano vai do começo de uma vista ao fim de outra da mesma cena, esticado ou comprimido à duração pedida. Não há HUD de jogo, só o HUD de cutscene (caixa de diálogo, prancheta, clarão, escurecimento, chiado, telas do escritório e do cartão). Provisório até as fases 3 e 4: a tela de entrada do computador, a grade e a imagem das câmeras no monitor e o painel da bomba.',
+    description: 'O jogo O Dia que Sobra por dentro, em primeira pessoa e no visual novo do jogo (3D de aparência pré-renderizada, com sombra, grão e cor suja; o modo 1998, o visual PS1/N64 de antes, vem com `look: 1998` no setup): as duas cenas do começo (a chegada a pé e o gerente) e os expedientes roteirizados da primeira semana (a rotina, as noites que passam, a bomba 4, o telefone, o corte no auge e o cartão de memória). Cada vista é um trecho nomeado de uma cutscene do próprio jogo; um plano vai do começo de uma vista ao fim de outra da mesma cena, esticado ou comprimido à duração pedida. Não há HUD de jogo, só o HUD de cutscene (caixa de diálogo, prancheta, clarão, escurecimento, chiado, telas do monitor do balcão, do computador do escritório e do cartão). Provisório até as fases 3 e 4: a tela de entrada do computador, a grade e a imagem das câmeras no monitor e o painel da bomba.',
     views,
     actions: ACTIONS,
     anchors,
@@ -88,16 +88,21 @@ export function sounds(from, to = from) {
   return { natural: r(natural), events };
 }
 
-export function build({ width = 1920, height = 1080, seed = 1, blocks = null, cast = null, canvas = null } = {}) {
+/**
+ * `look`: 'novo' (the default: the game's new picture) or '1998' (the old one, the N64 look at 384 px); `tier`: 'alto' (the default,
+ * so a video comes out the same on every machine), 'medio' or 'leve'. The window's `setup` and the URL (`?look=1998&tier=medio`) pass them.
+ */
+export function build({ width = 1920, height = 1080, seed = 1, blocks = null, cast = null, canvas = null, look = null, tier = null } = {}) {
   const el = canvas ?? document.createElement('canvas');
-  const render = createRender(el);
+  const render = createRender(el, { mode: look === '1998' ? '1998' : 'novo', tier: tier ?? 'alto' });
   render.resize(width, height);
   const stage = createStage(render, { seed, blocks, cast: cast ?? preloadedCast });
   const views = listViews();
   const out = document.createElement('canvas'); out.width = width; out.height = height;
   const g = out.getContext('2d');
   const ov = document.createElement('canvas'), og = ov.getContext('2d');
-  ov.width = Math.round(render.size.w * OVERLAY_SCALE); ov.height = Math.round(render.size.h * OVERLAY_SCALE);
+  const ovK = render.size.w > 700 ? 1 : OVERLAY_SCALE;   // (twice the 3D only when the 3D is small: the 1998 mode)
+  ov.width = Math.round(render.size.w * ovK); ov.height = Math.round(render.size.h * ovK);
   let shot = null, ambientT = 0;
 
   /** One picture of cutscene `cn` at time t: returns the output canvas. flags: { clarao, escurecer, chiado, penumbra }. */
@@ -107,6 +112,7 @@ export function build({ width = 1920, height = 1080, seed = 1, blocks = null, ca
     const st = stage.frame(cn, t, { ambient: t + t0, flashMode });
     if (flags.chiado) st.noise = Math.max(st.noise, 0.45);
     if (flags.penumbra) st.dim = Math.max(st.dim, 0.5);
+    render.time(t + t0);
     stage.draw();
     g.imageSmoothingEnabled = false;
     g.filter = st.blur > 0.02 ? `blur(${(st.blur * width / 160).toFixed(1)}px)` : 'none';
@@ -163,7 +169,7 @@ export function installFilm() {
   let film = null;
   window.setup = async (p = {}) => {
     await loadCast();
-    film = build({ width: p.width ?? 1920, height: p.height ?? 1080, seed: p.seed ?? (Number(q.get('seed')) || 1), blocks: p.blocks ?? null });
+    film = build({ width: p.width ?? 1920, height: p.height ?? 1080, seed: p.seed ?? (Number(q.get('seed')) || 1), blocks: p.blocks ?? null, look: p.look ?? q.get('look'), tier: p.tier ?? q.get('tier') });
     document.getElementById('app')?.remove();
     const gl = film.render.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
     window.__film.current = film;

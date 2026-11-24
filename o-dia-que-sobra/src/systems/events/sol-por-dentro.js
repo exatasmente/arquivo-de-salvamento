@@ -1,5 +1,5 @@
 // "O Sol por dentro" (week 3, night 13): the Sun is inside the shop now. Two cups with the Sun on the counter and, on the monitor's frame
-// in the office, a Sun sticker. Nobody put them there. The sticker stays; the cups go when nobody looks.
+// at the counter, a Sun sticker. Nobody put them there. The sticker stays; the cups go when nobody looks.
 export function run({ world, kit, bus, sanity, progression, event, ui, time, rng }) {
   const stk = world.posto.stickers, sc = world.posto.cups, a = world.anchor('copoBalcao1')?.pos || kit.v3(12, 1, 8);
   let st = 'wait', t = 0, away = 0, gaze = 0, jingleAt = 0;

@@ -76,7 +76,7 @@ const PLANS = [
   ['v5', 'porta', 5, 'V5 A lâmpada, plano 3: você olha para trás, a porta entre o escritório e a loja está aberta; corte seco para o preto; sem texto'],
   ['v6', 'cobertura', 6.5, 'V6 Telas, plano 1: sob a cobertura, de relance as câmeras de teto das pontas; sem texto'],
   ['v6', 'cam6-placa', 6.2, 'V6 Telas, plano 2: no estacionamento, a câmera da parede da loja e, longe, a placa com o sorriso largo; sem texto'],
-  ['v6', 'monitor', 4.4, 'V6 Telas, plano 3: o monitor do escritório: a grade de seis imagens em preto e branco e depois só a câmera da loja, vazia; sem texto'],
+  ['v6', 'monitor', 4.4, 'V6 Telas, plano 3: o monitor do balcão: a grade de seis imagens em preto e branco e depois só a câmera da loja, vazia; sem texto'],
 ];
 const views = {}, plan = {};
 let acc = 0, prevVideo = null;
@@ -111,7 +111,7 @@ const PW = 160, PH = 120;
 // ---------------------------------------------------------------------------------------------
 export default {
   name: 'serie', filmOnly: true, duration: D, views,
-  anchors: { placa: 'A placa alta do sol', cobertura: 'A cobertura das bombas', bomba3: 'A bomba 3 e a baia ao lado', loja: 'A vitrine da loja', monitor: 'O monitor do escritório' },
+  anchors: { placa: 'A placa alta do sol', cobertura: 'A cobertura das bombas', bomba3: 'A bomba 3 e a baia ao lado', loja: 'A vitrine da loja', monitor: 'O monitor do balcão' },
   sfx: (() => {
     const E = []; const e = (t, name, opts) => E.push({ t: +t.toFixed(3), name, ...(opts ? { opts } : {}) });
     // V1: the highway far off, insects, the lamp of the sign that fails; the car passes and takes its sound with it
@@ -292,7 +292,7 @@ export default {
           }
           case 'v6-monitor': {
             const grid = rel < 2.4;
-            f = lowCam([5.0 + 0.6 * smooth(rel / 2), 1.5 - 0.06 * smooth(rel / 2), 15.8 + 1.5 * smooth(rel / 2)], [5.95, 1.0, 18.8], { world: { state: { telefoneToca: false, hora: 5.9, doors: { 'porta-escritorio': 1 } }, on: ['escritorio-teto'] }, noise: 0.07 });
+            f = lowCam([13.0 + 1.0 * smooth(rel / 2), 1.5 - 0.04 * smooth(rel / 2), 11.2 - 1.2 * smooth(rel / 2)], [14.72, 1.2, 8.65], { world: { state: { telefoneToca: false, hora: 5.9 }, on: ['loja1', 'loja3'] }, noise: 0.07 });
             f.late = (ff) => {
               if (grid) {
                 const sg = sheet.getContext('2d'); sg.imageSmoothingEnabled = false;

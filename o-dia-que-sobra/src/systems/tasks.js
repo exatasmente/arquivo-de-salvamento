@@ -292,6 +292,8 @@ export function createTasks(bus, { world, render, interaction, inventory, progre
   bus.on('customer:done', (c) => done('cli' + c.id));
   bus.on('customer:lost', (c) => { if (c.kind === 'car' || c.kind === 'walk') drop('cli' + c.id); });
   bus.on('customer:gone-angry', (c) => fail('cli' + c.id));
+  // refused at the counter or the pump, and it was one that does not exist: its line leaves the list and nothing is counted (a person who is refused is `gone-angry`, and the sale is lost)
+  bus.on('customer:refused', (c) => { const i = list.findIndex((x) => x.id === 'cli' + c.id); if (i >= 0) { list.splice(i, 1); bus.emit('tasks:change'); } });
   bus.on('customer:gone', (c) => { const t = list.find((x) => x.id === 'cli' + c.id); if (t && !t.done) t.failed = true; });
 
   // ------------------------------------------------------------------ the night's plan

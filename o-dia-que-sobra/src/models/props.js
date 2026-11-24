@@ -9,7 +9,7 @@
 //   buildProp(r, name, { seed, ...options }) -> { root, kind, ...extras }
 //     root: THREE.Group, the object on the floor (y = 0) near the origin, front toward +z.
 //   placeProp(builder, name, { pos, ry, area, ...options }) -> { dyn, kind, ...extras }  (used by posto.js)
-import { D, FUEL, FUEL_KEYS, paintFuel, fuelUV, createBuilder, createDisplay, paintSol, paintPoster, canvasTexture, cellUV, drawSeg, tex, mulberry32, mergeGeos, tecladoUV } from '../scenes/paint.js';
+import { D, lift, decalOf, FUEL, FUEL_KEYS, paintFuel, fuelUV, createBuilder, createDisplay, paintSol, paintPoster, canvasTexture, cellUV, drawSeg, tex, mulberry32, mergeGeos, tecladoUV } from '../scenes/paint.js';
 import { buildCar } from './car.js';
 import { buildMoto } from './moto.js';
 
@@ -310,7 +310,7 @@ function pumpKeypad(c, o = {}) {
 
 /** A loose Sun sticker of `size` metres, hidden, at p facing rot, in `parent` (the game shows it when it should appear). */
 function sunDecal(c, size, p, rot = [0, 0, 0], parent = c.dyn) {
-  const m = c.mesh(new c.T.PlaneGeometry(size, size), D('#ffffff', 'adesivoSol'), p, rot, parent); m.visible = false; m.name = 'adesivo-sol'; return m;
+  const m = c.mesh(new c.T.PlaneGeometry(size, size), decalOf(D('#ffffff', 'adesivoSol')), p, rot, parent); m.visible = false; m.name = 'adesivo-sol'; return m;
 }
 
 /** A paper cup with the Sun on it, standing at the origin: a Group of loose meshes. */
@@ -320,7 +320,7 @@ function cupGroup(c, parent = c.dyn) {
   c.mesh(new T.CylinderGeometry(0.04, 0.029, 0.1, 8), D('#ece0c4', 'plastic'), [0, 0.05, 0], [0, 0, 0], g);
   c.mesh(new T.CylinderGeometry(0.0435, 0.0435, 0.009, 8), D('#d8c89e', 'plastic'), [0, 0.098, 0], [0, 0, 0], g);
   c.mesh(new T.CylinderGeometry(0.036, 0.036, 0.004, 8), D('#8a7a5a', 'plastic'), [0, 0.097, 0], [0, 0, 0], g);
-  c.mesh(new T.PlaneGeometry(0.052, 0.052), D('#ffffff', 'adesivoSol'), [0, 0.05, 0.0365], [0, 0, 0], g);
+  c.mesh(new T.PlaneGeometry(0.052, 0.052), decalOf(D('#ffffff', 'adesivoSol')), [0, 0.05, 0.0365], [0, 0, 0], g);
   return g;
 }
 
@@ -464,7 +464,7 @@ const DEFS = {
     c.box([0.44, 0.07, 0.3], M.beige, [0, 0.155, -0.04], [-0.18, 0, 0]);
     c.box([0.32, 0.02, 0.15], M.grid, [0, 0.2, 0.05], [-0.18, 0, 0], [0.3, 0.3]);
     c.box([0.32, 0.17, 0.1], M.beige, [0, 0.3, -0.13]);
-    const scr = new T.Mesh(new T.PlaneGeometry(0.26, 0.11), r.glow('#74d8a0')); scr.position.set(0, 0.3, -0.078); c.dyn.add(scr);
+    const scr = new T.Mesh(new T.PlaneGeometry(0.26, 0.11), r.glow('#74d8a0')); scr.position.set(0, 0.3, -0.078); lift(scr.material); c.dyn.add(scr);
     const gav = new T.Group(); gav.position.set(0, 0.06, 0.2); c.dyn.add(gav);
     c.mesh(new T.BoxGeometry(0.42, 0.09, 0.03), M.cream, [0, 0, 0.0], [0, 0, 0], gav);
     const trayParts = [{ geo: new T.BoxGeometry(0.4, 0.02, 0.3), matrix: tmpM(T, [0, 0, -0.17]) }];
@@ -549,10 +549,11 @@ const DEFS = {
 
   geladeira(c, o) {
     const { T, r } = c, W = 1.2, H = 2.0, Dp = 0.7;
-    c.box([W, 0.12, Dp], M.dark, [0, 0.06, 0]);
+    // the plinth sits 1 cm back from the sides' faces, and the top, the back and the front strip sit between the two sides, so no two faces share a plane
+    c.box([W - 0.12, 0.12, Dp - 0.02], M.dark, [0, 0.06, 0]);
     c.box([0.06, H, Dp], M.fridge, [-W / 2 + 0.03, H / 2, 0]); c.box([0.06, H, Dp], M.fridge, [W / 2 - 0.03, H / 2, 0]);
-    c.box([W, 0.08, Dp], M.fridge, [0, H - 0.04, 0]); c.box([W - 0.1, H - 0.2, 0.04], D('#d8d6c8', 'plastic'), [0, H / 2 + 0.04, -Dp / 2 + 0.02]);
-    c.box([W, 0.2, 0.05], M.fridge, [0, H - 0.1, Dp / 2 - 0.025]);
+    c.box([W - 0.12, 0.08, Dp - 0.05], M.fridge, [0, H - 0.04, -0.025]); c.box([W - 0.12, H - 0.2, 0.04], D('#d8d6c8', 'plastic'), [0, H / 2 + 0.04, -Dp / 2 + 0.02]);
+    c.box([W - 0.12, 0.2, 0.05], M.fridge, [0, H - 0.1, Dp / 2 - 0.025]);
     c.quad(0.3, 0.3, M.sol, [0, H - 0.1, Dp / 2 + 0.003], [0, 0, 0]);
     const lv = [0.3, 0.8, 1.3, 1.7], rnd = mulberry32((o.seed ?? 1) * 17 + 3);
     lv.forEach((y, i) => {
@@ -616,18 +617,18 @@ const DEFS = {
   armario(c, o) {
     const { T } = c, W = 0.9, H = 1.9, Dp = 0.5, t = 0.03, body = D('#ffffff', 'green');
     // a hollow shell: back, sides, top, floor, a lip on the front and one shelf with a cardboard box on it
-    c.box([W, H, t], body, [0, H / 2, -Dp / 2 + t / 2], [0, 0, 0], [0.5, 0.5]);
+    c.box([W - 2 * t, H - 0.05 - t, t], body, [0, (0.05 + H - t) / 2, -Dp / 2 + t / 2], [0, 0, 0], [0.5, 0.5]);
     for (const sx of [-1, 1]) c.box([t, H, Dp], body, [sx * (W / 2 - t / 2), H / 2, 0], [0, 0, 0], [0.5, 0.5]);
-    c.box([W, t, Dp], body, [0, H - t / 2, 0], [0, 0, 0], [0.5, 0.5]);
-    c.box([W, 0.05, Dp], body, [0, 0.025, 0], [0, 0, 0], [0.5, 0.5]);
-    c.box([W, 0.06, 0.03], body, [0, H - 0.06, Dp / 2 - 0.015]);
+    c.box([W - 2 * t, t, Dp], body, [0, H - t / 2, 0], [0, 0, 0], [0.5, 0.5]);
+    c.box([W - 2 * t, 0.05, Dp], body, [0, 0.025, 0], [0, 0, 0], [0.5, 0.5]);
+    c.box([W - 2 * t, 0.06, 0.03], body, [0, H - 0.06, Dp / 2 - 0.04]);   // the lip behind the doors' plane (the doors are 2.5 cm thick, at the front)
     c.box([W - 2 * t, 0.02, 0.2], D('#ffffff', 'shelf'), [0, 1.45, -Dp / 2 + t + 0.1], [0, 0, 0], [0.7, 0.7]);
     c.box([0.2, 0.1, 0.14], M.board, [0.2, 1.51, -Dp / 2 + t + 0.1]);
     // two doors on hinges at the outer edges; the hit stays the first child that carries an id
     c.hit([W, H, Dp], [0, H / 2, 0], 'armario', 'esconderijo');
     const hw = (W - 0.02) / 2, hh = H - 0.14, leaves = [];
     for (const sx of [-1, 1]) {
-      const piv = new T.Group(); piv.position.set(sx * (W / 2 - 0.005), 0.07, Dp / 2 - 0.0125); c.dyn.add(piv);
+      const piv = new T.Group(); piv.position.set(sx * (W / 2 - 0.005), 0.07, Dp / 2 - 0.0125 + 0.003);   // 3 mm proud of the sides' front (it shared their plane) c.dyn.add(piv);
       c.mesh(new T.BoxGeometry(hw, hh, 0.025), body, [-sx * hw / 2, hh / 2, 0], [0, 0, 0], piv);
       const trim = mergeGeos(T, [{ geo: new T.BoxGeometry(0.02, 0.15, 0.03), matrix: tmpM(T, [-sx * (hw - 0.05), 0.93, 0.02]) },
         ...[0, 1, 2, 3].map((i) => ({ geo: new T.BoxGeometry(0.12, 0.012, 0.01), matrix: tmpM(T, [-sx * 0.2, 1.62 + (i >> 1) * 0.03, 0.013]) }))]);
@@ -942,13 +943,14 @@ const DEFS = {
   porta(c, o) {
     const { T, r } = c, w = o.w ?? 0.95, h = o.h ?? 2.1, kind = o.tipo ?? 'madeira', sw = o.swing ?? 1, hl = o.hinge === 'right' ? 1 : -1;
     const frame = D('#7a5434', 'plastic');
-    c.box([0.06, h + 0.05, 0.26], frame, [-w / 2 - 0.03, (h + 0.05) / 2, 0]); c.box([0.06, h + 0.05, 0.26], frame, [w / 2 + 0.03, (h + 0.05) / 2, 0]);
-    c.box([w + 0.12, 0.05, 0.26], frame, [0, h + 0.025, 0]);
+    // the jambs and the lintel stand 4 mm inside the wall's opening, so their faces are never the wall's own (that flickered), and they meet without sharing a face
+    c.box([0.068, h - 0.004, 0.26], frame, [-w / 2 - 0.03, (h - 0.004) / 2, 0]); c.box([0.068, h - 0.004, 0.26], frame, [w / 2 + 0.03, (h - 0.004) / 2, 0]);
+    c.box([w + 0.12, 0.054, 0.26], frame, [0, h + 0.023, 0]);
     const piv = new T.Group(); piv.position.set(hl * w / 2, 0, 0); c.dyn.add(piv);
     let leaf;
     if (kind === 'vidro') {
       leaf = new T.Mesh(new T.PlaneGeometry(w - 0.02, h - 0.02), r.mat('#ffffff', { map: tex(r, 'glassDoor'), side: T.DoubleSide })); leaf.position.set(-hl * w / 2, h / 2, 0); piv.add(leaf);
-      const pane = new T.Mesh(new T.PlaneGeometry(w - 0.06, h - 0.06), r.mat('#58708a', { transparent: true, opacity: 0.25, depthWrite: false, side: T.DoubleSide })); pane.position.set(-hl * w / 2, h / 2, 0.002); pane.renderOrder = 2; piv.add(pane);
+      const pane = new T.Mesh(new T.PlaneGeometry(w - 0.06, h - 0.06), r.mat('#58708a', { transparent: true, opacity: 0.25, depthWrite: false, side: T.DoubleSide })); pane.position.set(-hl * w / 2, h / 2, 0.002); pane.renderOrder = 2; lift(pane.material); piv.add(pane);
     } else {
       const m = kind === 'metal' ? M.doorMetal : M.doorWood;
       if (o.visor) {
@@ -959,7 +961,7 @@ const DEFS = {
         c.mesh(new T.BoxGeometry(lw, h - 0.01 - hi, 0.045), m, [0, (hi + h - 0.01) / 2, 0], [0, 0, 0], leaf);
         for (const sx of [-1, 1]) c.mesh(new T.BoxGeometry((lw - vw) / 2, vh, 0.045), m, [sx * (vw + (lw - vw) / 2) / 2, vy, 0], [0, 0, 0], leaf);
         c.mesh(new T.PlaneGeometry(vw, vh), D('#d8dccc', 'aramado', { side: 2 }), [0, vy, 0], [0, 0, 0], leaf);
-        const pane = new T.Mesh(new T.PlaneGeometry(vw, vh), r.mat('#58708a', { transparent: true, opacity: 0.22, depthWrite: false, side: T.DoubleSide })); pane.position.set(0, vy, 0.004); pane.renderOrder = 2; leaf.add(pane);
+        const pane = new T.Mesh(new T.PlaneGeometry(vw, vh), r.mat('#58708a', { transparent: true, opacity: 0.22, depthWrite: false, side: T.DoubleSide })); pane.position.set(0, vy, 0.004); pane.renderOrder = 2; lift(pane.material); leaf.add(pane);
       } else leaf = c.mesh(new T.BoxGeometry(w - 0.02, h - 0.02, 0.045), m, [-hl * w / 2, h / 2, 0], [0, 0, 0], piv);
     }
     const hit = c.hit([w, h, 0.2], [0, h / 2, 0], o.id ?? 'porta', 'porta'); hit.visible = true;
@@ -1001,7 +1003,7 @@ const DEFS = {
     const { T } = c, W = o.w ?? 1.1, Dp = o.depth ?? 1.5, side = D('#ffffff', 'doorMetal');
     c.box([0.03, 1.8, Dp], side, [-W / 2, 1.0, 0], [0, 0, 0], [0.6, 0.6]);
     c.box([0.03, 1.8, Dp], side, [W / 2, 1.0, 0], [0, 0, 0], [0.6, 0.6]);
-    c.box([W, 1.8, 0.03], side, [0, 1.0, -Dp / 2], [0, 0, 0], [0.6, 0.6]);
+    c.box([W - 0.03, 1.8, 0.03], side, [0, 1.0, -Dp / 2], [0, 0, 0], [0.6, 0.6]);   // between the side panels (no shared face)
     const door = new T.Group(); door.position.set(-W / 2 + 0.02, 0.1, Dp / 2); c.dyn.add(door);
     c.mesh(new T.BoxGeometry(W - 0.04, 1.75, 0.025), side, [(W - 0.04) / 2, 0.9, 0], [0, 0, 0], door);
     const hit = c.hit([W, 1.9, 0.2], [0, 0.95, Dp / 2], o.id ?? 'cabine', 'esconderijo');
@@ -1048,17 +1050,18 @@ const DEFS = {
     const ends = [];
     if (kind === 'cobertura') {
       c.box([1.0, 0.1, 0.6], D('#ffffff', 'canopyBand'), [0, 0.05, 0]);
-      tube = new T.Mesh(new T.PlaneGeometry(0.86, 0.46), r.glow('#f4e4b0', { fogged: 0.5 })); tube.rotation.x = Math.PI / 2; tube.position.set(0, 0.0, 0);
-      for (const z of [-0.2, 0.2]) { const e = new T.Mesh(new T.PlaneGeometry(0.86, 0.07), r.mat('#3a2c1c', { emissive: 0.1 })); e.rotation.x = Math.PI / 2; e.position.set(0, 0.002, z); ends.push(e); }
+      tube = new T.Mesh(new T.PlaneGeometry(0.86, 0.46), r.glow('#f4e4b0', { fogged: 0.5 })); tube.rotation.x = Math.PI / 2; tube.position.set(0, -0.004, 0);   // 4 mm below the housing's underside (it was ON it: the two flickered)
+      for (const z of [-0.2, 0.2]) { const e = new T.Mesh(new T.PlaneGeometry(0.86, 0.07), r.mat('#3a2c1c', { emissive: 0.1 })); e.rotation.x = Math.PI / 2; e.position.set(0, -0.002, z); ends.push(e); }
     } else if (kind === 'mesa') {
       c.cyl(0.08, 0.1, 0.03, 8, M.dark, [0, 0.015, 0]); c.cyl(0.012, 0.012, 0.3, 5, M.dark, [0, 0.18, 0], [0, 0, 0.3]);
       c.cyl(0.02, 0.09, 0.1, 8, D('#6a8a5a', 'green'), [0.07, 0.36, 0], [0, 0, 0.5]);
       tube = new T.Mesh(new T.CircleGeometry(0.075, 8), r.glow('#ffe0a0', { fogged: 0.4 })); tube.rotation.x = Math.PI / 2; tube.position.set(0.07, 0.31, 0);
     } else {
       c.box([0.28, 0.06, 1.3], D('#d8d4c4', 'plastic'), [0, 0.03, 0]);
-      tube = new T.Mesh(new T.PlaneGeometry(0.2, 1.2), r.glow('#e8f0e0', { fogged: 0.5 })); tube.rotation.x = Math.PI / 2; tube.position.set(0, -0.003, 0);
-      for (const z of [-0.5, 0.5]) { const e = new T.Mesh(new T.PlaneGeometry(0.2, 0.2), r.mat('#3a2c1c', { emissive: 0.1 })); e.rotation.x = Math.PI / 2; e.position.set(0, -0.0015, z); ends.push(e); }
+      tube = new T.Mesh(new T.PlaneGeometry(0.2, 1.2), r.glow('#e8f0e0', { fogged: 0.5 })); tube.rotation.x = Math.PI / 2; tube.position.set(0, -0.004, 0);
+      for (const z of [-0.5, 0.5]) { const e = new T.Mesh(new T.PlaneGeometry(0.2, 0.2), r.mat('#3a2c1c', { emissive: 0.1 })); e.rotation.x = Math.PI / 2; e.position.set(0, -0.002, z); ends.push(e); }
     }
+    lift(tube.material); for (const e of ends) lift(e.material, 1.5);
     c.dyn.add(tube);
     // a burnt tube: dark all along, with brown ends
     for (const e of ends) { e.visible = false; c.dyn.add(e); }
@@ -1075,7 +1078,7 @@ const DEFS = {
   mancha(c, o) {
     const { T, r } = c, size = o.size ?? 0.9;
     const m = new T.Mesh(new T.PlaneGeometry(size, size), r.mat(o.tint ?? '#ffffff', { map: tex(r, 'stain'), transparent: true, opacity: 0.8, depthWrite: false }));
-    m.rotation.set(-Math.PI / 2, 0, o.rot ?? 0); m.position.y = 0.012; m.renderOrder = 1; c.dyn.add(m);
+    m.rotation.set(-Math.PI / 2, 0, o.rot ?? 0); m.position.y = 0.012; m.renderOrder = 1; lift(m.material); c.dyn.add(m);
     const hit = c.hit([size, 0.2, size], [0, 0.1, 0], o.id ?? 'mancha', 'mancha');
     const st = { dirt: 1 };
     /** 0 = clean (gone), 1 = full stain; in between it shrinks and fades */
@@ -1129,7 +1132,7 @@ function crtUnit(c, { cams, base }) {
   };
   const tex2 = canvasTexture(r, cv);
   draw(0);
-  const screen = new T.Mesh(new T.PlaneGeometry(0.31, 0.23), r.glow('#ffffff', { map: tex2, emissive: 0.8, fogged: 0.6 })); screen.position.set(x0, 0.23, 0.1705); c.dyn.add(screen);
+  const screen = new T.Mesh(new T.PlaneGeometry(0.31, 0.23), r.glow('#ffffff', { map: tex2, emissive: 0.8, fogged: 0.6 })); screen.position.set(x0, 0.23, 0.1705); lift(screen.material); c.dyn.add(screen);
   c.hit([0.45, 0.4, 0.4], [x0, 0.22, 0.05], base === 'monitor' ? 'monitor' : 'computador', base);
   let custom = false;
   const sticker = [sunDecal(c, 0.055, [x0 + 0.14, 0.078, 0.1725])];
@@ -1150,19 +1153,19 @@ function balcaoShelf(c, o) {
   const L = o.length ?? 1.6, depth = 0.3, half = L / 2, levels = [0.55, 0.9, 1.25];
   const types = o.rows ?? ['oleo-motor', 'carregador', 'pilha', 'fita', 'chaveiro', 'palito'];
   c.box([L, 0.1, depth], D('#8a6a48', 'wood'), [0, 0.05, 0]);
-  c.box([L, 1.45, 0.03], M.shelf, [0, 0.73, -depth / 2 + 0.015], [0, 0, 0], [0.7, 0.7]);
-  for (const x of [-L / 2 + 0.02, L / 2 - 0.02]) c.box([0.04, 1.45, depth], M.shelf, [x, 0.73, 0], [0, 0, 0], [0.7, 0.7]);
+  c.box([L - 0.08, 1.35, 0.03], M.shelf, [0, 0.775, -depth / 2 + 0.015], [0, 0, 0], [0.7, 0.7]);   // between the end panels, and above the foot
+  for (const x of [-L / 2 + 0.02, L / 2 - 0.02]) c.box([0.04, 1.35, depth], M.shelf, [x, 0.775, 0], [0, 0, 0], [0.7, 0.7]);
   c.box([L + 0.04, 0.05, depth + 0.04], D('#a07850', 'wood'), [0, 1.47, 0]);
   const rows = [];
   levels.forEach((y, lv) => {
-    c.box([L - 0.08, 0.03, depth - 0.03], M.shelf, [0, y, 0.0], [0, 0, 0], [0.7, 0.7]);
+    c.box([L - 0.08, 0.03, depth - 0.03], M.shelf, [0, y, 0.015], [0, 0, 0], [0.7, 0.7]);
     for (let side = 0; side < 2; side++) {
       const tipo = types[lv * 2 + side], A = ATRAS[tipo], x0 = side ? 0.04 : -half + 0.06, x1 = side ? half - 0.06 : -0.04;
       const slots = Math.floor((x1 - x0) / A.pitch), cx = (x0 + x1) / 2, z0 = 0.05;
       const at = (i) => [cx - ((slots - 1) * A.pitch) / 2 + i * A.pitch, y + 0.015, z0];
       // a label strip with the drawing of the item on the front edge of the board
-      if (A.cell >= 0) c.quad(0.12, 0.05, atrasDesc(c.r), [cx, y + 0.005, depth / 2 - 0.0], [0, 0, 0], rectInset(cellUV(A.cell)));
-      else c.quad(0.12, 0.05, M.prod, [cx, y + 0.005, depth / 2 - 0.0], [0, 0, 0], cellUV(PRODUTOS.oleo.cells[0]));
+      if (A.cell >= 0) c.quad(0.12, 0.05, atrasDesc(c.r), [cx, y + 0.005, depth / 2 + 0.001], [0, 0, 0], rectInset(cellUV(A.cell)));
+      else c.quad(0.12, 0.05, M.prod, [cx, y + 0.005, depth / 2 + 0.001], [0, 0, 0], cellUV(PRODUTOS.oleo.cells[0]));
       let perSlot = 0;
       const res = c.sub((s) => {
         for (let i = 0; i < slots; i++) { const p = at(i); addAtras(s, tipo, p[0], p[1], p[2], i); }
@@ -1190,8 +1193,8 @@ function gondola(c, o) {
   const rowTypes = autoRows.map((t, i) => (PRODUTOS[o.rows?.[i]] ? o.rows[i] : t));
   const back = faces === 2 ? 0 : -half;
   c.box([L, 0.15, depth], D('#8a6a48', 'wood'), [0, 0.075, 0]);
-  c.box([L, 1.6, 0.04], M.shelf, [0, 0.8, back + (faces === 2 ? 0 : 0.02)], [0, 0, 0], [0.7, 0.7]);
-  for (const x of [-L / 2 + 0.02, L / 2 - 0.02]) c.box([0.04, 1.6, depth], M.shelf, [x, 0.8, 0], [0, 0, 0], [0.7, 0.7]);
+  c.box([L - 0.08, 1.45, 0.04], M.shelf, [0, 0.875, back + (faces === 2 ? 0 : 0.02)], [0, 0, 0], [0.7, 0.7]);   // between the end panels, and above the foot
+  for (const x of [-L / 2 + 0.02, L / 2 - 0.02]) c.box([0.04, 1.45, depth], M.shelf, [x, 0.875, 0], [0, 0, 0], [0.7, 0.7]);
   c.box([L + 0.04, 0.05, depth + 0.04], D('#a07850', 'wood'), [0, 1.62, 0]);
   const rows = [];
   for (let f = 0; f < faces; f++) {

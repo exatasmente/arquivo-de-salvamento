@@ -1,6 +1,7 @@
 import { createRender } from './render.js';
 import { createInput } from './input.js';
 import { createGame, DT, loadOpts, LOCAL } from './game.js';
+import { readLook1998 } from './save.js';
 
 const q = new URLSearchParams(location.search);
 
@@ -21,7 +22,13 @@ async function boot() {
   };
   const root = document.getElementById('app');
   const canvas = document.getElementById('c');
-  const render = createRender(canvas);
+  // The picture: the new look by default, the 1998 mode when the card keeps it on; `?look=1998|novo` and `?tier=alto|medio|leve` are for whoever makes the game (local addresses only).
+  const local = LOCAL.has(location.hostname), card = params.debug ? { getItem: (k) => localStorage.getItem(k + '.debug') } : undefined;
+  const lookQ = local ? q.get('look') : null;
+  const render = createRender(canvas, {
+    mode: lookQ ? (lookQ === '1998' || lookQ === 'atual' ? '1998' : 'novo') : (readLook1998(card) ? '1998' : 'novo'),
+    tier: local && q.get('tier') ? q.get('tier') : loadOpts().quality,
+  });
   const input = createInput();
   if (params.touch || input.hasTouch()) {
     // the phone's layer (src/touch/mobile.js), with the person's choices (canhoto, button size, hold or tap)
@@ -39,6 +46,8 @@ async function boot() {
   addEventListener('resize', refit); addEventListener('orientationchange', refit); window.visualViewport?.addEventListener('resize', refit);
   fit();
   const game = await createGame({ root, render, input, params });
+  // Every program the scene needs is built now (the camera monitor's first picture, a lamp that lights late), not at the first frame that shows it.
+  try { await (render.renderer.compileAsync && render.renderer.extensions.has('KHR_parallel_shader_compile') ? render.renderer.compileAsync(render.scene, render.camera) : render.renderer.compile(render.scene, render.camera)); } catch (e) { console.warn('compile', e.message); }
 
   // The loop is the only place with a real clock: it feeds fixed steps to the simulation.
   let last = performance.now(), acc = 0, shown = false;

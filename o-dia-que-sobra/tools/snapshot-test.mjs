@@ -38,9 +38,9 @@ function serve() {
 
 async function open(ctx, base, query, errs) {
   const page = await ctx.newPage(); page.__touch = /[?&]touch/.test(query);
-  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });
+  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/Service Worker registration blocked|File chooser dialog can only be shown with a user activation/.test(m.text())) errs.push(`${m.type()}: ${m.text()}`); });
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}`);   // (a dry night unless the scenario asks for a weather)
+  await page.goto(`${base}/o-dia-que-sobra/index.html?${query}${/[?&]wx=/.test(query) ? '' : '&wx=limpo'}${process.env.LOOK ? '&look=' + process.env.LOOK : ''}`);   // (a dry night unless the scenario asks for a weather)
   return page;
 }
 const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}${name}.png` }); };
@@ -71,6 +71,8 @@ const OBSERVE = () => {
     shelves: G.world.shelves.filter(Boolean).map((r) => r.stock).join(','),
     cust: G.customers.list.filter((c) => (c.kind === 'car' || c.kind === 'walk') && !c.done).map((c) => `${c.kind}${c.pump || ''}`).sort().join(','),
     prep: G.prep.on, punched: G.prep.punched,
+    // the customers who do not exist: the one in the shop (its seed, level and tells), what is remembered between nights and the plan of the night
+    ents: G.customers.list.filter((c) => c.isEnt).map((c) => `${c.seed}:${c.entLvl}:${c.entTells}:${c.state}`).join('|'), entMem: JSON.stringify(st.ent), entPlan: JSON.stringify(G.nonexistent.plan),
   };
 };
 
@@ -88,7 +90,7 @@ async function scenario(browser, base, kind) {
   await ev(() => { const G = window.__odq.game; try { Object.defineProperty(document, 'pointerLockElement', { get: () => document.body, configurable: true }); } catch { /* there already */ } for (let i = 0; i < 400; i++) G.step(1 / 60); });
   await ev(() => { const G = window.__odq.game; G.tasks.done('ponto'); G.prep.setPunched(true); });
   await ev(() => { const G = window.__odq.game; let n = 0; while (G.time.minutes < 0 && n++ < 14000) { if (G.ui.modalOpen) G.ui.closeModal(); G.step(1 / 60); } });
-  await ev(() => { const G = window.__odq.game; G.tasks.openTill(); G.customers.enable(false); const a = G.customers.spawnCar({ pump: 3, seed: 77 }), b = G.customers.spawnWalker({ seed: 5 }); window.__made = Boolean(a && b); });
+  await ev(() => { const G = window.__odq.game; G.tasks.openTill(); G.customers.enable(false); const a = G.customers.spawnCar({ pump: 3, seed: 77 }), b = G.customers.spawnWalker({ seed: 5, ent: { level: 1 } }); G.progression.st.ent.known = [{ seed: 5, kind: 'loja', n: 2 }]; G.progression.st.ent.served = 3; window.__made = Boolean(a && b && b.isEnt); });
   ok(await ev(() => window.__made), `${tag}: a car and a shop customer exist before saving`);
   await ev(() => { const G = window.__odq.game; let n = 0; while (G.time.minutes < 40 && n++ < 9000) { if (G.ui.modalOpen) G.ui.closeModal(); G.step(1 / 60); } G.customers.enable(false); });
   await ev(() => { const G = window.__odq.game; G.sanity.add(-13, 'teste'); G.inventory.flash.on = true; G.inventory.flash.charge -= 40; G.inventory.select(2); G.progression.st.wallet += 7.5; G.progression.points(4); G.cash.ring(1250); G.cash.receive(2000); G.world.shelves.filter(Boolean)[0].setStock(1); G.player.st.x += 0.5; G.player.st.yaw = 1.25; });
@@ -120,7 +122,8 @@ async function scenario(browser, base, kind) {
   await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 30000 });
   await ev(() => { try { Object.defineProperty(document, 'pointerLockElement', { get: () => document.body, configurable: true }); } catch { /* there already */ } });
   let after = await ev(OBSERVE);
-  const same = ['day', 'minutes', 'wallet', 'sanity', 'night', 'weekPts', 'slots', 'sel', 'flash', 'till', 'opened', 'pos', 'seed', 'prep', 'punched'];
+  ok(before.ents.includes('5:1:') && before.entMem.includes('"served":3'), `${tag}: before saving one of the customers is one that does not exist (${before.ents})`);
+  const same = ['day', 'minutes', 'wallet', 'sanity', 'night', 'weekPts', 'slots', 'sel', 'flash', 'till', 'opened', 'pos', 'seed', 'prep', 'punched', 'ents', 'entMem', 'entPlan'];
   const near = (k) => (k === 'minutes' && Math.abs(before.minutes - after.minutes) < 0.1) || (k === 'flash' && Math.abs(before.flash - after.flash) < 0.5);
   for (const k of same) ok(near(k) || JSON.stringify(before[k]) === JSON.stringify(after[k]), `${tag}: continued ${k} ${JSON.stringify(after[k])}${near(k) || JSON.stringify(before[k]) === JSON.stringify(after[k]) ? '' : ' (was ' + JSON.stringify(before[k]) + ')'}`);
   ok(before.tasks === after.tasks || before.open === after.open, `${tag}: tasks ${after.open} open (was ${before.open})${before.tasks === after.tasks ? '' : '\n         ' + before.tasks + '\n         ' + after.tasks}`);
@@ -170,8 +173,11 @@ async function scenario(browser, base, kind) {
   await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
   ok(!(await rows(page)).some((r) => r.startsWith('CONTINUAR')), `${tag}: with the storage cleared there is nothing to continue`);
   const importFile = async (p, label) => {
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), clickText(page, 'IMPORTAR CARTÃO')]);
-    await chooser.setFiles(p);
+    // a real chooser opens on a click; some headless phones refuse the programmatic click (no user activation), but the page's hidden input is there all the same
+    const got = page.waitForEvent('filechooser', { timeout: 6000 }).catch(() => null);
+    await clickText(page, 'IMPORTAR CARTÃO');
+    const chooser = await got;
+    if (chooser) await chooser.setFiles(p); else await page.setInputFiles('input[type=file]', p);
     await page.waitForFunction(() => /IMPORTAR CARTÃO|CARTÃO RECUSADO/.test(document.querySelector('#modal h1')?.textContent || ''), null, { timeout: 8000 });
     void label;
     return page.evaluate(() => ({ h1: document.querySelector('#modal h1')?.textContent, text: document.querySelector('#modal')?.textContent }));

@@ -10,7 +10,13 @@ export const RINHA_KEY = 'rinha.card.v1';
 export { BLOCKS, CORRUPT_BLOCK };
 export const RINHA_BLOCK = 11;
 
-const empty = () => ({ v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], endings: [], meta: { intro: false } });
+const empty = () => ({ v: 1, run: null, nights: {}, record: { best: 0, nights: 0 }, secrets: [], endings: [], meta: { intro: false, look1998: false } });
+
+/** Whether the card keeps the "1998 mode" on (the old picture), read without opening the card: the page needs it before the game exists. */
+export function readLook1998(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+  const d = readCard(KEY, storage);
+  return Boolean(d?.meta?.look1998);
+}
 
 /** What the other game left in this browser, or null. Read only. */
 export function readRinha(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
@@ -37,6 +43,9 @@ export function createCard(storage = (typeof localStorage !== 'undefined' ? loca
       return card.write();
     },
     wipeRun() { card.data.run = null; card.data.nights = {}; return card.write(); },
+    /** The "1998 mode" (the old picture, an easter egg: the code 1998 on the monitor, an option after the first ending) is on. */
+    get look1998() { return Boolean(card.data.meta?.look1998); },
+    setLook1998(on) { card.data.meta = { ...(card.data.meta || {}), look1998: Boolean(on) }; return card.write(); },
     get introSeen() { return card.introSeen; },
     setIntroSeen: card.setIntroSeen,
     /** Endings seen (1..5), across every run: the card keeps them when a new game starts. */

@@ -17,6 +17,11 @@
 // walks in from the road. Whoever fills the tank and also comes in (the mode `bomba+loja`) goes to the shop while the car fuels: the car stays at the pump
 // only as long as it takes to fuel, then it drives off and parks in a stall (the same car, back in by the lot's way) and the person walks back to it; the shop
 // charges both at the counter, the fuel and the products on one bill. Whoever only fuels pays at the pump, as always.
+//
+// Some of them do not exist (systems/nonexistent.js, plugged in through `hooks.ent`): `arrive()` asks it who is due, `spawnWalker` / `spawnCar` take `ent` and call
+// `hooks.ent.mark(c, ent)`, which sets the tells on the customer (`isEnt`, `entTells`, and the flags this file reads: `noBell`, `noEngine`, `emptyCar`, `oldPack`, `greet`).
+// Their payment is not money (`book` -> cash.vanish). A customer can be refused (`refuse`, a held action at the counter and at the pump): a person complains and
+// the sale is lost; one that does not exist leaves slowly, stands outside the glass looking in (`gaze`) and gains nothing.
 import { mulberry32 } from '../rng.js';
 import { buildHuman } from '../models/human.js';
 import { buildCustomer } from '../models/customer.js';
@@ -62,7 +67,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     v.onGone = () => remove(c);
     return v;
   }
-  function departCar(c) { if (c.veh && !c.departed) { c.departed = true; traffic.depart(c.veh); bus.emit('sfx', 'carro_vai', { pos: c.car.root.position.toArray() }); } }
+  function departCar(c) { if (c.veh && !c.departed) { c.departed = true; traffic.depart(c.veh); if (!c.noEngine) bus.emit('sfx', 'carro_vai', { pos: c.car.root.position.toArray() }); } }
 
   /** The free pump nearest the entrance (or `prefer`, for the scripted ones). len/capZ: the body that has to fit the bay. */
   function freePump(prefer = 0, len = 4.3, capZ = -1.4) {
@@ -117,8 +122,55 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     return g;
   }
 
+  // ------------------------------------------------------------------ refusing service
+  const REFUSE_HOLD = 0.9;                    // seconds of holding the button: a refusal is never an accident
+  /** The held action that refuses a customer ("Desculpa, o caixa tá fechado"): one more action in the list of the aim, at the counter and at the pump. */
+  function refuseTarget(c, T, aim, reach, enabled) {
+    T({
+      id: `recusa${c.id}`, reach, priority: -1,
+      aim, enabled: () => !c.done && !c.refused && enabled(),
+      label: () => ({ text: (c.kind === 'car' ? hooks.ent?.D?.acoes?.recusarCarro : hooks.ent?.D?.acoes?.recusar) || 'Recusar atendimento', hold: true }),
+      hold: {
+        start() { c.refT = 0; },
+        update(dt) { if (c.refT < 0) return; c.refT += dt; if (c.refT >= REFUSE_HOLD) { c.refT = -99; refuse(c); } },
+        end() { if (c.refT > -50) c.refT = 0; },
+        progress: () => (c.refT > 0 ? c.refT / REFUSE_HOLD : 0),
+      },
+    });
+  }
+  /**
+   * The attendant refuses to serve this customer. A person: a complaint, the manager's trust goes down and the sale is lost (the customer's line on the list fails, which counts as not done: nonexistent.refused).
+   * One that does not exist: it leaves without hurry, stops outside the glass and looks in for a while (the sanity falls when it does), and gains no strength.
+   */
+  function refuse(c) {
+    if (c.done || c.refused) return;
+    c.refused = true;
+    const R = hooks.ent?.D?.recusa || {};
+    ui.say('Heitor', pickOf(R.falaHeitor || ['Desculpa, o caixa tá fechado.']), { seed: 61, ms: 2600 });
+    const res = hooks.ent?.refused(c) || { ent: false };
+    bus.emit('sfx', 'ui_ok', {});
+    if (c.kind === 'walk') {
+      c.state = 'leaving'; c.leaveAfter = res.ent ? 1.6 : 0.5; c.lv = null; c.nr = null; c.done = true; c.noService = true; ui.setTotal(null);
+      for (const o of c.itemObjs) o.visible = false;
+      if (inventory.carry?.cust === c.id) { const cr = inventory.carry; inventory.dropHandlers.item(cr); if (inventory.carry) inventory.clearCarry(); }
+      for (const p of c.prods) p.taken = false;
+      if (res.ent) {
+        c.slow = true; c.gazeAt = { x: Math.round((5 + mulberry32(c.seed * 11 + 1)() * 8) * 10) / 10, z: 1.6 };
+        const l = R.entidade?.falas; if (l) setTimeout(() => say(c, l), 400);
+        bus.emit('customer:refused', c);             // (off the list of the night with nothing counted: it was not served, and no person was lost)
+      } else {
+        const l = R.humano?.falas; if (l) setTimeout(() => say(c, l), 400);
+        bus.emit('customer:gone-angry', c);
+      }
+    } else {
+      c.state = 'leaving'; c.leaveAfter = 0.8; c.done = true; c.noService = true;
+      if (res.ent) { const sn = R.entidade?.sanidade; if (sn) bus.emit('sanity:add', sn, 'recusa'); const l = R.entidade?.falas; if (l) setTimeout(() => say(c, l), 400); bus.emit('customer:refused', c); }
+      else { const l = R.humano?.falas; if (l) setTimeout(() => say(c, l), 400); bus.emit('customer:gone-angry', c); }
+    }
+  }
+
   // ------------------------------------------------------------------ the car customer (pump)
-  function spawnCar({ pump = 0, seed, tutorial = false, valor, combustivel, tipo = null, rec = null, scene = null, entry = null } = {}) {
+  function spawnCar({ pump = 0, seed, tutorial = false, valor, combustivel, tipo = null, rec = null, scene = null, entry = null, ent = null } = {}) {
     if (!tutorial && lateNight()) return null;           // nobody new after 05:40
     const truck = (rec || tipo)?.veiculo?.tipo === 'caminhao';
     let n = pump && !list.some((c) => c.pump === pump) ? pump : freePump(0, truck ? 6.4 : (rec || tipo)?.veiculo?.tipo === 'moto' ? 2.0 : 4.3, truck ? 1.05 : -1.4);
@@ -177,6 +229,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (rec) { progression.recurring(rec.id + ':' + scene.id); nightRecurring.push(rec.nome); }
     if (c.cat === 'inconveniente') bus.emit('incident', 'cliente-inconveniente', { id });
     if (((tipo || rec)?.aparencia?.pessoas?.length || 0) > 1) c.passenger = addPassenger(car, (tipo || rec).aparencia.pessoas[1], s);
+    if (!tutorial) hooks.ent?.mark(c, ent);
     const T = (t) => { c.targets.push(interaction.register(t)); };
     T({
       id: `cliente${id}`, reach: 4.2, priority: 0,
@@ -192,6 +245,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
         talkCar(c);
       },
     });
+    if (!tutorial && !rec) refuseTarget(c, T, () => (c.state === 'arriving' || c.state === 'leaving' || c.away ? null : { c: car.root.position.clone().setY(1.1), r: V.tipo === 'caminhao' ? 2.8 : 1.5 }), 4.2,
+      () => ['waiting', 'ordered'].includes(c.state) && !inventory.carry && !c.nozzleIn && !c.fueling && !c.panel && !c.talking && !c.paying && !(c.cents > 0));      // (empty hands: with the nozzle in them the service has begun)
     if (c.oferta) {
       // the window of the driver: what the attendant carries from the shop is handed over here
       T({
@@ -606,6 +661,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function book(c, total, res, torn) {
     c.bills.forEach((b, i) => cash.receive(b, torn && i === 0));
     cash.give(res.pieces); cash.ring(total);
+    if (c.isEnt) { cash.vanish(c.bills); hooks.ent?.served(c); }      // one that does not exist pays with money that is not there at close, and the Sun notices it was served
   }
   function tipFor(c, errors) {
     if (errors || c.fiado) return;
@@ -825,7 +881,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   }
   function finishBoarding(c) {
     render.scene.remove(c.human.root);
-    c.car.setDoor?.(0); c.car.setDriver(true); c.car.setLights(true);
+    c.car.setDoor?.(0); c.car.setDriver(!c.emptyCar); c.car.setLights(true);
     c.leaveAfter = 0.9;
   }
   /** Leaves: back through the bell door if they are in the shop, then to the car (or the pump's side, or the road). */
@@ -834,12 +890,19 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     c.lv = { stage: (p.x > 2 && p.x < 16 && p.z > 3 && p.z < 12) ? 0 : 1 };
     routeTo(c, c.lv.stage === 0 ? c.inside : exitPoint(c));
   }
-  function exitPoint(c) { return c.owner ? ownerDoor(c.owner) : c.spot ? traffic.lotDoor(c.spot) : ROAD; }
+  function exitPoint(c) { return c.gazeAt && !c.gazed ? c.gazeAt : c.owner ? ownerDoor(c.owner) : c.spot ? traffic.lotDoor(c.spot) : ROAD; }
   /** Called when a leaving customer has got to the end of the route. Returns true if the customer is gone. */
   function leaveStep(c, t) {
     if (c.lv.stage === 0) {
-      c.lv.stage = 1; world.state.sino = t; bus.emit('sfx', 'sino', { pos: c.inside.toArray() });
+      c.lv.stage = 1; if (!c.noBell) { world.state.sino = t; bus.emit('sfx', 'sino', { pos: c.inside.toArray() }); }
       routeTo(c, exitPoint(c)); return false;
+    }
+    if (c.gazeAt && !c.gazed) {       // refused, and one that does not exist: it stops outside the glass and looks in
+      c.gazed = true; c.state = 'gaze'; c.gazeT = 0; c.nr = null;
+      const G = hooks.ent?.D?.recusa?.entidade || {}, gr = mulberry32(c.seed * 19 + 3)();
+      c.gazeFor = ((G.olhar?.[0] ?? 28) + gr * ((G.olhar?.[1] ?? 44) - (G.olhar?.[0] ?? 28))) * (1 + 0.25 * (c.entLvl || 0));
+      if (G.sanidade) bus.emit('sanity:add', G.sanidade, 'recusa');
+      return false;
     }
     if (c.car) { getInCar(c); c.lv.stage = 2; return false; }
     if (c.owner) { c.owner.hold = false; c.owner.leaveAfter = Math.min(c.owner.leaveAfter ?? 0.8, 0.8); c.owner.car?.setDriver(true); }
@@ -877,7 +940,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function forceLeave(c) {
     if (c.insideT !== undefined) { chores?.setBathroomBusy(false); c.insideT = undefined; }
     if (c.state !== 'leaving') { c.state = 'leaving'; c.leaveAfter = 0; c.lv = null; c.nr = null; c.atLeg = false; }
-    c.noService = true;
+    c.gazed = true; c.noService = true;
   }
   let closeT = 0;
   /** Six o'clock: whoever is still on the premises goes. Pump customers are lost, the ones at the counter too, and they are off the list. */
@@ -909,7 +972,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
       return null;
     }).filter(Boolean);
   }
-  function spawnWalker({ seed, tutorial = false, produtos, pagamento, tipo = null, rec = null, scene = null, entry = null, role = 'normal', name, owner = null, fuelOf = null } = {}) {
+  function spawnWalker({ seed, tutorial = false, produtos, pagamento, tipo = null, rec = null, scene = null, entry = null, role = 'normal', name, owner = null, fuelOf = null, ent = null } = {}) {
     if (!tutorial && !owner && lateNight()) return null;
     const s = seed ?? Math.floor(rng() * 1e6);
     const src = rec || tipo;
@@ -930,7 +993,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if ((src?.aparencia?.pessoas?.length || 0) > 1) {
       try { comp = buildCustomer(render, { categoria: 'comum', roupa: 'civil', ...src.aparencia.pessoas[1] }, { seed: s + 99 }); } catch (e) { console.warn('companion', e.message); }
     }
-    const { stand } = counterGeo();
+    const { stand, b: cb } = counterGeo();
     const rr = mulberry32(s * 17 + 3);
     let ids = produtos ?? src?.pedido?.itens ?? (role === 'normal' ? Array.from({ length: rr.pick(cfg.loja.itens) }, () => rr.pick(Object.keys(items.produtos))) : []);
     if (!tutorial && role === 'normal' && !rec && !ids.some((k) => items.atras[k]) && rr() < cfg.atras.chance) ids = [...ids, rr.pick(Object.keys(items.atras))];
@@ -940,7 +1003,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     const bills = role === 'normal' && total > 0 ? (pagamento ? [pagamento * 100] : billsFor(src?.pagamento || { notas: [10, 20, 50, 100] }, total, rr)) : [];
     const door = world.anchor('porta-loja-dentro');
     const inside = door.pos.clone().setY(0), entryPt = inside.clone().addScaledVector(door.dir, 3.2);
-    const goal = role === 'observa' ? WATCH.clone() : stand;
+    // one that was served before comes back closer to the counter (and, in nonexistent.js, less disguised)
+    const goal = role === 'observa' ? WATCH.clone() : ent?.level ? stand.clone().addScaledVector(cb.dir, Math.min(0.4, (hooks.ent?.D?.forca?.pertoPorNivel ?? 0.35) * ent.level)) : stand;
     const c = {
       fuelOf, shopTotal,
       get fuelCents() { return this.fuelOf ? Math.round(this.fuelOf.cents) : 0; },       // read when it is needed: what the pump really gave, not what was known at the door
@@ -966,10 +1030,13 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (rec) { progression.recurring(rec.id + ':' + scene.id); nightRecurring.push(rec.nome); }
     if (c.cat === 'inconveniente') bus.emit('incident', 'cliente-inconveniente', { id });
     if (c.cat === 'suspeito') bus.emit('incident', 'cliente-suspeito', { id });
+    if (!tutorial && !owner) hooks.ent?.mark(c, ent);
     const T = (t) => { c.targets.push(interaction.register(t)); };
+    const aimOf = () => (c.state === 'entering' || c.state === 'leaving' || c.state === 'inside' || c.state === 'gaze' ? null : { c: h.root.position.clone().setY(1.0), r: 0.5 });
+    if (!tutorial && !rec && !owner && role === 'normal') refuseTarget(c, T, aimOf, 3.2, () => ['placing', 'scanning', 'ready'].includes(c.state) && !c.paying);
     T({
       id: `cliente${id}`, reach: 3.2, priority: 0,
-      aim: () => (c.state === 'entering' || c.state === 'leaving' || c.state === 'inside' ? null : { c: h.root.position.clone().setY(1.0), r: 0.5 }),
+      aim: aimOf,
       enabled: () => ['scanning', 'ready', 'asking', 'watch', 'linger', 'placing'].includes(c.state),
       label: () => {
         if (c.state === 'ready') return { text: c.fuelOf ? `Cobrar ${money(c.total)} (bomba ${c.fuelOf.pump} ${money(c.fuelCents)} + produtos ${money(c.shopTotal)})` : `Cobrar ${money(c.total)}` };
@@ -1051,7 +1118,8 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
         }));
         return;
       }
-      const o = world.prop(p.copo ? 'copo' : 'produto', { tipo: p.tipo });
+      const old = c.oldPack && !p.copo && i === c.prods.findIndex((q) => !q.copo && !q.atras);
+      const o = world.prop(p.copo ? 'copo' : old ? 'produto-antigo' : 'produto', { tipo: p.tipo });
       const k = (counterItems.indexOf(p) - (counterItems.length - 1) / 2) * 0.3;
       o.position.copy(top).addScaledVector(side, k);
       render.scene.add(o); c.itemObjs.push(o);
@@ -1069,7 +1137,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     });
     c.state = 'scanning';
     ui.setTotal(scannerTotal(c, 0));
-    say(c, c.tipo?.falas?.chegada || cfg.loja.cumprimentos);
+    say(c, c.greet || c.tipo?.falas?.chegada || cfg.loja.cumprimentos);
     const back = c.prods.filter((p) => p.atras);
     if (back.length) setTimeout(() => {}, 0);
     if (back.length) c.askBack = { t: 2.6, p: back[0] };
@@ -1236,6 +1304,11 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function arrive() {
     const busy = carsOn();
     canCar = busy === 0 || (busy === 1 && rng() < 0.18);
+    const E = hooks.ent?.due();      // one of the ones that do not exist whose hour has come
+    if (E) {
+      const c = E.kind === 'bomba' ? (canCar && freePump() ? spawnCar({ seed: E.seed, ent: E }) : null) : (!walkerBusy() && canCar && traffic.lotAvailable() ? spawnWalker({ seed: E.seed, ent: E }) : null);
+      if (c) { hooks.ent.taken(E); return; }
+    }
     const t = pickTipo();
     if (!t) {
       if (canCar && rng() < 0.66 && freePump()) spawnCar(); else if (!walkerBusy() && canCar) spawnWalker();
@@ -1274,7 +1347,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (h.update) {
       const leg = c.state === 'entering' && c.atLeg ? c.legs?.[c.legI] : null;
       const picking = leg && leg.kind === 'shop' && leg.take?.length;
-      const pose = c.exitT > 0 && c.state === 'exiting' ? 'saindo-carro' : c.boardT > 0 ? 'entrando-carro' : picking ? 'pegando' : c.state === 'entering' ? (c.tipo?.poses?.chegada || 'parado') : c.state === 'leaving' ? (c.tipo?.poses?.saindo || c.rec?.poses?.saindo || 'parado') : c.paying ? (c.tipo?.poses?.pagando || 'pagando') : (c.state === 'watch' ? (c.rec?.poses?.esperando || 'fixo') : (c.tipo?.poses?.esperando || 'parado'));
+      const pose = c.exitT > 0 && c.state === 'exiting' ? 'saindo-carro' : c.boardT > 0 ? 'entrando-carro' : picking ? 'pegando' : c.state === 'entering' ? (c.tipo?.poses?.chegada || 'parado') : c.state === 'gaze' ? 'fixo' : c.state === 'leaving' ? (c.tipo?.poses?.saindo || c.rec?.poses?.saindo || 'parado') : c.paying ? (c.tipo?.poses?.pagando || 'pagando') : (c.state === 'watch' ? (c.rec?.poses?.esperando || 'fixo') : (c.tipo?.poses?.esperando || 'parado'));
       h.update(t, { pose, andando: moving ? 1 : 0, fase: c.walkPhase, falando: false, ...(picking ? { altura: Math.max(0, Math.min(1, (leg.take[0].row?.nivel ?? 1) / 2)) } : {}) });
     } else poseWalk(h.joints, c.walkPhase, moving ? 1 : 0);
   }
@@ -1334,7 +1407,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
         if (c.inCar) {
           // in the car: it is still coming in, the customer is about to get out, or has got back in and the car is about to go
           if (c.state === 'driving') {
-            if (!c.engine && c.veh.s > 50) { c.engine = true; bus.emit('sfx', 'carro_vai', { pos: [c.spot.x, 0, c.spot.z] }); }
+            if (!c.engine && c.veh.s > 50) { c.engine = true; if (!c.noEngine) bus.emit('sfx', 'carro_vai', { pos: [c.spot.x, 0, c.spot.z] }); }
             if (c.veh.state === 'parked') { c.state = 'exiting'; c.exitT = 0.9; const p = traffic.lotDoor(c.spot); c.human.root.position.set(p.x, 0, p.z); render.scene.add(c.human.root); }
           } else if (c.state === 'exiting') { c.exitT -= dt; c.car.setDoor?.(Math.max(0, Math.min(1, c.exitT / 0.9 > 0.5 ? (0.9 - c.exitT) / 0.45 : 1))); animate(c, t, false); if (c.exitT <= 0) stepOut(c); }
           else if (c.boardT > 0) { c.boardT -= dt; c.car.setDoor?.(Math.max(0, Math.min(1, c.boardT / 0.9 > 0.5 ? 1 : c.boardT / 0.45))); animate(c, t, false); if (c.boardT <= 0) finishBoarding(c); }
@@ -1353,7 +1426,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
             if (leg.face) h.rotation.y = Math.atan2(leg.face.x - h.position.x, leg.face.z - h.position.z);
             if (c.legT >= (leg.hold || 0)) {
               c.atLeg = false; c.nr = null; c.legI++;
-              if (leg.kind === 'bell') { c.passed = true; world.state.sino = t; bus.emit('sfx', 'sino', { pos: c.inside.toArray() }); }
+              if (leg.kind === 'bell') { c.passed = true; if (!c.noBell) { world.state.sino = t; bus.emit('sfx', 'sino', { pos: c.inside.toArray() }); } }
               else if (leg.kind === 'shop') {
                 for (const tk of leg.take) if (tk.row) { tk.row.setStock(Math.max(0, tk.row.stock - 1)); bus.emit('shelf:taken', tk.row); }      // what they take is gone from the shelf; a shelf that runs low asks for a restock (tasks.js)
                 if (leg.take.length) bus.emit('sfx', 'produto_pos', { pos: [leg.p.x, 1.1, leg.p.z], gain: 0.5 });
@@ -1398,12 +1471,17 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
           const r = walkRoute(c, 1.0, dt); moving = r.moved; c.lingerT += dt;
           if (r.done) { c.nr = null; h.rotation.y = Math.atan2(world.anchor('balcao').dir.x, world.anchor('balcao').dir.z); }
           if (c.lingerT > (c.tipo?.pedido?.permanencia ?? 90)) { c.state = 'leaving'; c.leaveAfter = 0; c.nr = null; c.lv = null; }
+        } else if (c.state === 'gaze') {
+          // outside the glass, looking in, for a while; then it goes on its way
+          c.gazeT += dt;
+          { const cb = world.anchor('balcao').pos; h.rotation.y = Math.atan2(cb.x - h.position.x, cb.z - h.position.z); }
+          if (c.gazeT > c.gazeFor) { c.state = 'leaving'; c.leaveAfter = 0; c.lv = { stage: 1 }; c.nr = null; c.slow = false; }
         } else if (c.state === 'leaving') {
           c.leaveAfter -= dt;
           if (c.leaveAfter <= 0) {
             if (!c.lv) startLeave(c);
             else if (!c.nr) routeTo(c, exitPoint(c));
-            const r = walkRoute(c, 1.7, dt); moving = r.moved;
+            const r = walkRoute(c, c.slow ? 0.8 : 1.7, dt); moving = r.moved;
             if (r.done && leaveStep(c, t)) continue;
           }
         }
@@ -1512,7 +1590,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
   function restoreCar(d, owner = null) {
     const rec = d.rec ? (cast.recorrentes || []).find((r) => r.id === d.rec) : null;
     const tipo = d.tipo ? (cast.tipos || []).find((t) => t.id === d.tipo) || null : null;
-    const c = rec && d.scene ? (spawnRecurring(d.rec, d.scene) && list[list.length - 1]) : spawnCar({ pump: d.pump, seed: d.seed, tipo });
+    const c = rec && d.scene ? (spawnRecurring(d.rec, d.scene) && list[list.length - 1]) : spawnCar({ pump: d.pump, seed: d.seed, tipo, ent: d.f?.isEnt ? { level: d.f.entLvl || 0 } : null });
     if (!c) return null;
     lay(c, d);
     if (d.veh && c.veh) traffic.restore(c.veh, d.veh);
@@ -1535,7 +1613,7 @@ export function createCustomers(bus, { world, render, interaction, inventory, pr
     if (d.ownerId !== null && !owner) return null;
     let c;
     if (rec && d.scene) { const scene = scenes.find((q) => q.id === d.scene), entry = (rec.noites || []).find((n) => n.cena === d.scene); c = spawnWalker({ rec, scene, entry, seed: d.seed, role: d.role || 'observa' }); }
-    else c = spawnWalker({ tipo, seed: d.seed, name: d.name, owner, fuelOf: owner, ...(d.role && d.role !== 'normal' ? { role: d.role } : {}) });
+    else c = spawnWalker({ tipo, seed: d.seed, name: d.name, owner, fuelOf: owner, ent: d.f?.isEnt ? { level: d.f.entLvl || 0 } : null, ...(d.role && d.role !== 'normal' ? { role: d.role } : {}) });
     if (!c) return null;
     const h = c.human.root, p = d.h || { x: h.position.x, z: h.position.z, ry: h.rotation.y };
     // a visitor who came by car: still in it, getting out, getting back in, or already walking

@@ -25,6 +25,7 @@ import { createTraffic } from './systems/traffic.js';
 import { createChores } from './systems/chores.js';
 import { createOffice } from './systems/office.js';
 import { createCameras } from './systems/cameras.js';
+import { createNonexistent } from './systems/nonexistent.js';
 import { createMedication } from './systems/medication.js';
 import { createCampaign } from './systems/campaign.js';
 import { createSecrets } from './systems/secrets.js';
@@ -48,7 +49,7 @@ import { money } from './util.js';
 
 export const DT = 1 / 60;
 const OPT_KEY = 'o-dia-que-sobra.opts';
-const OPT_DEFAULT = { reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, gyroDead: 5, gyroFx: 28, gyroFy: 28, left: false, btn: 1, toggle: false };
+const OPT_DEFAULT = { quality: 'auto', reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, gyroDead: 5, gyroFx: 28, gyroFy: 28, left: false, btn: 1, toggle: false };
 const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5], gyroSens: [0.5, 0.75, 1, 1.5, 2], btn: [0.85, 1, 1.2, 1.4] };
 /** The player's options: one key of their own in this browser (never in the memory card). A value out of range falls back to the default. */
 export function loadOpts() {
@@ -91,6 +92,7 @@ async function loadData() {
   try { out.cast = await (await fetch('./data/cast.json')).json(); } catch { out.cast = { tipos: [], recorrentes: [] }; }
   try { out.recurring = await (await fetch('./data/recurring.pt-BR.json')).json(); } catch { out.recurring = { cenas: [] }; }
   try { out.dayoff = await (await fetch('./data/dayoff.pt-BR.json')).json(); } catch { out.dayoff = null; }
+  try { out.entidades = await (await fetch('./data/entidades.pt-BR.json')).json(); } catch { out.entidades = null; }
   try { out.branches = await (await fetch('./data/branches.pt-BR.json')).json(); } catch { out.branches = { ramos: [], noites: {}, falas: {} }; }
   return out;
 }
@@ -115,6 +117,16 @@ export async function createGame({ root, render, input, params }) {
   const lighting = createLighting(bus, { world, render, player, flash: () => inventory.flash, opts, hours: () => (state === 'play' && time.minutes > 0 ? time.minutes / 60 : 0), weather: () => weather?.env() });
   const audioSys = createAudioSystem(bus, { world, player, lighting, mod: audioMod, opts });
   const save = createSaveSystem(bus, { progression, storage: (params.debug || Object.keys(dbg).length) ? debugStorage() : undefined });
+  // ------------------------------------------------------------------ the picture: the new look by default, the "1998 mode" (the old picture) as an easter egg
+  // It opens by the code 1998 typed on the monitor (cameras.onCode, below) and, once an ending has been seen, by an option; it is kept on the memory card.
+  const mode1998Unlocked = () => save.card.endings.length > 0;
+  /** 'novo' or '1998': draws the game in it from now on, keeps the choice on the card and tells the others (`look:mode`). Returns the mode now. */
+  function setLookMode(mode, persist = true) {
+    const m = render.setMode ? render.setMode(mode) : 'novo';
+    if (persist) save.card.setLook1998(m === '1998');
+    bus.emit('look:mode', m);
+    return m;
+  }
   const cash = createCash(bus, { items: data.items });
 
   applyOpts();
@@ -181,6 +193,10 @@ export async function createGame({ root, render, input, params }) {
   const goals = createGoals(bus, { world, render, player, tasks, customers, chores, inventory, progression, ui, lastNight: rules.campanha.ultimaNoite });
   const office = createOffice(bus, { world, render, interaction, ui, time, progression, tasks, cash, data, inventory });
   const cameras = createCameras(bus, { render, world, ui, time, sanity, input, data, player, interaction, office, lighting, progression });
+  cameras.onCode((typed) => { if (typed.endsWith('1998')) ui.toast(setLookMode(render.mode === '1998' ? 'novo' : '1998') === '1998' ? 'Modo 1998 ligado.' : 'Modo 1998 desligado.'); });
+  // the customers who do not exist: the plan of the night, the tells, the strength they get from being served (customers.js asks through `hooks.ent`)
+  const nonexistent = createNonexistent(bus, { data, progression, time, ui, cameras, cash });
+  customers.hooks.ent = nonexistent;
   const dialogue = (who, lines, seed) => ui.dialogue(who, lines, seed);
   const narrative = createNarrative(bus, { world, interaction, customers, tasks, progression, time, ui, dialogue, data, cash, office });
   const mirror = createMirror({ world, render, player });
@@ -215,7 +231,7 @@ export async function createGame({ root, render, input, params }) {
   const prep = createPrep(bus, { world, render, interaction, time, tasks, chores, progression, ui, narrative, customers, goals });
   const closing = createClosing(bus, { world, render, interaction, time, tasks, progression, ui, customers, narrative, goals, inventory, chores, cash, data, lastNight: rules.campanha.ultimaNoite });
   tasks.attachClosing(closing);
-  const shift = createShift(bus, { branches, prep, closing, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
+  const shift = createShift(bus, { nonexistent, branches, prep, closing, time, progression, sanity, customers, tasks, events, narrative, inventory, player, world, ui, save, rules, data, input, cash, office, chores, medication, coffee, mirror });
 
   // on the phone the passing lines (the teaching, the hints, the speech, how to let go) sit in one place above the thumbs (mobile.css);
   // the objective of the night stays at the top, under the clock
@@ -350,6 +366,10 @@ export async function createGame({ root, render, input, params }) {
       { label: () => `SOM: ${opts.mute ? 'DESLIGADO' : 'LIGADO'}`, act: () => { audioSys.init(); audioSys.setMuted(!opts.mute); saveOpts(opts); } },
       stepper('look', 'SENSIBILIDADE DO OLHAR', (v) => `${v}×`),
       { label: () => `REDUZIR CLARÕES: ${opts.reduceFlash ? 'SIM' : 'NÃO'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); } },
+      // the picture: the quality of the new look (the phone starts on the lightest) and, after the first ending, the old picture
+      { label: () => `QUALIDADE DA IMAGEM: ${opts.quality === 'auto' ? `AUTOMÁTICA (${(render.tier || 'medio').toUpperCase().replace('MEDIO', 'MÉDIA').replace('ALTO', 'ALTA')})` : { alto: 'ALTA', medio: 'MÉDIA', leve: 'LEVE' }[opts.quality] || 'AUTOMÁTICA'}`,
+        act: () => { const L = ['auto', 'alto', 'medio', 'leve']; opts.quality = L[(L.indexOf(opts.quality) + 1) % L.length]; saveOpts(opts); render.setTier?.(opts.quality); } },
+      ...(mode1998Unlocked() || render.mode === '1998' ? [{ label: () => `MODO 1998: ${render.mode === '1998' ? 'LIGADO' : 'DESLIGADO'}`, act: () => { setLookMode(render.mode === '1998' ? 'novo' : '1998'); } }] : []),
       stepper('text', 'TAMANHO DO TEXTO', (v) => (v === 1 ? 'NORMAL' : v === 1.25 ? 'GRANDE' : 'MAIOR')),
       // the phone: aiming by moving it, the side of the stick, the size of the buttons, holding or tapping
       ...(input.touch?.mobile ? [
@@ -494,7 +514,7 @@ export async function createGame({ root, render, input, params }) {
   }
   // ------------------------------------------------------------------ "save now", and the card as a file (systems/snapshot.js)
   const snapSys = () => ({
-    bus, ui, time, progression, sanity, inventory, medication, cash, player, tasks, chores, customers, goals, narrative, events, branches, prep, closing, office, world, shift, data,
+    bus, ui, time, progression, sanity, inventory, medication, cash, player, tasks, chores, customers, goals, narrative, events, branches, nonexistent, prep, closing, office, world, shift, data,
     nightSeed: nightSeedNow, baseSeed, entity, dayoff, state, weather,
     refresh: () => { ui.setClock(time.text()); ui.setCalendar(calText()); ui.setPrep(prep.text() || closing.text()); ui.showInventory(); },
   });
@@ -837,6 +857,7 @@ export async function createGame({ root, render, input, params }) {
     closing.update();
     traffic.update(dt);
     customers.update(dt, simT);
+    nonexistent.update(dt, customers.list);
     narrative.update(dt);
     if (time.minutes >= 0) events.update(dt, simT);      // (the preparation before 00:00 has no scare events)
     if (time.minutes >= 0 && !extraNow) branches.update(dt, simT);
@@ -1018,6 +1039,7 @@ export async function createGame({ root, render, input, params }) {
     if (hid && entity.S.near > 0 && !opts.reduceFlash) { if ((beatT -= dt) <= 0) { beatT = 0.8; m.buzz([18, 90, 28]); } } else beatT = 0;
   }
   function draw() {
+    render.time(simT);
     if (state === 'dayoff') { goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false); if (dayoff && dayoff.draw) dayoff.draw(); else render.draw(); return; }
     if (state !== 'play') goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false);
     if (state === 'ending' || state === 'cutscene') return;
@@ -1050,8 +1072,8 @@ export async function createGame({ root, render, input, params }) {
   }
   if (dbg.day || dbg.week || dbg.dayoff || dbg.ending || dbg.secrets) debugStart();
   const api = {
-    bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, branches, cameras, shift, save, ui, audioSys, data,
-    opts, goals, prep, closing, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
+    bus, campaign, secrets, get dayoff() { return dayoff; }, entity, medication, coffee, mirror, world, time, player, sanity, progression, inventory, lighting, interaction, customers, traffic, tasks, chores, cash, office, narrative, events, branches, cameras, nonexistent, shift, save, ui, audioSys, data,
+    opts, setLookMode, goals, prep, closing, hoses, planWalk, walkToGoal, get walking() { return walkTo; }, step, draw, showTitle, startNight, continueRun, openPause, resume,
     endingVariant, saveNow, exportCard, importCard, snapshot, get restoreNotes() { return restoreNotes; },
     get extraRun() { return extraRun; }, get extraNow() { return extraNow; },
     get state() { return state; }, get modalCount() { return modalCount; }, get fx() { return fx; }, get simT() { return simT; }, get nightSeed() { return nightSeedNow; }, get weather() { return weather; },

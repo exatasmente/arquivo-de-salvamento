@@ -104,7 +104,7 @@ export function buildCar(r, { seed = 1, fuel, capSide, style, color, abandoned =
   const uv = fuelUV(fuelKey), a = sticker.geometry.attributes.uv;
   for (let i = 0; i < 4; i++) a.setXY(i, a.getX(i) ? uv[2] : uv[0], a.getY(i) ? uv[3] : uv[1]);
   sticker.position.set(sx * 0.0215, 0, 0.1); sticker.rotation.y = sx * Math.PI / 2; flapPivot.add(sticker);
-  c.box([0.01, 0.17, 0.17], dark, [sx * (W / 2 - 0.005), capY, capZ]);
+  c.box([0.01, 0.17, 0.17], dark, [sx * (W / 2), capY, capZ]);   // the fuel door stands 5 mm proud of the body's side (it shared its plane)
   tankCap.userData.flap = flapPivot; tankCap.userData.fuel = fuelKey;
   const openCap = (k) => { flapPivot.rotation.y = -sx * 1.9 * Math.max(0, Math.min(1, k)); };
   // lights
