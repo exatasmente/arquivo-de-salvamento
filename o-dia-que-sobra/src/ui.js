@@ -6,8 +6,10 @@
 // sends discrete presses (nav, confirm, back, tab) to `handle`.
 import { money } from './util.js';
 import { BLOCKS } from './save.js';
+import { createScreens } from './screens.js';
+import { solSvg } from './ui-art.js';
 
-const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+export const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function createUI(root, api) {
   root.insertAdjacentHTML('beforeend', `
@@ -24,7 +26,7 @@ export function createUI(root, api) {
         <div id="coach" hidden></div>
         <div id="toast" hidden></div>
       </div>
-      <div id="ncard" hidden><b></b><span></span></div>
+      <div id="ncard" hidden></div>
       <div id="arrow" hidden><i></i></div>
       <div id="carryhint" hidden></div>
       <div id="prompt" hidden><b></b><span></span><em><i></i></em></div>
@@ -113,7 +115,7 @@ export function createUI(root, api) {
   let toastT = 0, coachT = 0, ncardT = 0;
   /** The name of the night on opening it ("Noite 6 · O turno extra"), a few seconds over the picture, then it fades. */
   function nightCard(title, sub = '', secs = 4.6) {
-    el.ncard.querySelector('b').textContent = title; el.ncard.querySelector('span').textContent = sub;
+    el.ncard.innerHTML = `${solSvg({ week: api.week ? api.week() : 1, cls: 'nsun' })}<div class="nt"><b>${esc(title)}</b><span>${esc(sub)}</span></div>`;
     el.ncard.hidden = false; el.ncard.classList.remove('out'); ncardT = secs;
   }
   function toast(t) { el.toast.textContent = t; el.toast.hidden = false; toastT = 2.6; }
@@ -122,11 +124,18 @@ export function createUI(root, api) {
     if (!lines) { coachT = 0; el.coach.hidden = true; return; }
     el.coach.innerHTML = (Array.isArray(lines) ? lines : [lines]).map((l) => `<p>${esc(l)}</p>`).join(''); el.coach.hidden = false; coachT = secs;
   }
-  let lastFilter = null, lastLid = -1, lastBlack = -1;
+  let lastFx = null, lastLid = -1, lastBlack = -1, brightCss = '', lastCss = null;
+  /** The picture's own filter (the sanity's) with the player's brightness in front of it. */
+  let titleCss = '';
+  /** The title's picture is lifted by a filter on the canvas (the lights of the scene are lifted too: lighting.setTitle). */
+  function setTitleLift(on) { const c = on ? 'brightness(1.1)' : ''; if (c !== titleCss) { titleCss = c; applyFilter(); } }
+  function applyFilter() { const f = `${titleCss} ${brightCss} ${lastFx || ''}`.trim(); if (f !== lastCss) { lastCss = f; api.canvas.style.filter = f; } }
+  /** The brightness option (0 to 10, 5 is the picture as made): a filter on the canvas, so it also holds under the menus. */
+  function setBright(v) { const k = 1 + (v - 5) * 0.08; brightCss = Math.abs(k - 1) < 1e-6 ? '' : `brightness(${k.toFixed(2)})`; applyFilter(); }
   function setFx({ vignette, aimX, aimY, filter = '', lid = 0, black = 0 }) {
     el.vig.style.opacity = String(Math.round(vignette * 100) / 100);
     el.dot.style.transform = `translate(${Math.round(aimX * 900)}px, ${Math.round(-aimY * 900)}px)`;
-    if (filter !== lastFilter) { lastFilter = filter; api.canvas.style.filter = filter; }
+    if (filter !== lastFx) { lastFx = filter; applyFilter(); }
     const L = Math.round(lid * 50) / 50;       // eyelids: the share of the height each bar covers, in steps
     if (L !== lastLid) { lastLid = L; el.lid.style.setProperty('--lid', (L * 100) + '%'); el.lid.hidden = L <= 0; }
     const B = Math.round(black * 50) / 50;
@@ -172,9 +181,19 @@ export function createUI(root, api) {
     el.modal.innerHTML = html; el.modal.hidden = false;
     modal = handlers; if (!was) api.setModal(true, 'menu');
     el.modal.onpointerdown = (e) => {
+      const bk = e.target.closest('[data-back]');
+      if (bk && modal && modal.back) { modal.back(); e.preventDefault(); return; }
       const cell = e.target.closest('[data-cell]');
       if (cell && modal && modal.click) { modal.click(cell, e); e.preventDefault(); }
     };
+    // the mouse over a line chooses it (a finger does not hover); a held fader follows the pointer
+    el.modal.onpointermove = (e) => {
+      if (!modal) return;
+      if (modal.move) modal.move(e);
+      if (e.pointerType !== 'mouse' || !modal.hover) return;
+      const cell = e.target.closest('[data-cell]'); if (cell) modal.hover(cell);
+    };
+    el.modal.onpointerup = el.modal.onpointercancel = (e) => modal?.up?.(e);
   }
   function closeModal() {
     if (!modal) return;
@@ -186,39 +205,10 @@ export function createUI(root, api) {
     if (cells[r] && cells[r][c]) cells[r][c].classList.add('sel');
   }
 
-  /**
-   * A vertical menu. items: [{ label(), act(), adj?(dx), cls? }]. `adj` is what left/right do on that item (a setting); a click or a confirm runs `act`.
-   * stats: [[name, value]] shown as a two-column table between the lines and the items (the summary of a night).
-   */
-  function menu({ title, subtitle, foot, items, onBack, lines, stats, cls = '' }) {
-    let sel = 0;
-    const html = () => `<div class="screen"><div class="box menu ${cls}">
-      <h1>${esc(title)}</h1>${subtitle ? `<h2>${esc(subtitle)}</h2>` : ''}
-      ${lines ? `<div class="lines">${(typeof lines === 'function' ? lines() : lines).map((l) => `<p${l === '' ? ' class="gap"' : ''}>${esc(l)}</p>`).join('')}</div>` : ''}
-      ${stats ? `<div class="stats">${(typeof stats === 'function' ? stats() : stats).map(([a, b]) => `<span>${esc(a)}</span><b>${esc(b)}</b>`).join('')}</div>` : ''}
-      <ul>${items.map((it, i) => `<li data-cell data-i="${i}" class="${i === sel ? 'sel' : ''} ${it.cls || ''}">${esc(it.label())}</li>`).join('')}</ul>
-      ${foot ? `<small>${esc(foot())}</small>` : ''}</div></div>`;
-    const redraw = () => { el.modal.innerHTML = html(); };
-    const h = {
-      handle(p) {
-        if (p.k === 'nav') {
-          if (p.dy) { sel = (sel + p.dy + items.length) % items.length; api.sfx('ui_mover'); redraw(); }
-          else if (p.dx && items[sel].adj) { items[sel].adj(p.dx); api.sfx('ui_mover'); redraw(); }
-        }
-        else if (p.k === 'confirm') { api.sfx('ui_ok'); items[sel].act(); if (modal === h) redraw(); }
-        else if ((p.k === 'back' || p.k === 'esc') && onBack) { api.sfx('ui_voltar'); onBack(); }
-      },
-      // a setting (`adj`): the left third of the line lowers it, the rest raises it; any other line just runs its action
-      click(cell, e) {
-        sel = Number(cell.dataset.i); api.sfx('ui_ok'); const it = items[sel];
-        if (it.adj && e && typeof e.clientX === 'number') { const r = cell.getBoundingClientRect(); it.adj(e.clientX < r.left + r.width / 3 ? -1 : 1); } else it.act();
-        if (modal === h) redraw();
-      },
-      redraw,
-    };
-    showModal(html(), h);
-    return h;
-  }
+  // the screens (menus, options, card, tape, endings) are screens.js's; the modal layer, the api and the small helpers are lent to it
+  const screens = createScreens({ el, api, esc, seg7: (t, c) => seg7(t, c), money, BLOCKS, showModal, closeModal, current: () => modal });
+  /** A vertical menu: see screens.js. items: [{ label(), sub?, act(), adj?(dx), cls? }]; kind: 'menu' | 'title' | 'pause' | 'controls'... */
+  const menu = (o) => screens.menu(o);
 
   // ------------------------------------------------------------------ change tray
   // stock: what the drawer really has, by value (cents). A value the drawer ran out of cannot be handed back.
@@ -515,58 +505,19 @@ export function createUI(root, api) {
     let dev = CONTROLS[api.device()] ? api.device() : 'keyboard';
     const cycle = (d = 1) => { dev = DEVICES[(DEVICES.indexOf(dev) + d + DEVICES.length) % DEVICES.length]; };
     return menu({
-      title: 'CONTROLES', cls: 'wide',
+      title: 'CONTROLES', kind: 'controls', cls: 'wide',
       stats: () => CONTROLS[dev].rows,
       lines: ['Segure o botão de usar para o rodo, a reposição e a limpeza. A bomba liga digitando o valor no painel.'],
       items: [{ label: () => `MOSTRAR: ${CONTROLS[dev].name}`, act: () => cycle(1), adj: cycle }, { label: () => 'VOLTAR', act: back }], onBack: back,
     });
   }
-  function cardScreen(card, back, extras = []) {   // extras: [{ label, act, hint }], rows under the blocks (export and import of the card)
-    const blocks = card.blocks();
-    let r = 0, c = 0;
-    const cols = 5;
-    const detail = (b) => {
-      if (b.kind === 'run') return `BLOCO ${b.n}: ${b.fase === 'folga' ? 'FOLGA DA SEMANA ' + (b.week - 1) : b.fase === 'fim' ? 'FIM DA CAMPANHA' : 'NOITE ' + b.day}. Semana ${b.fase === 'folga' ? b.week - 1 : b.week}. Carteira ${money(b.wallet * 100)}. Sanidade ${b.sanidade ?? '-'}. Metas perdidas ${b.misses ?? 0}. Quedas de sanidade ${b.collapse?.total ?? 0}. Eventos vistos ${(b.eventsSeen || []).length}. Semente ${b.seed}.`;
-      if (b.kind === 'night') return `BLOCO ${b.n}: NOITE ${b.day}. ${b.points} pontos, ${b.erros} erros, ${b.abastecimentos} abastecimentos, ${b.vendas} vendas, ${b.tarefas ?? 0} tarefas feitas e ${b.naoFeitas ?? 0} não, ${b.ocorrencias ?? 0} ocorrências, caixa ${b.divergencia ? 'com divergência de ' + money(b.divergencia) : 'batendo'}${b.recorrentes?.length ? ', viu ' + b.recorrentes.join(', ') : ''}. Semente ${b.seed}.`;
-      if (b.kind === 'record') return `BLOCO ${b.n}: RECORDE. Melhor noite ${b.best} pontos, ${b.nights} noites feitas, ${b.endings ?? 0} de 5 finais, ${b.secrets} segredos achados.`;
-      if (b.kind === 'rinha') return `BLOCO ${b.n}: OUTRO JOGO DO CANAL (Rinha). ${b.fights} lutas guardadas, recorde ${b.best}, ${b.secrets} segredos achados.`;
-      if (b.kind === 'corrupt') return `BLOCO ${b.n}: ARQUIVO DANIFICADO. Não dá para ler.`;
-      return `BLOCO ${b.n}: vazio.`;
-    };
-    const icon = (b) => ({ run: 'NOITE', night: 'N' + (b.day ?? ''), record: 'REC', rinha: 'RINHA', corrupt: 'X', empty: '' }[b.kind]);
-    const draw = () => {
-      el.modal.innerHTML = `<div class="screen"><div class="box card"><h1>CARTÃO DE MEMÓRIA</h1>
-        <div class="grid">${blocks.map((b, i) => `<div data-cell data-i="${i}" class="blk ${b.kind} ${i === r * cols + c ? 'sel' : ''}"><small>${b.n}</small><b>${icon(b)}</b></div>`).join('')}</div>
-        <p class="detail">${esc(r < BLOCKS / cols ? detail(blocks[r * cols + c]) : r < BLOCKS / cols + extras.length ? (extras[r - BLOCKS / cols].hint || extras[r - BLOCKS / cols].label) : 'Voltar.')}</p>
-        <ul>${extras.map((x, k) => `<li data-cell data-i="x${k}" class="${r === BLOCKS / cols + k ? 'sel' : ''}">${esc(x.label)}</li>`).join('')}<li data-cell data-i="back" class="${r === BLOCKS / cols + extras.length ? 'sel' : ''}">VOLTAR</li></ul></div></div>`;
-    };
-    const rows = BLOCKS / cols;
-    // block 13: broken, until the first ending has been seen; then it opens on a short scene (the hook of the next game)
-    const openBlock = (b) => {
-      if (b.kind !== 'corrupt') return;
-      if (!card.hasEnding?.(1)) { api.sfx('ui_voltar'); return; }
-      api.sfx('ui_ok'); hookScreen(() => cardScreen(card, back, extras));
-    };
-    const h = {
-      handle(p) {
-        if (p.k === 'nav') { api.sfx('ui_mover'); if (p.dy) r = Math.max(0, Math.min(rows + extras.length, r + p.dy)); if (p.dx && r < rows) c = (c + p.dx + cols) % cols; draw(); }
-        else if (p.k === 'confirm') { if (r === rows + extras.length) back(); else if (r >= rows) { api.sfx('ui_ok'); extras[r - rows].act(); } else openBlock(blocks[r * cols + c]); }
-        else if (p.k === 'back' || p.k === 'esc') back();
-      },
-      click(cell) { if (cell.dataset.i === 'back') return back(); if (cell.dataset.i[0] === 'x') { r = rows + Number(cell.dataset.i.slice(1)); draw(); api.sfx('ui_ok'); extras[r - rows].act(); return; } const i = Number(cell.dataset.i); const again = r === Math.floor(i / cols) && c === i % cols; r = Math.floor(i / cols); c = i % cols; draw(); if (again) openBlock(blocks[i]); },
-    };
-    showModal('', h);
-    // the "back" row is row 3 (index rows): reuse r === rows
-    draw();
-    return h;
+  /** The memory card: a block manager. extras: [{ label, act, hint }], rows under the blocks (export and import of the card). `seed`: the line with the game's seed. */
+  function cardScreen(card, back, extras = [], seed = '') {
+    return screens.card(card, back, extras, { seed, onBlock: (b) => { if (b.kind !== 'corrupt') return; if (!card.hasEnding?.(1)) { api.sfx('ui_voltar'); return; } api.sfx('ui_ok'); hookScreen(() => cardScreen(card, back, extras, seed)); } });
   }
+  /** The end of a night: the tape of the register. Resolves to 'next' or 'title'. */
   function showSummary(s) {
     return new Promise((resolve) => {
-      const rows = [
-        ['Atendimentos', s.atendimentos], ['Vendas', s.vendas], ['Abastecimentos', s.abastecimentos], ['Tarefas feitas', s.tarefas], ['Tarefas não feitas', s.naoFeitas],
-        ['Erros', s.erros], ['Reclamações', s.reclamacoes], ['Divergência de caixa', money(s.divergencia)], ['Ocorrências registradas', s.ocorrencias],
-        ['Caixa contado', money(s.caixa)], ['Carteira', money(s.carteira * 100)], ['PONTOS', s.points],
-      ];
       const extra = [];
       if (s.recorrentes?.length) extra.push(`Recorrentes vistos: ${s.recorrentes.join(', ')}.`);
       const cal = s.cal;
@@ -575,28 +526,23 @@ export function createUI(root, api) {
       const done = (v) => () => { closeModal(); resolve(v); };
       const items = s.weekClosed ? [{ label: () => 'CONTINUAR', act: done('next') }, { label: () => 'VOLTAR AO TÍTULO', act: done('title') }]
         : [{ label: () => 'PRÓXIMA NOITE', act: done('next') }, { label: () => 'VOLTAR AO TÍTULO', act: done('title') }];
-      menu({
-        title: `NOITE ${s.day} FECHADA`, subtitle: `${cal.dia} · dia ${cal.calDay} de 28 · 06:00`,
-        stats: rows, cls: 'wide',
-        lines: [...extra, week, next, s.saved ? `Salvo no cartão. Semente da noite: ${s.seed}.` : 'Não foi possível salvar no cartão.'],
-        items, onBack: undefined,
-      });
+      const foot = [...extra, week, next, s.saved ? `Salvo no cartão. Semente da noite: ${s.seed}.` : 'Não foi possível salvar no cartão.'];
+      api.sfx('papel_folha');
+      menu({ title: `NOITE ${s.day} FECHADA`, subtitle: `${cal.dia} · dia ${cal.calDay} de 28 · 06:00`, kind: 'tape', cls: 'wide', side: screens.tape(s, foot), items, onBack: undefined });
     });
   }
   /** The end of the week: the goal, the salary, what the next step is. Resolves when the player goes on. */
   function showBalance(b) {
     return new Promise((resolve) => {
-      menu({
-        title: b.title, subtitle: b.sub,
-        lines: b.lines,
-        items: [{ label: () => b.ok || 'CONTINUAR', act: () => { closeModal(); resolve(); } }],
-      });
+      menu({ title: b.title, subtitle: b.sub, kind: 'slip', side: screens.slip(b), items: [{ label: () => b.ok || 'CONTINUAR', act: () => { closeModal(); resolve(); } }] });
     });
   }
   /** The screen of an ending: the title of the ending, a line, the count of endings, and the ways on. items: [{ label, act }]. */
-  function endingScreen({ title, subtitle, lines, items }) {
-    return menu({ title, subtitle, lines, items });
-  }
+  function endingScreen(o) { return screens.ending(o); }
+  /** The options: tabs of rows (see screens.js). */
+  function optionsScreen(o) { return screens.options(o); }
+  /** The punch card of the pause (the side of the pause menu). */
+  const punchCard = (info) => screens.punchCard(info);
   /** A line of text typed on the on-screen keyboard (or the real one). Resolves to the text, or null when the player goes back. */
   function textPrompt({ title, lines = [], max = 24, okLabel = 'CONFIRMAR', hint = '' }) {
     return new Promise((resolve) => {
@@ -654,10 +600,7 @@ export function createUI(root, api) {
     g.strokeStyle = '#c9c0a0'; g.lineWidth = 1; g.beginPath(); g.moveTo(112, 18); g.lineTo(112, 64); g.stroke();
     g.fillStyle = '#c9c0a0'; g.fillRect(111, 64, 3, 1);
     g.strokeStyle = '#3a2c20'; g.lineWidth = 2; g.beginPath(); g.moveTo(112, 18); g.lineTo(150, 6); g.stroke();
-    const h = { handle(p) { if (p.k === 'confirm' || p.k === 'back' || p.k === 'esc') back(); }, click() { back(); }, redraw() {} };
-    showModal('', h);
-    el.modal.innerHTML = '<div class="screen"><div class="box menu hookbox"><h1>ARQUIVO 13</h1><div class="hookimg"></div><div class="lines"><p>A água não se mexe.</p><p>A linha desceu e não voltou.</p></div><ul><li data-cell data-i="0" class="sel">VOLTAR</li></ul></div></div>';
-    el.modal.querySelector('.hookimg').appendChild(cv);
+    return screens.hook(cv, back);
   }
 
   function handle(p) {
@@ -666,7 +609,7 @@ export function createUI(root, api) {
     return false;
   }
   return {
-    el, setPrompt, setObjective, setTotal, setCalendar, toast, nightCard, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, goalAt, choiceRowAt, controlsScreen, cardScreen, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
+    setBright, setTitleLift, el, setPrompt, setObjective, setTotal, setCalendar, toast, nightCard, setFx, say, dialogue, openChange, keypad, menu, coach, setPrep, setClock, setGoal, setCarryHint, setArrow, sheetKeyAt, goalAt, choiceRowAt, controlsScreen, cardScreen, optionsScreen, punchCard, showSummary, showBalance, endingScreen, textPrompt, hookScreen, closeModal,
     toggleSheet, setSheetTab, get sheetOpen() { return sheetOpen; }, get trayOpen() { return trayOpen; }, showInventory, update, handle, dlgAdvance,
     get modalOpen() { return Boolean(modal) || dlg.open; }, get dialogueOpen() { return dlg.open; }, redrawModal: () => modal?.redraw?.(),
     hideHud(h) { el.hud.style.visibility = h ? 'hidden' : ''; el.vig.style.visibility = h ? 'hidden' : ''; },

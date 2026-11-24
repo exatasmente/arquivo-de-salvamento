@@ -13,6 +13,7 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
   const spotDir = new THREE.Vector3(0, 0, -1);
   const color = new THREE.Color();
   let areaId = 'externa';
+  let titleLit = false;            // the title's picture: a moon-blue wash, a far fog and a stronger key, so that the canopy, the pumps and the road are seen (the sign stays the brightest thing)
 
   // ---- the first blue before the dawn: over the night the sky and the haze go from closed night to a weak grey-blue, never to day. Until 04:00 almost nothing
   // changes; from 04:00 to 06:00 the east horizon glows a little and the trees and the highway show against it. At 06:00 it is still dark: the lights of
@@ -73,7 +74,8 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
       if (wx.dark > 0.01) { const d = 1 - wx.dark * 0.9; fogC.multiplyScalar(d); skyC.multiplyScalar(d); ambC.multiplyScalar(d); }
       fogNear = wx.fogNear; fogFar = wx.fogFar;
     }
-    render.light({ ambient: indoor && !(wx && wx.flash > 0.01) ? (nightK === 1 ? 0x464954 : indoorC.copy(INDOOR).multiplyScalar(nightK).getHex()) : ambC.getHex(), key: keyHex, keyDir, fog: fogC.getHex(), fogNear, fogFar });
+    if (titleLit) { ambC.set(0x8693c4); keyHex = 0xdce4ff; fogC.set(0x182350); skyC.set(0x1a2654); fogNear = 26; fogFar = 120; }
+    render.light({ ambient: indoor && !titleLit && !(wx && wx.flash > 0.01) ? (nightK === 1 ? 0x464954 : indoorC.copy(INDOOR).multiplyScalar(nightK).getHex()) : ambC.getHex(), key: keyHex, keyDir, fog: fogC.getHex(), fogNear, fogFar });
     render.scene.background.copy(skyC);
     dome.visible = k > 0.005; dome.position.set(p.x, 0, p.z); dome.material.color.setScalar(k);
     // score the lights: those that reach the player first, then the closest
@@ -111,6 +113,8 @@ export function createLighting(bus, { world, render, player, flash, opts, hours 
     return q === 0 ? (reduce ? 0.7 : 0.15) : 1;
   }
   return {
+    /** The title's light (see `titleLit`). */
+    setTitle(on) { titleLit = Boolean(on); },
     update,
     /** The dawn's glow goes off at once (a cutscene or an ending takes the picture: it has its own sky). */
     dawnOff() { dome.visible = false; bus.emit('weather:off'); },

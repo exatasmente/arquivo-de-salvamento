@@ -31,7 +31,7 @@ import { createCampaign } from './systems/campaign.js';
 import { createSecrets } from './systems/secrets.js';
 import { createGoals } from './systems/goals.js';
 import { getNav } from './systems/nav.js';
-import { createPrep } from './systems/prep.js';
+import { createPrep, PREP_FROM } from './systems/prep.js';
 import { createClosing } from './systems/closing.js';
 import { createHoses } from './systems/hoses.js';
 import { mulberry32 } from './rng.js';
@@ -43,14 +43,13 @@ import { createSaveSystem } from './systems/save.js';
 import * as snapshot from './systems/snapshot.js';
 import { createAudioSystem } from './systems/audio.js';
 import { createUI } from './ui.js';
-import { showAttract } from './title.js';
-import { firstPad } from '../vendor/engine/input.js';
+import { titleCamera, signPower } from './title.js';
 import { money } from './util.js';
 
 export const DT = 1 / 60;
 const OPT_KEY = 'o-dia-que-sobra.opts';
-const OPT_DEFAULT = { quality: 'auto', reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, gyro: false, gyroSens: 1, gyroDead: 5, gyroFx: 28, gyroFy: 28, left: false, btn: 1, toggle: false };
-const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5], gyroSens: [0.5, 0.75, 1, 1.5, 2], btn: [0.85, 1, 1.2, 1.4] };
+const OPT_DEFAULT = { quality: 'auto', reduceFlash: false, mute: false, volume: 0.9, look: 1, text: 1, bright: 5, grain: true, contrast: false, gyro: false, gyroSens: 1, gyroDead: 5, gyroFx: 28, gyroFy: 28, left: false, btn: 1, toggle: false };
+const OPT_STEPS = { volume: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], look: [0.5, 0.75, 1, 1.25, 1.5, 2], text: [1, 1.25, 1.5], gyroSens: [0.5, 0.75, 1, 1.5, 2], btn: [0.85, 1, 1.2, 1.4], bright: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
 /** The player's options: one key of their own in this browser (never in the memory card). A value out of range falls back to the default. */
 export function loadOpts() {
   let o = {};
@@ -124,6 +123,7 @@ export async function createGame({ root, render, input, params }) {
   function setLookMode(mode, persist = true) {
     const m = render.setMode ? render.setMode(mode) : 'novo';
     if (persist) save.card.setLook1998(m === '1998');
+    root.dataset.look = m; thaw();
     bus.emit('look:mode', m);
     return m;
   }
@@ -147,6 +147,7 @@ export async function createGame({ root, render, input, params }) {
     sheetPick: (k) => { if (k.startsWith('tab:')) ui.setSheetTab(k.slice(4)); else goals.toggle(k); },
     babble: (seed, text, o) => audioSys.babble(seed, text, o),
     canvas: render.canvas,
+    week: () => (state === 'title' ? (save.card.data.run?.week || 1) : progression.st.week || 1),
     fx: () => fx,
     keyFails: () => sanity.keyFails(),
     scramble: (t) => medication.scramble(t, simT),
@@ -170,6 +171,7 @@ export async function createGame({ root, render, input, params }) {
     inventory: () => ({ slots: inventory.slots, sel: inventory.sel, flash: inventory.flash }),
     tick: () => tick,
   });
+  ui.setBright(opts.bright);
   const interaction = createInteraction(bus, { world, render, player, ui, aimOffset: () => ({ x: fx.aimX, y: fx.aimY }), holdScale: () => 1 / medication.slow });
   const secrets = createSecrets(bus, { world, render, interaction, inventory, progression, player, ui, save });
   // doors: a tap opens or closes (the scene animates them and takes the collider away while open)
@@ -260,74 +262,47 @@ export async function createGame({ root, render, input, params }) {
   bus.on('sanity:stage', (s) => { if (s >= 2 && !opts.reduceFlash) bus.emit('sfx', 'coracao', { gain: 0.5 }); });
 
   // ------------------------------------------------------------------ states
-  function titleCamera() {
-    const b = world.anchor('bomba2') || world.anchor('spawn');
-    const p = b.pos.clone().addScaledVector(b.dir, 11); p.y = 0;
-    player.place(p, Math.atan2(b.dir.x, b.dir.z));
-    player.st.eye = 1.7;
-  }
   function showTitle() {
     state = 'title'; shift.abort(); audioSys.stopAmbient(); extraNow = false; if (extraRun) { extraRun.dispose?.(); extraRun = null; } branches.reset();
     ui.hideHud(true); ui.toggleSheet(false); ui.setObjective(null); ui.setTotal(null); ui.setCalendar(null); ui.setClock(null);
     input.setMode('ui', render.canvas);
-    campaign.reset(); leaveDayOff(true);
+    campaign.reset(); leaveDayOff(true); thaw();
     save.card.reload();
-    titleCamera();
+    titleAt = simT; lighting.setTitle(true); titleStep(simT);
+    if (audioSys.audio) audioSys.startTitleAmbient();
     const hasRun = save.hasRun();
     const run = save.card.data.run;
     const items = [];
-    if (hasRun) items.push({ label: () => (run.fase === 'folga' ? `CONTINUAR  (FOLGA, SEMANA ${progression.weekOf(run.day - 1)})` : run.fase === 'fim' ? 'CONTINUAR  (O FIM)' : `CONTINUAR  (SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}${run.snap && run.snap.v === snapshot.SNAP_VERSION ? ' · ' + snapshot.clockText(run.snap.minutes) : ''})`), act: () => continueRun() });
+    const where = () => (run.fase === 'folga' ? `Folga, semana ${progression.weekOf(run.day - 1)}` : run.fase === 'fim' ? 'O fim' : `Semana ${progression.weekOf(run.day)} · noite ${run.day}${run.snap && run.snap.v === snapshot.SNAP_VERSION ? ' · ' + snapshot.clockText(run.snap.minutes) : ''}`);
+    if (hasRun) items.push({ label: () => 'CONTINUAR', sub: where, act: () => continueRun() });
     items.push({ label: () => (hasRun ? 'NOVO JOGO' : 'COMEÇAR'), act: () => (hasRun ? confirmNew() : newCampaign()) });
     items.push({ label: () => 'OPÇÕES', act: () => optionsScreen(showTitle) });
     items.push({ label: () => 'CONTROLES', act: () => ui.controlsScreen(showTitle) });
-    items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, showTitle, cardRows(showTitle)) });
+    items.push({ label: () => 'CARTÃO DE MEMÓRIA', act: () => openCard(showTitle) });
     items.push({ label: () => 'IMPORTAR CARTÃO', act: () => importCard(showTitle) });
-    const openMenu = () => ui.menu({
-      title: 'O DIA QUE SOBRA', subtitle: 'Posto Bom Dia · Um novo dia sempre começa com um sorriso!',
-      lines: titleLines, items, foot: () => `Semente do jogo: ${baseSeed}  (?seed=N)`,
-    });
-    // The first time after loading: the title screen (the name, the moving camera, one prompt); the menu after the press.
-    // Tests (?manual, ?debug, ?nointro) and ?notitle go straight to the menu.
-    if (!attractDone && !skipAttract) {
-      attractDone = true;
-      const saved = !hasRun ? null : run.fase === 'folga' ? 'CONTINUAR · FOLGA' : run.fase === 'fim' ? 'CONTINUAR · O FIM' : `CONTINUAR · SEMANA ${progression.weekOf(run.day)} · NOITE ${run.day}${run.snap && run.snap.v === snapshot.SNAP_VERSION ? ' · ' + snapshot.clockText(run.snap.minutes) : ''}`;
-      attractAt = simT; attractNext = openMenu;
-      attract = showAttract({ root, saved, onStart: leaveAttract });
-      attract.setDevice(attractDevice());
-    } else openMenu();
+    ui.menu({ title: 'O DIA QUE SOBRA', kind: 'title', lines: () => [titleLines()[0]], items });
   }
-  // ---- the title screen before the title menu ----
-  let attract = null, attractNext = null, attractAt = 0, attractDone = false;
-  const skipAttract = params.manual || params.debug || /[?&](nointro|notitle)(=|&|$)/.test(location.search);
-  const attractDevice = () => (firstPad() ? 'gamepad' : input.device() === 'gamepad' ? 'keyboard' : input.device());
-  function leaveAttract() {
-    if (!attract || simT - attractAt < 0.35) return;
-    attract.close(); attract = null;
-    bus.emit('sfx', 'ui_mover', {});
-    const next = attractNext; attractNext = null;
-    if (state === 'title' && next) next();
-  }
-  /** On the title the picture is the Sun sign at night, face on, from below, the camera only breathing. */
-  let signFace = null;
-  function titleDrift(t) {
+  /** The memory card screen, with the seed of the game on its foot (it is the place the seed lives). */
+  const openCard = (back) => ui.cardScreen(save.card, back, cardRows(back), `Semente do jogo: ${baseSeed}  (?seed=N)`);
+  // the title's picture: the station from the highway, the camera creeping to the Sun's sign, its light failing now and then
+  let titleAt = 0, titleFov = 0, signFace = null;
+  const unlockTitle = () => { if (state !== 'title') return; audioSys.init(); audioSys.startTitleAmbient(); };
+  addEventListener('pointerdown', unlockTitle, true); addEventListener('keydown', unlockTitle, true);
+  function titleStep(t) {
     const a = world.anchor('placaSol');
     if (!a) return;
     if (!signFace) {   // the way the sign's face looks, in the world (the anchor's direction is the model's, not turned)
       const m = world.posto.props['placa-sol']?.mesh?.[0];
       signFace = m ? m.getWorldDirection(new render.THREE.Vector3()).setY(0).normalize() : a.dir.clone().setY(0).normalize();
     }
-    const D = 7.5 + Math.sin(t * 0.11) * 0.4;
-    const yaw = Math.atan2(signFace.x, signFace.z) + Math.sin(t * 0.07) * 0.05;
-    const p = a.pos.clone(); p.x += Math.sin(yaw) * D; p.z += Math.cos(yaw) * D; p.y = 0;
-    player.place(p, yaw);
-    player.st.pitch = Math.atan2(a.pos.y - 1.3 - player.st.eye, D);
+    const c = titleCamera(t - titleAt, { x: a.pos.x, y: a.pos.y, z: a.pos.z, face: [signFace.x, signFace.z] }, { calm: opts.reduceFlash, portrait: render.size.cssH > render.size.cssW });
+    player.place(new render.THREE.Vector3(c.x, 0, c.z), c.yaw);
+    player.st.eye = c.y; player.st.pitch = c.pitch; titleFov = c.fov;
+    world.posto.props['placa-sol']?.setPower(signPower(t - titleAt, { calm: opts.reduceFlash }));
   }
-  /** The sign's light during the title: mostly on, with the short failures of an old tube. */
-  function titleSign(t) {
-    const k = t % 7.3;
-    const off = (k > 2.1 && k < 2.18) || (k > 2.3 && k < 2.36) || (k > 4.9 && k < 5.55) || (k > 5.7 && k < 5.76);
-    world.posto.props['placa-sol']?.setPower(!off);
-  }
+  /** The pause stops drawing the scene (the blur behind the menu is made once); anything that changes the picture lets it draw again. */
+  let pauseDrawn = false;
+  function thaw() { pauseDrawn = false; }
   // ---- end of the title screen ----
   const HOW = { gamepad: 'Analógicos andam e olham · A usa · Start pausa', touch: 'Direcional anda · arraste olha · toque usa', keyboard: 'WASD anda · mouse olha · E usa · Esc pausa' };
   function titleLines() {
@@ -343,6 +318,7 @@ export async function createGame({ root, render, input, params }) {
   /** Applies the options that something outside the menus depends on (the text size, the volume). */
   function applyOpts() {
     root.style.setProperty('--ts', String(opts.text)); audioSys.setVolume(opts.volume);
+    root.dataset.contrast = opts.contrast ? 'on' : 'off'; root.dataset.calm = opts.reduceFlash ? 'on' : 'off'; root.dataset.grain = opts.grain ? 'on' : 'off'; root.dataset.look = render.mode;
     input.touch?.mobile?.setOptions({ left: opts.left, scale: opts.btn, toggle: opts.toggle, lookSens: opts.look });
     if (input.tilt) {
       input.tilt.sensitivity = opts.gyroSens;
@@ -350,52 +326,65 @@ export async function createGame({ root, render, input, params }) {
       input.tilt.calib = { dead: c(opts.gyroDead, 2, 12), fullX: c(opts.gyroFx, 10, 50), fullY: c(opts.gyroFy, 10, 50) };
     }
   }
-  /** One setting that goes through a list of values: left/right (or a click) move along it. */
-  function stepper(key, label, fmt) {
+  /** One setting that goes through a list of values (OPT_STEPS): it stops at the ends (10 / 10 never falls to 0 / 0). */
+  const stepIdx = (key) => Math.max(0, OPT_STEPS[key].findIndex((v) => Math.abs(v - opts[key]) < 1e-6));
+  function stepMove(key, d) {
     const list = OPT_STEPS[key];
-    const move = (d) => {
-      const i = Math.max(0, list.findIndex((v) => Math.abs(v - opts[key]) < 1e-6));
-      opts[key] = list[Math.max(0, Math.min(list.length - 1, i + d))]; saveOpts(opts); applyOpts();      // it stops at the ends: 10 / 10 never falls to 0 / 0
-    };
-    return { label: () => `${label}:\u00A0\u2039\u00A0${fmt(opts[key]).replace(/ /g, '\u00A0')}\u00A0\u203A`, act: () => move(1), adj: move };
+    opts[key] = list[Math.max(0, Math.min(list.length - 1, stepIdx(key) + d))]; saveOpts(opts); applyOpts();
+    if (key === 'bright') ui.setBright(opts.bright);
   }
-  /** The options screen (from the title and from the pause): volume, how fast the view turns, fewer flashes, the size of the text. */
-  function optionsScreen(back) {
-    const items = [
-      stepper('volume', 'VOLUME', (v) => `${Math.round(v * 10)} / 10`),
-      { label: () => `SOM: ${opts.mute ? 'DESLIGADO' : 'LIGADO'}`, act: () => { audioSys.init(); audioSys.setMuted(!opts.mute); saveOpts(opts); } },
-      stepper('look', 'SENSIBILIDADE DO OLHAR', (v) => `${v}×`),
-      { label: () => `REDUZIR CLARÕES: ${opts.reduceFlash ? 'SIM' : 'NÃO'}`, act: () => { opts.reduceFlash = !opts.reduceFlash; saveOpts(opts); } },
-      // the picture: the quality of the new look (the phone starts on the lightest) and, after the first ending, the old picture
-      { label: () => `QUALIDADE DA IMAGEM: ${opts.quality === 'auto' ? `AUTOMÁTICA (${(render.tier || 'medio').toUpperCase().replace('MEDIO', 'MÉDIA').replace('ALTO', 'ALTA')})` : { alto: 'ALTA', medio: 'MÉDIA', leve: 'LEVE' }[opts.quality] || 'AUTOMÁTICA'}`,
-        act: () => { const L = ['auto', 'alto', 'medio', 'leve']; opts.quality = L[(L.indexOf(opts.quality) + 1) % L.length]; saveOpts(opts); render.setTier?.(opts.quality); } },
-      ...(mode1998Unlocked() || render.mode === '1998' ? [{ label: () => `MODO 1998: ${render.mode === '1998' ? 'LIGADO' : 'DESLIGADO'}`, act: () => { setLookMode(render.mode === '1998' ? 'novo' : '1998'); } }] : []),
-      stepper('text', 'TAMANHO DO TEXTO', (v) => (v === 1 ? 'NORMAL' : v === 1.25 ? 'GRANDE' : 'MAIOR')),
-      // the phone: aiming by moving it, the side of the stick, the size of the buttons, holding or tapping
-      ...(input.touch?.mobile ? [
-        { label: () => `GIROSCÓPIO: ${opts.gyro ? 'LIGADO' : 'DESLIGADO'}`, act: async () => {
-          if (opts.gyro) { opts.gyro = false; input.tilt?.disable(); }
-          else {
-            const got = await input.tilt?.enable();
-            if (got) { opts.gyro = true; if (got === 'pending') ui.toast('Toque na tela para liberar o giroscópio.'); }
-            else ui.toast('Este aparelho não deu o giroscópio.');
-          }
-          saveOpts(opts); ui.redrawModal();
-        } },
-        stepper('gyroSens', 'SENSIBILIDADE DO GIROSCÓPIO', (v) => `${v}×`),
-        { label: () => 'CALIBRAR O GIROSCÓPIO', act: () => gyroCalibrate(() => optionsScreen(back)) },
-        { label: () => `CANHOTO: ${opts.left ? 'SIM' : 'NÃO'}`, act: () => { opts.left = !opts.left; saveOpts(opts); applyOpts(); } },
-        stepper('btn', 'TAMANHO DOS BOTÕES', (v) => (v < 1 ? 'MENOR' : v === 1 ? 'NORMAL' : v < 1.3 ? 'GRANDE' : 'MAIOR')),
-        { label: () => `SEGURAR AÇÕES: ${opts.toggle ? 'TOCAR LIGA E DESLIGA' : 'SEGURAR O DEDO'}`, act: () => { opts.toggle = !opts.toggle; saveOpts(opts); applyOpts(); } },
-      ] : []),
-      { label: () => 'VOLTAR', act: back },
+  const fader = (id, key, label, help, seg, cells) => ({ id, kind: 'fader', label, help, n: OPT_STEPS[key].length, i: () => stepIdx(key), set: (d) => stepMove(key, d), seg: () => seg(opts[key]), cells });
+  const flag = (id, key, label, help, extra = {}) => ({ id, kind: 'switch', label, help, get: () => Boolean(opts[key]), toggle: () => { opts[key] = !opts[key]; saveOpts(opts); applyOpts(); }, ...extra });
+  const qualityText = () => (opts.quality === 'auto' ? `AUTOMÁTICA (${(render.tier || 'medio').toUpperCase().replace('MEDIO', 'MÉDIA').replace('ALTO', 'ALTA')})` : { alto: 'ALTA', medio: 'MÉDIA', leve: 'LEVE' }[opts.quality] || 'AUTOMÁTICA');
+  /** The options screen (from the title and from the pause): five tabs of controls, drawn as the panel of the station (see screens.js). */
+  function optionsScreen(back, tab) {
+    const touch = Boolean(input.touch?.mobile);
+    const goTab = (t) => () => optionsScreen(back, t);
+    const tabs = [
+      { id: 'imagem', name: 'Imagem', rows: [
+        { id: 'quality', kind: 'choice', label: 'QUALIDADE DA IMAGEM', help: 'Quanto o jogo desenha. Automática escolhe pelo aparelho; no celular a mais leve é a de partida.', text: qualityText,
+          set: (d) => { const L = ['auto', 'alto', 'medio', 'leve']; opts.quality = L[(L.indexOf(opts.quality) + d + L.length) % L.length]; saveOpts(opts); render.setTier?.(opts.quality); thaw(); } },
+        { id: 'modo1998', kind: 'switch', label: 'MODO 1998', help: 'A imagem e a interface do jogo como seriam em 1998. Troca na hora.', rebuild: true, hide: () => !(mode1998Unlocked() || render.mode === '1998'),
+          get: () => render.mode === '1998', toggle: () => { setLookMode(render.mode === '1998' ? 'novo' : '1998'); } },
+        fader('bright', 'bright', 'BRILHO', 'Clareia ou escurece a imagem do jogo. A noite é escura de propósito: aumente se não enxergar bem.', (v) => String(v)),
+        flag('grain', 'grain', 'GRANULAÇÃO', 'Ruído e linhas finas sobre os menus, como numa tela antiga. Desligado, a interface fica limpa.'),
+      ] },
+      { id: 'som', name: 'Som', rows: [
+        fader('volume', 'volume', 'VOLUME', 'O volume geral do jogo, de 0 a 10.', (v) => String(Math.round(v * 10))),
+        { id: 'mute', kind: 'switch', label: 'SOM', help: 'Liga e desliga todo o som do jogo.', get: () => !opts.mute, toggle: () => { audioSys.init(); audioSys.setMuted(!opts.mute); saveOpts(opts); } },
+      ] },
+      { id: 'controles', name: 'Controles', rows: [
+        fader('look', 'look', 'SENSIBILIDADE DO OLHAR', 'Quão rápido o olhar acompanha o mouse, o analógico ou o dedo.', (v) => String(v), 4),
+        ...(touch ? [
+          { id: 'gyro', kind: 'switch', label: 'GIROSCÓPIO', help: 'Olhar inclinando o celular.', get: () => opts.gyro, toggle: async () => {
+            if (opts.gyro) { opts.gyro = false; input.tilt?.disable(); }
+            else {
+              const got = await input.tilt?.enable();
+              if (got) { opts.gyro = true; if (got === 'pending') ui.toast('Toque na tela para liberar o giroscópio.'); }
+              else ui.toast('Este aparelho não deu o giroscópio.');
+            }
+            saveOpts(opts); ui.redrawModal();
+          } },
+          fader('gyroSens', 'gyroSens', 'SENSIBILIDADE DO GIROSCÓPIO', 'Quão rápido o olhar acompanha a inclinação.', (v) => String(v), 4),
+          { id: 'calib', kind: 'button', label: 'CALIBRAR O GIROSCÓPIO', help: 'Dois passos: o descanso e até onde inclinar.', act: () => gyroCalibrate(goTab('controles')) },
+          flag('left', 'left', 'CANHOTO', 'Troca os lados do direcional e dos botões.', { on: 'SIM', off: 'NÃO' }),
+          { id: 'btn', kind: 'choice', label: 'TAMANHO DOS BOTÕES', help: 'O tamanho dos botões na tela.', text: () => { const v = opts.btn; return v < 1 ? 'MENOR' : v === 1 ? 'NORMAL' : v < 1.3 ? 'GRANDE' : 'MAIOR'; }, set: (d) => stepMove('btn', d) },
+          flag('toggle', 'toggle', 'SEGURAR AÇÕES', 'Tocar liga e desliga, ou segurar o dedo.', { on: 'TOCAR LIGA E DESLIGA', off: 'SEGURAR O DEDO' }),
+        ] : []),
+        { id: 'comandos', kind: 'button', label: 'VER OS CONTROLES', hint: 'teclado, controle e toque', help: 'O que cada tecla, botão ou toque faz.', act: () => ui.controlsScreen(goTab('controles')) },
+      ] },
+      { id: 'acess', name: 'Acessibilidade', rows: [
+        { id: 'text', kind: 'choice', label: 'TAMANHO DO TEXTO', help: 'Aumenta o texto dos menus, das dicas e das falas.', text: () => (opts.text === 1 ? 'NORMAL' : opts.text === 1.25 ? 'GRANDE' : 'MAIOR'), set: (d) => stepMove('text', d) },
+        flag('contrast', 'contrast', 'ALTO CONTRASTE', 'Fundos fechados e letras claras nos textos sobre a imagem e nos menus.'),
+        flag('reduceFlash', 'reduceFlash', 'REDUZIR CLARÕES', 'Troca o que pisca por escurecimentos suaves. A placa do título não falha e a interface fica parada.', { on: 'SIM', off: 'NÃO' }),
+      ] },
+      { id: 'conteudo', name: 'Conteúdo', rows: [
+        { id: 'n1', kind: 'note', text: 'O Dia que Sobra é um jogo de terror psicológico para adultos: uma noite de trabalho num posto que não fecha, com sustos, silêncio e luz que falha. Não tem sangue.' },
+        { id: 'n2', kind: 'note', text: 'Há imagens que piscam e escurecem de repente.' },
+        { id: 'goacc', kind: 'button', label: 'REDUZIR CLARÕES', hint: 'em Acessibilidade', help: 'Abre a aba de Acessibilidade, onde ficam os clarões e o contraste.', act: goTab('acess') },
+      ] },
     ];
-    items.forEach((it) => { if (it.adj) it.cls = 'adj'; });
-    return ui.menu({
-      title: 'OPÇÕES', items, onBack: back, cls: 'wide',
-      lines: ['Esquerda e direita mudam o valor. No toque, o lado esquerdo da linha abaixa e o resto sobe.', 'Reduzir clarões troca o que pisca por escurecimentos suaves.'],
-      foot: () => 'Ficam salvas neste navegador.',
-    });
+    return ui.optionsScreen({ tabs, back, tab, foot: 'Ficam salvas neste navegador.' });
   }
   /**
    * Calibrating the gyroscope (the phone): 1) the resting pose, held the way the player will play; 2) how far each way is
@@ -593,7 +582,7 @@ export async function createGame({ root, render, input, params }) {
   const cardRows = (back) => [
     { label: 'EXPORTAR CARTÃO', hint: 'Baixa o cartão inteiro, com o salvamento, como um arquivo .json.', act: () => exportCard(false) },
     ...(snapshot.canShareFile() ? [{ label: 'COMPARTILHAR CARTÃO', hint: 'Abre o compartilhar do aparelho com o arquivo do cartão.', act: () => exportCard(true) }] : []),
-    { label: 'IMPORTAR CARTÃO', hint: 'Escolhe um arquivo .json de cartão e o põe no lugar deste.', act: () => importCard(() => ui.cardScreen(save.card, back, cardRows(back))) },
+    { label: 'IMPORTAR CARTÃO', hint: 'Escolhe um arquivo .json de cartão e o põe no lugar deste.', act: () => importCard(() => openCard(back)) },
   ];
   /** from: the card (`fromCard`), a new run (default), or what is in memory already (`keep`: the next night of the run that is going on). */
   function startNight(day, tutorial, fromCard, keep = false) {
@@ -619,25 +608,39 @@ export async function createGame({ root, render, input, params }) {
     if (params.sol) entity.force(params.sol, 2);
     if (dbg.sanity !== undefined && dbg.once) { sanity.reset(dbg.sanity, nightSeedNow); dbg.once = false; }
   }
+  /** What the pause's punch card shows: the 28 days with the worked ones, tonight and its entry time, the week's goal and the marked objective. */
+  function pauseInfo() {
+    const st = progression.st, off = state === 'dayoff', wk = progression.weekOf(st.day), worked = [];
+    for (let d = 1; d <= (off ? st.day : st.day - 1); d++) worked.push(d + progression.weekOf(d) - 1);
+    const last = st.weekLog[st.weekLog.length - 1], rules_ = progression.weekRules(wk);
+    // the entry time: when the attendant punched the clock; before he has, the start of the shift (23:00), so it never comes after "now"
+    const entry = off ? '' : prep.punched && prep.punchedAt ? prep.punchedAt : time.fmt(PREP_FROM);
+    return {
+      worked, calDay: off ? st.day + wk : progression.calendar().calDay, week: wk, night: st.day, weekName: rules_.nome, folga: off, entry, punched: !off && prep.punched, time: off ? (dayoff?.clock || '') : time.text(),
+      weekNow: off ? (last ? last.pts : 0) : st.weekPts + progression.night.pontos, meta: off && last ? last.meta : rules_.meta,
+      goal: ui.el.goal.hidden ? '' : ui.el.goal.textContent.replace(/^\u25B6\s*/, ''),
+    };
+  }
+  const pauseItems = (root_, back) => [
+    { label: () => 'CONTINUAR', act: back },
+    { label: () => 'SALVAR AGORA', act: () => saveNow() },
+    { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
+    { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
+    { label: () => 'CARTÃO DE MEMÓRIA', act: () => openCard(root_) },
+    { label: () => 'EXPORTAR CARTÃO', act: () => exportCard(false) },
+    { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
+    { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
+  ];
   function openPause() {
     if (state !== 'play' || ui.modalOpen) return;
     if (performance.now() - lastPauseAt < 200) return;
     lastPauseAt = performance.now();
-    state = 'pause'; time.pause(); saveNote = '';
+    state = 'pause'; time.pause(); saveNote = ''; thaw();
     const back = () => { resume(); };
     const root_ = () => ui.menu({
-      title: 'PAUSA', lines: () => [saveNote || 'Sair para o título perde o que não foi salvo agora.'], foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()} · Semente ${nightSeedNow}`,
-      items: [
-        { label: () => 'CONTINUAR', act: back },
-        { label: () => 'SALVAR AGORA', act: () => saveNow() },
-        { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
-        { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
-        { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_, cardRows(root_)) },
-        { label: () => 'EXPORTAR CARTÃO', act: () => exportCard(false) },
-        { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
-        { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
-      ],
-      onBack: back,
+      title: 'PAUSA', kind: 'pause', lines: () => [saveNote || 'Sair para o título perde o que não foi salvo agora.'],
+      foot: () => `Semana ${progression.st.week} · noite ${progression.st.day} · dia ${progression.calendar().calDay} de 28 · ${time.text()}${params.debug ? ` · Semente ${nightSeedNow}` : ''}`,
+      items: pauseItems(root_, back), side: () => ui.punchCard(pauseInfo()), onBack: back,
     });
     root_();
   }
@@ -701,18 +704,9 @@ export async function createGame({ root, render, input, params }) {
     if (state !== 'dayoff' || ui.modalOpen) return;
     const back = () => ui.closeModal();
     const root_ = () => ui.menu({
-      title: 'PAUSA', lines: () => [saveNote || 'Sair para o título guarda a folga: ela recomeça depois.'], foot: () => `Folga · semana ${progression.weekOf(progression.st.day)} · Semente ${baseSeed}`,
-      items: [
-        { label: () => 'CONTINUAR', act: back },
-        { label: () => 'SALVAR AGORA', act: () => saveNow() },
-        { label: () => 'OPÇÕES', act: () => optionsScreen(root_) },
-        { label: () => 'CONTROLES', act: () => ui.controlsScreen(root_) },
-        { label: () => 'CARTÃO DE MEMÓRIA', act: () => ui.cardScreen(save.card, root_, cardRows(root_)) },
-        { label: () => 'EXPORTAR CARTÃO', act: () => exportCard(false) },
-        { label: () => 'SAIR PARA O TÍTULO', act: () => { ui.closeModal(); showTitle(); } },
-        { label: () => 'MENU INICIAL', act: () => leaveToMenu() },
-      ],
-      onBack: back,
+      title: 'PAUSA', kind: 'pause', lines: () => [saveNote || 'Sair para o título guarda a folga: ela recomeça depois.'],
+      foot: () => `Folga · semana ${progression.weekOf(progression.st.day)}${params.debug ? ` · Semente ${baseSeed}` : ''}`,
+      items: pauseItems(root_, back), side: () => ui.punchCard(pauseInfo()), onBack: back,
     });
     saveNote = '';
     root_();
@@ -796,6 +790,7 @@ export async function createGame({ root, render, input, params }) {
   }
   function step(dt) {
     tick++;
+    lighting.setTitle(state === 'title'); ui.setTitleLift(state === 'title');
     // the day off samples the input and runs its own modals and HUD (never two samples in a frame)
     if (state === 'dayoff') { simT += dt; if (tick % 20 === 0 && dayoff && dayoff.clock) ui.setClock(dayoff.clock); if (dayoff) { if (dayoff.update) dayoff.update(dt, simT); else dayoff.step?.(dt, simT); } return; }
     const intent = input.sample();
@@ -822,11 +817,7 @@ export async function createGame({ root, render, input, params }) {
       });
     }
     if (opts.look !== 1) { intent.look.yaw *= opts.look; intent.look.pitch *= opts.look; }
-    if (attract) {   // the title screen: any press leaves it (and nothing else reads it)
-      attract.setDevice(attractDevice());
-      if (intent.press.some((p) => p.k !== 'nav' && p.k !== 'tab' && p.k !== 'digit')) leaveAttract();
-      intent.press.length = 0;
-    }
+    if (state === 'title' && intent.press.length) unlockTitle();      // (the first press is the gesture the browser wants before sound)
     presses(intent.press);
     ui.update(dt);
     if (input.device() !== lastDevice) { lastDevice = input.device(); if (state === 'title' || state === 'pause') ui.redrawModal(); bus.emit('carry', inventory.carry); }   // (the let-go hint follows the device in use)
@@ -834,7 +825,7 @@ export async function createGame({ root, render, input, params }) {
     if (state === 'play' && tick % 20 === 0) { ui.setClock(time.text()); ui.setPrep(prep.text() || closing.text()); }
     const wx = () => ({ hora: time.minutes / 60, telefoneToca: narrative.ringing, gaveta: ui.trayOpen ? 1 : 0, placaSorriso: events.placaSorriso });
     if (state === 'ending' || state === 'cutscene') return;
-    if (state === 'title') { weather.stop(); titleDrift(simT); world.update(simT, dt, wx()); titleSign(simT); lighting.update(dt, simT); audioSys.update(); return; }
+    if (state === 'title') { weather.stop(); titleStep(simT); world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     if (state === 'dayoff') weather.stop();
     if ((ui.modalOpen && !cameras.watching) || state !== 'play') { weather.calm(); world.update(simT, dt, wx()); lighting.update(dt, simT); audioSys.update(); return; }
     fx = sanity.fx(simT);
@@ -1043,7 +1034,8 @@ export async function createGame({ root, render, input, params }) {
     if (state === 'dayoff') { goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false); if (dayoff && dayoff.draw) dayoff.draw(); else render.draw(); return; }
     if (state !== 'play') goals.frame(0, simT, render.camera, { w: 1, h: 1 }, false);
     if (state === 'ending' || state === 'cutscene') return;
-    const f = state === 'title' ? { roll: 0, fov: 0, shakeX: Math.sin(simT * 0.2) * 0.05, shakeY: 0 } : { roll: fx.roll, fov: fx.fov, shakeX: Math.sin(simT * 1.7) * fx.sway, shakeY: Math.sin(simT * 1.3) * fx.sway };
+    if (state === 'pause') { if (pauseDrawn) return; pauseDrawn = true; } else pauseDrawn = false;
+    const f = state === 'title' ? { roll: 0, fov: titleFov, shakeX: Math.sin(simT * 0.2) * 0.01, shakeY: 0 } : { roll: fx.roll, fov: fx.fov, shakeX: Math.sin(simT * 1.7) * fx.sway, shakeY: Math.sin(simT * 1.3) * fx.sway };
     if (state !== 'title') { f.shakeY = (f.shakeY || 0) + Math.sin(simT * 1.9) * fx.breath; f.droop = fx.droop; }
     { const sh = entity.shake + (events.state.shake || 0); if (sh > 0) { f.shakeX = (f.shakeX || 0) + Math.sin(simT * 61) * sh; f.shakeY = (f.shakeY || 0) + Math.cos(simT * 53) * sh; } }   // (the tremor of a scare)
     player.apply(render.camera, simT, f);

@@ -56,7 +56,7 @@ export function createPrep(bus, { world, render, interaction, time, tasks, chore
     label: () => ({ text: S.on ? 'Bater o ponto' : 'Bater o ponto (atrasado)' }),
     tap: () => {
       S.punched = true; paint();
-      const t = time.text();
+      const t = time.text(); S.punchedAt = t;
       S.on && paint(); sfx('tecla', { pos: pos.toArray() }); sfx('gaveta_abre', { pos: pos.toArray(), gain: 0.8 }); sfx('caixa_bip', { pos: pos.toArray(), gain: 0.7 });
       tasks.done('ponto'); progression.ok('tarefa');
       bus.emit('hint', `Ponto batido às ${t}. Bom turno, Heitor.`);
@@ -71,7 +71,7 @@ export function createPrep(bus, { world, render, interaction, time, tasks, chore
   // ---------------------------------------------------------------- the preparation
   const tasksOf = () => tasks.prepList();
   function begin({ tutorial = false, seed = 1 } = {}) {
-    S.on = true; S.began = true; S.tutorial = tutorial; S.punched = false; S.seed = seed; S.t = 0; S.guide = '';
+    S.on = true; S.began = true; S.tutorial = tutorial; S.punched = false; S.punchedAt = null; S.seed = seed; S.t = 0; S.guide = '';
     time.setRate(PREP_RATE);
     tasks.setPrep(true);
     tasks.add('ponto', 'Bater o ponto no relógio do escritório', 'preparacao');
@@ -128,5 +128,5 @@ export function createPrep(bus, { world, render, interaction, time, tasks, chore
     const sec = Math.max(0, Math.ceil(-time.minutes * (time.secondsPerHour / 60) / PREP_RATE));
     return `PREPARAÇÃO ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
   }
-  return { begin, end, abort, update, text, setPunched(v) { S.punched = Boolean(v); paint(); }, get on() { return S.on; }, get punched() { return S.punched; }, get tutorial() { return S.tutorial; } };
+  return { begin, end, abort, update, text, setPunched(v, at) { S.punched = Boolean(v); S.punchedAt = S.punched && at ? String(at) : null; paint(); }, /** The clock time of the punch ("23:07"), or null (not punched, or a save from before this was kept). */ get punchedAt() { return S.punchedAt || null; }, get on() { return S.on; }, get punched() { return S.punched; }, get tutorial() { return S.tutorial; } };
 }

@@ -1,6 +1,6 @@
 /* The phone's layer (src/touch/mobile.js): the redesign approved on 2026-11-13. Only on a touch screen. */
 #mobile { position: absolute; inset: 0; z-index: 6; pointer-events: none; --m-scale: 1; --m-ink: #e8dfc4; --m-dim: #a39b84; --m-amber: #e0b24a;
-  --m-panel: rgba(8,10,16,.84); --m-panel2: rgba(14,15,22,.94); --m-line: rgba(232,223,196,.3); font-family: "Courier New", monospace; font-weight: bold; color: var(--m-ink); }
+  --m-panel: rgba(8,10,16,.84); --m-panel2: rgba(14,15,22,.94); --m-line: rgba(232,223,196,.3); font-family: var(--f-texto); font-weight: 700; color: var(--m-ink); }
 #mobile[hidden] { display: none; }
 #mobile .m-layer { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
 #mobile button { font: inherit; color: inherit; touch-action: none; -webkit-tap-highlight-color: transparent; }
@@ -125,11 +125,10 @@ body.mobile #sheet li.goal { outline: 0; border-left: 4px solid #e0b24a; }
 #mobile.sheet-open .m-acts, #mobile.sheet-open .m-mark, #mobile.sheet-open .m-hand, #mobile.sheet-open .m-btns { display: none; }
 
 /* menus, the drawer, the change, the summaries: sheets from the bottom, in reach of the thumb */
-body.mobile .screen { align-items: flex-end; padding: 0; }
-body.mobile .screen > .box, body.mobile .screen > .cwrap { margin: auto 0 0 !important; width: 100%; max-width: none !important; min-width: 0 !important; box-sizing: border-box;
+body.mobile .screen:not(.scr) { align-items: flex-end; padding: 0; }
+body.mobile .screen:not(.scr) > .box, body.mobile .screen > .cwrap { margin: auto 0 0 !important; width: 100%; max-width: none !important; min-width: 0 !important; box-sizing: border-box;
   border-width: 3px 0 0 !important; border-radius: 12px 12px 0 0; max-height: 92vh; overflow: auto; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 body.mobile .screen > .cwrap { flex-direction: column; gap: 0; }
-body.mobile .menu li { min-height: 52px; }
 body.mobile .cwrap > .box { width: 100%; max-width: none; min-width: 0; margin: 0; box-sizing: border-box; border-radius: 12px 12px 0 0; }
 body.mobile .cwrap.calcopen > .keypad { display: none; }
 body.mobile .keypad .row { gap: 8px; }
@@ -145,6 +144,6 @@ body.mobile #dlg { bottom: max(16px, env(safe-area-inset-bottom)); }
   body.mobile #top { width: min(440px, calc(50% - 10px)); }
   #mbottom { left: auto; right: max(66px, env(safe-area-inset-right)); bottom: auto; top: max(8px, env(safe-area-inset-top)); width: min(380px, calc(50% - 76px)); align-items: stretch; }
   body.mobile #sheet { left: auto !important; width: min(440px, 60%) !important; top: 0 !important; max-height: none; border-width: 0 0 0 3px; border-radius: 12px 0 0 12px; }
-  body.mobile .screen { align-items: stretch; justify-content: flex-end; }
-  body.mobile .screen > .box, body.mobile .screen > .cwrap { width: min(480px, 70%); max-height: 100vh; border-width: 0 0 0 3px !important; border-radius: 12px 0 0 12px; margin: 0 !important; }
+  body.mobile .screen:not(.scr) { align-items: stretch; justify-content: flex-end; }
+  body.mobile .screen:not(.scr) > .box, body.mobile .screen > .cwrap { width: min(480px, 70%); max-height: 100vh; border-width: 0 0 0 3px !important; border-radius: 12px 0 0 12px; margin: 0 !important; }
 }

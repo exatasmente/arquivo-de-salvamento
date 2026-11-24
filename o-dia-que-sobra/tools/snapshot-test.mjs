@@ -115,7 +115,7 @@ async function scenario(browser, base, kind) {
   page = await open(ctx, base, Q1, errs);
   await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
   const titleRows = await rows(page);
-  ok(titleRows.some((r) => /^CONTINUAR\s+\(SEMANA 1 · NOITE 3 · 00:4\d\)$/.test(r)), `${tag}: the title says ${titleRows[0]}`);
+  ok(titleRows.some((r) => /^CONTINUAR\s*Semana 1 · noite 3 · 00:4\d$/.test(r)), `${tag}: the title says ${titleRows[0]}`);
   ok(titleRows.includes('IMPORTAR CARTÃO'), `${tag}: the title offers IMPORTAR CARTÃO`);
   await shot(page, `titulo-continuar-${tag}`);
   await clickText(page, 'CONTINUAR');
@@ -191,7 +191,7 @@ async function scenario(browser, base, kind) {
   await clickText(page, 'SIM, SUBSTITUIR');
   ok(JSON.stringify(JSON.parse(await ev((k) => localStorage.getItem(k), CARD))) === JSON.stringify(exported.card), `${tag}: the card was written as it was exported`);
   const t2 = await rows(page);
-  ok(t2.some((r) => /^CONTINUAR\s+\(SEMANA 1 · NOITE 3 · \d\d:\d\d\)/.test(r)), `${tag}: continue is offered after the import (${t2[0]})`);
+  ok(t2.some((r) => /^CONTINUAR\s*Semana 1 · noite 3 · \d\d:\d\d/.test(r)), `${tag}: continue is offered after the import (${t2[0]})`);
   await clickText(page, 'CONTINUAR');
   await page.waitForFunction(() => window.__odq.game.state === 'play', null, { timeout: 30000 });
   after = await ev(OBSERVE);
@@ -515,7 +515,7 @@ async function folga(browser, base) {
   page = await open(ctx, base, 'debug=load&manual&silent&nointro&seed=1', errs);
   await page.waitForFunction(() => window.__odq?.game?.state === 'title', null, { timeout: 90000 });
   const tr = await rows(page);
-  ok(tr.some((r) => /^CONTINUAR\s+\(FOLGA/.test(r)), `${tag}: the title offers ${tr[0]}`);
+  ok(tr.some((r) => /^CONTINUAR\s*Folga/.test(r)), `${tag}: the title offers ${tr[0]}`);
   await clickText(page, 'CONTINUAR');
   await page.waitForFunction(() => window.__odq.game.state === 'dayoff' && window.__odq.game.dayoff?.active, null, { timeout: 30000 });
   await page.waitForTimeout(600);

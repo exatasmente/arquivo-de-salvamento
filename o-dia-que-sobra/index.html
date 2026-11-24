@@ -9,35 +9,48 @@
 <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
+<link rel="preload" href="assets/fonts/Baloo2.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="assets/fonts/VT323-Regular.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="mobile.css">
+<link rel="stylesheet" href="menus.css">
 <style>
-  /* The loading screen: here, not in style.css, so it shows before anything else arrives. */
-  #splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-    background: #05060a; color: #e8dfc4; font: bold 14px "Courier New", monospace; letter-spacing: .14em; text-align: center; transition: opacity .35s; }
+  /* The loading screen: here, not in the css files, so it shows before anything else arrives. The sign of the Sun lights up bit by bit. */
+  #splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 38%, #16224a, #05060c 72%); color: #f4ecd2; font: 800 14px var(--f-marca, system-ui), system-ui, sans-serif; text-align: center; transition: opacity .35s; user-select: none; }
   #splash.out { opacity: 0; pointer-events: none; }
-  #splash .from { color: #8a8478; font-size: 12px; animation: sp-in .5s ease-out both; }
-  #splash .from small { display: block; margin-top: 6px; font-size: 10px; letter-spacing: .3em; color: #5a564e; }
-  #splash h1 { margin: 6px 0 10px; font-size: clamp(30px, 9vw, 60px); letter-spacing: .06em; line-height: 1.05; max-width: 92vw; color: #f2c230; text-shadow: 4px 4px 0 #5a3a00; animation: sp-logo .7s ease-out .55s both; }
-  #splash .bar { animation: sp-in .4s ease-out 1s both; }
-  @keyframes sp-in { from { opacity: 0; } }
-  @keyframes sp-logo { 0% { opacity: 0; transform: scaleY(.05); filter: brightness(3); } 60% { opacity: 1; transform: scaleY(1.15); } 100% { transform: none; filter: none; } }
-  #splash .bar { display: flex; gap: 5px; }
-  #splash .bar i { width: 12px; height: 16px; background: #1b1e29; box-shadow: inset -2px -2px 0 #0b0c12; animation: sp-block 1.6s steps(1) infinite; }
-  #splash .bar i:nth-child(2) { animation-delay: .2s; } #splash .bar i:nth-child(3) { animation-delay: .4s; } #splash .bar i:nth-child(4) { animation-delay: .6s; }
-  #splash .bar i:nth-child(5) { animation-delay: .8s; } #splash .bar i:nth-child(6) { animation-delay: 1s; } #splash .bar i:nth-child(7) { animation-delay: 1.2s; } #splash .bar i:nth-child(8) { animation-delay: 1.4s; }
-  @keyframes sp-block { 0% { background: #e0a526; box-shadow: inset -2px -2px 0 #8a5d10, inset 2px 2px 0 #f7d874; } 25% { background: #1b1e29; box-shadow: inset -2px -2px 0 #0b0c12; } }
-  #splash .msg { font-size: 12px; color: #8a8478; min-height: 1.3em; }
+  #splash .from { color: #9d977f; font: 700 12px var(--f-texto, system-ui), system-ui, sans-serif; letter-spacing: .24em; animation: sp-in .5s ease-out both; }
+  #splash .sign { width: min(300px, 62vw, 40vh); height: auto; overflow: visible; }
+  #splash .sign .pole { fill: #1a1d2a; } #splash .sign .panel { fill: #1b2036; stroke: #0b0d16; stroke-width: 4; }
+  #splash .sign .lit { fill: #ffc61a; stroke: #e8392b; stroke-width: 3; opacity: 0; animation: sp-lit 2.6s steps(7) .3s forwards; }
+  #splash .sign .eye, #splash .sign .smile { stroke: #1c1a24; fill: #1c1a24; opacity: 0; animation: sp-lit 2.6s steps(7) 1s forwards; } #splash .sign .smile { fill: none; stroke-width: 4.5; stroke-linecap: round; }
+  #splash .sign .bulb { fill: #3a3410; animation: sp-bulb 2.6s steps(1) forwards; animation-delay: calc(var(--i) * 0.16s); }
+  #splash .sign .glow { fill: #ffc61a; opacity: 0; filter: blur(14px); animation: sp-glow 2.6s steps(7) .3s forwards; }
+  #splash h1 { margin: 6px 0 0; font: 800 clamp(30px, 8.4vw, 56px) / 1 var(--f-marca, system-ui), system-ui, sans-serif; letter-spacing: .01em; max-width: 92vw; color: #ffc61a; text-shadow: 3px 3px 0 #e8392b; transform: skewX(-6deg); animation: sp-in .6s ease-out .5s both; }
+  #splash .bar { font: 400 22px var(--f-mono, monospace), monospace; letter-spacing: .24em; color: #ffb22e; text-shadow: 0 0 8px rgba(255, 150, 20, .7); animation: sp-in .4s ease-out 1s both; }
+  #splash .msg { font: 400 20px var(--f-mono, monospace), monospace; letter-spacing: .12em; color: #9d977f; min-height: 1.3em; }
   #splash .msg.err { color: #ff8a5c; cursor: pointer; }
-  @media (prefers-reduced-motion: reduce) { #splash .bar i, #splash .from, #splash h1, #splash .bar { animation: none; } #splash { transition: none; } }
+  @keyframes sp-in { from { opacity: 0; } }
+  @keyframes sp-lit { to { opacity: 1; } } @keyframes sp-glow { to { opacity: .45; } } @keyframes sp-bulb { to { fill: #ffe45e; } }
+  @keyframes sp-blink { 50% { opacity: .25; } } #splash .bar b { font-weight: 400; animation: sp-blink 1s steps(2) infinite; }
+  @media (prefers-reduced-motion: reduce) { #splash *, #splash { animation: none !important; transition: none !important; } #splash .sign .lit, #splash .sign .eye, #splash .sign .smile { opacity: 1; } #splash .sign .bulb { fill: #ffe45e; } }
 </style>
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
 </head>
 <body>
 <div id="splash" role="status" aria-live="polite">
-  <div class="from">ARQUIVO DE SALVAMENTO<small>APRESENTA</small></div>
+  <div class="from">ARQUIVO DE SALVAMENTO APRESENTA</div>
+  <svg class="sign" viewBox="0 0 200 250" aria-hidden="true">
+    <rect class="pole" x="94" y="190" width="12" height="60"/>
+    <circle class="glow" cx="100" cy="100" r="80"/>
+    <rect class="panel" x="6" y="6" width="188" height="188" rx="16"/>
+    <path class="lit" d="M100 14 108 30 92 30z" transform="rotate(0 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(30 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(60 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(90 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(120 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(150 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(180 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(210 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(240 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(270 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(300 100 100)"/><path class="lit" d="M100 14 108 30 92 30z" transform="rotate(330 100 100)"/>
+    <circle class="lit" cx="100" cy="100" r="46"/>
+    <circle class="eye" cx="84" cy="90" r="5"/><circle class="eye" cx="116" cy="90" r="5"/><path class="smile" d="M80 112 Q100 134 120 112"/>
+    <circle class="bulb" style="--i:0" cx="14" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:1" cx="30" cy="24" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:2" cx="45" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:3" cx="61" cy="24" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:4" cx="77" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:5" cx="92" cy="24" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:6" cx="108" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:7" cx="123" cy="24" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:8" cx="139" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:9" cx="155" cy="24" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:10" cx="170" cy="20" r="3.6" transform="translate(0 0)"/><circle class="bulb" style="--i:11" cx="186" cy="24" r="3.6" transform="translate(0 0)"/>
+  </svg>
   <h1>O DIA QUE SOBRA</h1>
-  <div class="bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="msg">CARREGANDO</div>
+  <div class="bar" aria-hidden="true">POSTO BOM DIA</div>
+  <div class="msg">CARREGANDO<b>_</b></div>
 </div>
 <script>
   // The game calls splashDone() after its first frame. The film mode and the editor never show it.

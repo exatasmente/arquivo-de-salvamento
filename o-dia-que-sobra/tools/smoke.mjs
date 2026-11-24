@@ -446,6 +446,14 @@ const clickText = async (page, txt) => {
   await page.evaluate(() => window.__odq.advance(3));
   return ok;
 };
+/** A tap on a thing of the screens (a selector): the pointer event with real coordinates, at its right end (the "raise" side of a setting). */
+const optTap = async (page, sel) => {
+  const okk = await page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return false; const r = e.getBoundingClientRect(); e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: r.right - 8, clientY: r.top + r.height / 2 })); return true; }, sel);
+  await page.evaluate(() => window.__odq.advance(3));
+  return okk;
+};
+/** The Voltar button of the legend (the way back for a finger, a pointer and a pad alike). */
+const clickBack = async (page) => { await optTap(page, '#modal [data-back]'); };
 const advance = (page, n = 3) => page.evaluate((n) => window.__odq.advance(n), n);
 const botInstall = async (page, extra = {}) => {
   const { prep, ...rest } = extra; extra = rest;
@@ -2048,20 +2056,27 @@ async function fullCheck(browser, base, kind, full) {
   await shot(page, `smoke-titulo-${tag}`);
   await clickText(page, 'OPÇÕES');
   await shot(page, `smoke-opcoes-${tag}`);
-  const rows = await page.evaluate(() => [...document.querySelectorAll('#modal li[data-cell]')].map((x) => ({ t: x.textContent.trim(), h: Math.round(x.getBoundingClientRect().height) })));
-  // the phone's menus are sheets from the bottom with 52 px lines (mobile.css); elsewhere 44 px
-  const rowH = kind === 'mobile' ? 52 : 44;
-  ok(rows.every((x) => x.h >= rowH && x.h <= rowH + 3), `${tag}: every line of the options menu is a ${rowH} px target on one line (${rows.map((x) => x.h).join(',')})`);
-  ok(!rows.some((x) => /^[\u203A]/.test(x.t)), `${tag}: no arrow is left alone on a line`);
+  // the options are tabs of controls now (screens.js): every thing a finger or a pointer can hit is 44 px or more, on every tab
+  for (const tabId of ['imagem', 'som', 'controles', 'acess', 'conteudo']) {
+    await optTap(page, `#modal [data-tab="${tabId}"]`);
+    const small = await page.evaluate(() => [...document.querySelectorAll('#modal [data-cell], #modal .st, #modal .lg.back')].filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ t: (e.getAttribute('aria-label') || e.textContent || e.className).trim().slice(0, 24), h: Math.round(e.getBoundingClientRect().height), w: Math.round(e.getBoundingClientRect().width) })).filter((x) => x.h < 44 || x.w < 44));
+    ok(small.length === 0, `${tag}: tab ${tabId} of the options: every control is a target of 44 px or more (${JSON.stringify(small)})`);
+  }
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('o-dia-que-sobra.opts') || '{}'));
-  for (const t of ['VOLUME', 'SENSIBILIDADE', 'REDUZIR', 'TAMANHO']) ok(await clickText(page, t), `${tag}: option "${t}" is there and takes a click`);
-  await clickText(page, 'VOLUME'); await clickText(page, 'VOLUME');
+  await optTap(page, '#modal [data-tab="som"]');
+  ok(await optTap(page, '#modal [data-key="row:volume"] .st.plus'), `${tag}: option VOLUME is there and takes a tap`);
+  await optTap(page, '#modal [data-key="row:volume"] .st.plus'); await optTap(page, '#modal [data-key="row:volume"] .st.plus');
   ok((await page.evaluate(() => JSON.parse(localStorage.getItem('o-dia-que-sobra.opts')).volume)) === 1, `${tag}: the volume stops at 10 / 10 and does not fall to 0`);
+  await optTap(page, '#modal [data-tab="controles"]');
+  ok(await optTap(page, '#modal [data-key="row:look"] .st.plus'), `${tag}: option SENSIBILIDADE is there and takes a tap`);
+  await optTap(page, '#modal [data-tab="acess"]');
+  ok(await optTap(page, '#modal [data-key="row:reduceFlash"]'), `${tag}: option REDUZIR CLARÕES is there and takes a tap`);
+  ok(await optTap(page, '#modal [data-key="row:text"]'), `${tag}: option TAMANHO DO TEXTO is there and takes a tap`);
   const saved = await page.evaluate(() => ({ o: JSON.parse(localStorage.getItem('o-dia-que-sobra.opts') || '{}'), ts: document.getElementById('app').style.getPropertyValue('--ts') }));
   ok(saved.o.reduceFlash === true && saved.o.text === 1.25 && saved.o.volume === 1 && saved.o.look === 1.25 && saved.ts === '1.25', `${tag}: the options are saved in their own key (${JSON.stringify(saved.o)}) and the text size applies (--ts ${saved.ts})`);
   void before;
   await shot(page, `smoke-opcoes-mudadas-${tag}`);
-  await clickText(page, 'VOLTAR');
+  await clickBack(page);
   await clickText(page, 'CONTROLES'); await shot(page, `smoke-controles-${tag}`);
   for (let i = 0; i < 2; i++) { await clickText(page, 'MOSTRAR'); }
   await shot(page, `smoke-controles-toque-${tag}`);

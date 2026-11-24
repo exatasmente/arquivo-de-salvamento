@@ -78,7 +78,7 @@ export function captureNight(S) {
     shelves, stock: tasks.describeStock(), chores: chores.describeChores(),
     world: { doors, shut: [...world.shut], breakers },
     goal: goals.key || null,
-    prep: { punched: prep.punched }, call: narrative.callState(),
+    prep: { punched: prep.punched, at: prep.punchedAt }, call: narrative.callState(),
     office: { registered: clone(office.registered), incidents: clone(office.incidents) },
     events: { ...events.snapshotState(), active: events.active || null },
     branches: S.branches ? S.branches.snapshotState() : null,
@@ -230,7 +230,7 @@ export function restoreNight(S, snap) {
   if (S.weather && snap.weather) S.weather.restore(snap.weather, m);
   customers.dropRecurringBefore(m);
   for (const n of snap.recurring || []) if (!customers.nightRecurring.includes(n)) customers.nightRecurring.push(n);
-  prep.setPunched(snap.prep?.punched);
+  prep.setPunched(snap.prep?.punched, snap.prep?.at);
 
   // 8. the player and the marked goal
   const pl = snap.player || {};

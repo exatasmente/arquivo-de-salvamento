@@ -13,7 +13,7 @@ export function createAudioSystem(bus, { world, player, lighting, mod, opts }) {
   let audio = null, ctx = null;
   const missing = new Set();   // sounds the game asked for that audio/ does not have (never a warning)
   const loops = new Map();
-  let ambient = [], room = null, lastPos = null;
+  let ambient = [], titleLoops = [], room = null, lastPos = null;
 
   function init() {
     if (audio) { ctx?.resume?.(); return audio; }
@@ -54,7 +54,12 @@ export function createAudioSystem(bus, { world, player, lighting, mod, opts }) {
       if (!audio || ambient.length) return;
       ambient = AMBIENT.map(([n, o]) => { try { return audio.loop(n, o); } catch { return null; } }).filter(Boolean);
     },
-    stopAmbient() { for (const l of ambient) l.stop?.(0.5); ambient = []; for (const l of loops.values()) l.stop?.(0.2); loops.clear(); audio?.stopLoops?.(); },
+    /** The title: only the hum of the neon and the far highway, low (needs the context: the first gesture makes it). */
+    startTitleAmbient() {
+      if (!audio || opts.mute || titleLoops.length) return;
+      titleLoops = [['fluorescente', { gain: 0.35 }], ['rodovia', { gain: 0.5 }]].map(([n, o]) => { try { return audio.loop(n, o); } catch { return null; } }).filter(Boolean);
+    },
+    stopAmbient() { for (const l of titleLoops) l.stop?.(0.4); titleLoops = []; for (const l of ambient) l.stop?.(0.5); ambient = []; for (const l of loops.values()) l.stop?.(0.2); loops.clear(); audio?.stopLoops?.(); },
     update() {
       if (!audio) return;
       const a = lighting.area;
@@ -67,6 +72,6 @@ export function createAudioSystem(bus, { world, player, lighting, mod, opts }) {
     get missing() { return [...missing]; },
     ui(name) { play(name); },
     setVolume(v) { opts.volume = v; audio?.setVolume?.(v); },
-    setMuted(m) { opts.mute = m; if (m) { for (const l of loops.values()) l.stop?.(0.1); loops.clear(); for (const l of ambient) l.stop?.(0.1); ambient = []; } else this.startAmbient(); },
+    setMuted(m) { opts.mute = m; if (m) { for (const l of titleLoops) l.stop?.(0.1); titleLoops = []; for (const l of loops.values()) l.stop?.(0.1); loops.clear(); for (const l of ambient) l.stop?.(0.1); ambient = []; } else this.startAmbient(); },
   };
 }

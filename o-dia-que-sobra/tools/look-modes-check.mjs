@@ -22,6 +22,8 @@ const errs = [];
 const open = async (q) => { const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(String(e))); page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); }); await page.goto(`${base}?${q}`); await page.waitForFunction(() => window.__odq?.game); await page.evaluate(() => document.getElementById('splash')?.remove()); return page; };
 const cells = (page) => page.evaluate(() => [...document.querySelectorAll('#modal [data-cell]')].map((c) => c.textContent.trim()));
 const click = (page, text) => page.evaluate((t) => { const c = [...document.querySelectorAll('#modal [data-cell]')].find((x) => x.textContent.trim().startsWith(t)); if (!c) return false; const r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); return true; }, text);
+const row = (page, id) => page.evaluate((id) => document.querySelector(`#modal [data-key="row:${id}"]`)?.dataset.v ?? null, id);
+const back = (page) => page.evaluate(() => { const b = document.querySelector('#modal [data-back]'); b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })); });
 const state = (page) => page.evaluate(() => { const O = window.__odq; return { mode: O.render.mode, look: O.render.look, tier: O.render.tier, card: O.game.save.card.look1998 }; });
 
 // 1. the menu, before and after an ending; the quality option cycles; the mode option switches and is kept
@@ -37,13 +39,14 @@ for (let i = 0; i < 4; i++) { await click(page, 'QUALIDADE'); await page.evaluat
 const kind = (t) => t.replace(/ \(.*$/, '');   // (the automatic one names the tier it picked: the first came from ?tier=, the last from the device)
 ok(new Set(seen.slice(0, 4).map(kind)).size === 4 && kind(seen[4]) === kind(seen[0]), `the quality option cycles through four values and back (${seen.join(' / ')})`);
 await page.evaluate(() => { window.__odq.game.save.card.addEnding(1); });
-await click(page, 'VOLTAR'); await page.evaluate(() => window.__odq.advance(2));
+await back(page); await page.evaluate(() => window.__odq.advance(2));
 await click(page, 'OPÇÕES'); list = await cells(page);
-ok(list.some((t) => t.startsWith('MODO 1998: DESLIGADO')), 'after the first ending the MODO 1998 option shows, off');
+ok((await row(page, 'modo1998')) === 'DESLIGADO', 'after the first ending the MODO 1998 option shows, off');
 await click(page, 'MODO 1998'); await page.evaluate(() => window.__odq.advance(2));
 let s = await state(page);
 ok(s.mode === '1998' && s.look === 'n64' && s.card === true, `choosing it switches the picture to the n64 look and writes the card (${JSON.stringify(s)})`);
-ok((await cells(page)).some((t) => t.startsWith('MODO 1998: LIGADO')), 'the option now reads LIGADO');
+ok((await row(page, 'modo1998')) === 'LIGADO', 'the option now reads LIGADO');
+ok(await page.evaluate(() => document.getElementById('app').dataset.look === '1998'), 'the interface changes with the picture (data-look 1998)');
 // 2. the card file: the mode survives the export and the import
 const rt = await page.evaluate(async () => { const S = await import('/o-dia-que-sobra/src/systems/snapshot.js'); const G = window.__odq.game; const txt = S.buildExport(G.save.card.data, { debug: true }); const r = S.parseCardFile(txt, txt.length); return { ok: r.ok, reason: r.reason, look: r.card?.meta?.look1998 }; });
 ok(rt.ok && rt.look === true, `meta.look1998 survives the card file's export and import (${JSON.stringify(rt)})`);
