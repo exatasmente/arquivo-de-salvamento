@@ -36,7 +36,7 @@ for (const c of rec.cenas) {
 }
 for (const [id, pj] of Object.entries(rec.personagens)) for (const [k, arr] of Object.entries(pj.cafe ?? {})) arr.forEach((x, i) => checkLine(`${id}.cafe.${k}[${i}]`, x.t.replace('{s4.data}', 'XXXXXXXXXXXXXXXXXXXX').replace('{s4.carro}', 'XXXXXXXXXXXXXXXXXXXXXXXX')));
 for (const t of cast.tipos) {
-  if (!['comum', 'inconveniente', 'suspeito', 'sobrenatural'].includes(t.categoria)) e(t.id + ' categoria');
+  if (!['comum', 'recorrente', 'inconveniente', 'suspeito', 'sobrenatural'].includes(t.categoria)) e(t.id + ' categoria');      // (the game's own list: CATEGORIAS in src/models/customer.js)
   for (const k of ['chegada', 'pedido', 'obrigado']) for (const x of t.falas?.[k] ?? []) checkLine(`${t.id}.${k}`, x);
   for (const [k, r] of Object.entries(t.reacoes ?? {})) for (const x of r.falas ?? []) checkLine(`${t.id}.${k}`, x);
   if (t.horas) t.horas.forEach(mins);
