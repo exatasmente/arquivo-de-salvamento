@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSequence, SEQ } from '../src/systems/sequence.js';
 import { createShoulder, SHOULDER } from '../src/systems/shoulder.js';
-import { STEPS, CINE, J, cinePose, actionPose, leap, DODGE, DUMP, SLOW, ATTACK } from '../src/systems/emenda.js';
+import { STEPS, CINE, J, cinePose, actionPose, leap, DODGE, ROLL, DUMP, SLOW, ATTACK } from '../src/systems/emenda.js';
 import { readFileSync } from 'node:fs';
 import { hits } from '../src/systems/player.js';
 import MANIFEST from '../src/film-manifest.json' with { type: 'json' };
@@ -126,7 +126,7 @@ test('the cutscene of the dog arriving: three planes cut, the sensor goes from w
     const b = cinePose(v, CINE[v] * (v === 'cheia' ? 0.6 : 0.6)); assert.ok(b.shot >= 1);
     const A = cinePose(v, v === 'cheia' ? 3.1 : 1.9), B = cinePose(v, v === 'cheia' ? 4.2 : 2.9);
     assert.notEqual(A.dog.sensor, B.dog.sensor, `${v}: the sensor changes colour in the close`); assert.equal(B.dog.sensor, '#e8a42a');
-    assert.ok(Math.abs(last.jonas.yaw) > 1, `${v}: Jonas has turned to look over his shoulder`);
+    assert.ok(Math.abs(last.jonas.twist) > 1, `${v}: Jonas has turned to look over his shoulder`); assert.equal(last.jonas.yaw, 0, `${v}: with his shoulders: his knees stay where they are`);
   }
 });
 
@@ -138,7 +138,12 @@ test('the reaction: the dog stalks along the pavement, leaps over the dodge and 
   assert.ok(at(0).dog.pos[0] < at(4.5).dog.pos[0], 'it walks toward him during the hold'); assert.ok(at(4.5).dog.pos[0] > -18 && at(4.5).dog.pos[0] < -16);
   assert.ok(at(5.2).dog.y > 0.3, 'in the air in the leap'); assert.ok(at(5.6).dog.pos[0] > J[0] - 2.5, 'it comes to him'); assert.ok(at(7).dog.pos[0] > J[0], 'and lands past him');
   assert.equal(at(7).dog.state, 'busca', 'lost, its sensor searching'); assert.equal(at(7).dog.action, undefined);
-  const d = at(5.3).jonas; assert.ok(Math.abs(d.pos[1] - J[1]) > 0.2, 'he moves out of the way'); assert.ok(Math.abs(at(5.1 + DODGE.dash + DODGE.fall - 0.01).jonas.pos[1] - J[1] - DODGE.dz) < 0.01, 'a metre to the left (south)');
+  const d = at(5.3).jonas; assert.ok(Math.abs(d.pos[1] - J[1]) > 0.2, 'he moves out of the way');
+  // the dodge is a dive and a roll that comes up in a crouch (2026-11-19: flat on his back he read as dead), along the way the clip covers
+  const up = at(5.1 + DODGE.roll), far = ROLL.at(-1)[1];
+  assert.ok(Math.abs(Math.hypot(up.jonas.pos[0] - J[0], up.jonas.pos[1] - J[1]) - far) < 0.01 && up.jonas.pos[1] - J[1] > 1.5, `${far} m to the left (south), along the dive`);
+  assert.equal(at(5.2).jonas.action, 'esquivar', 'the dive'); assert.equal(at(5.1 + DODGE.roll + 0.1).jonas.crouch, 1, 'and up in a crouch');
+  for (let t = 5.1; t < 9; t += 0.05) assert.notEqual(at(t).jonas.action, 'derrubado', 'he never falls flat');
   const knocked = { ...rec, dodge: null, knockedAt: 5.9 };
   assert.equal(actionPose('cheia', knocked, 6.3).dog.action, 'derrubar'); assert.equal(actionPose('cheia', knocked, 6.3).jonas.action, 'derrubado');
   const right = { ...rec, dodge: { side: 'right', at: 5.1 } }; assert.ok(actionPose('cheia', right, 5.45).jonas.pos[1] < J[1], 'right of the picture is north');

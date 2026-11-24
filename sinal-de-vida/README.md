@@ -40,11 +40,50 @@ Jonas chega à ponta do cabo e emenda **segurando** (E, A ou segurar Usar). No m
 1. **A cinemática** (5,6 s, pulável segurando Esc ou Start por 1 s, ou o botão Pular no toque): o cão virando a esquina da avenida entre os carros parados, o close do sensor mudando de âmbar fraco para âmbar, e Jonas olhando por cima do ombro.
 2. **A sequência de reação**, com o comando **no cenário** (uma tecla pequena do meio que se usa, uma palavra e uma barra fina que se esgota com a janela, junto da mão, do cabo ou do cão; sem círculo): **segurar** (a emenda, 4,4 s: o primeiro passo tem o dobro do tempo) → **direção** (esquivar ← ou → quando o cão salta; **o tempo cai para 0,28x e a câmera se aproxima** nessa janela, e a seta está no cão e diz para que lado ir: hoje sempre para a esquerda, para longe da caçamba onde o cão vai bater, e a semente só decide de que lado da pista ele salta) → **a escolha** (o cão bate na caçamba e fica atordoado uns 2 s: **← desorientar**, em silêncio, ou **→ desativar**, com barulho; cada uma tem o seu comando) → **martelar** (puxar o cabo preso na grade) → **apertar** (fechar a emenda). O lado de onde o cão salta sai da semente da partida (`?semente=N`, que está no menu de pausa e no cartão).
 
+> **Desde 2026-11-23 a escolha abaixo está fora do jogo** (fica atrás da chave `escolhaCacamba`, `?cacamba=keep`): no lugar dela, um aperto e a fuga pelo prédio (seção seguinte).
+
 **Depois da esquiva.** *Desorientar:* Jonas encosta a segunda isca sonora (a de reserva, que o bolso traz) no sensor do cão, **segurando**; a rajada de estalos ensurdece o cão por cerca de 8 s, ele gira e tropeça procurando. Jonas fecha a emenda e se esconde na caçamba; o cão volta a ouvir, fareja e segue a rota sem achá-lo. Gasta a isca. *Desativar:* **apertar** para enfiar a ponta desencapada do cabo no encaixe das costas do cão; a bateria entra em curto, ele solta faíscas e cai desligado, como o cão quebrado da caçamba. **Escuta +10**, e a emenda fecha mais curta e mais lenta (mais toques, menos cabo).
 
 **Errar.** Na esquiva, na escolha (ou deixar o tempo acabar) e no primeiro comando de cada caminho, o cão **ataca Jonas e o jogo acaba**: a cena do ataque, o preto, o *fim de jogo* e a volta ao **ponto salvo no começo da emenda** (não ao começo da saída; a isca e a de reserva voltam ao bolso). No segurar do começo, no martelar e no apertar, faz barulho: **Escuta +8** cada (o número do design para uma reação errada na rua), o ícone "foi ouvido", e o jogo segue (a emenda se fecha do mesmo jeito). Com **mais tempo** todas as janelas dobram; com a reação **desligada** todos os passos acertam sozinhos (a palavra no cenário passa a ser "automático") e o resultado é o mesmo de uma sequência perfeita, sem a Escuta mexer.
 
 **A isca.** Quando o cão foi afastado pela isca (está a mais de 14 m da ponta quando a emenda chega ao meio), a sequência é a **curta**: uma cinemática de 4 s (o cão passa longe, o sensor muda, Jonas olha), só **segurar** (3 s) e **apertar**, sem salto e sem cabo preso, uns 10 s no total. Sem isca, ou com o efeito dela acabado, é a **cheia** (uns 15 a 25 s com a cinemática). `?emenda=cheia` ou `?emenda=curta` força uma ou outra para quem quer ver as duas.
+
+## A fuga pelo prédio (cena 4, atos 2 a 4)
+
+Desde 2026-11-23 a escolha ao lado da caçamba (desorientar ou desativar o cão) **saiu do jogo**. Quando o cão bate na caçamba, a pessoa tem dois segundos para **apertar e correr**, e começa a fuga: a avenida, o prédio residencial do outro lado, e a volta ao poço pela escada de incêndio. A emenda **fecha antes** (o estalo do conector é o barulho que faz o cão saltar). A sequência curta (o cão afastado pela isca) continua como era, sem fuga.
+
+- **A chave** fica em `data/story/fuga.json` (`escolhaCacamba`: `remove`). `keep` devolve a escolha antiga, sem fuga; `?cacamba=keep` ou `?cacamba=remove` no endereço troca para uma revisão. O caminho antigo só existe atrás dessa chave.
+- **Os quadros** (`src/systems/fuga.js`; os números são os do storyboard, com as mudanças que a pessoa pediu em 2026-11-23: a porta como cena de ação e a escolha no apartamento):
+
+| Quadro | Câmera | Comando | Errar |
+|---|---|---|---|
+| 6 Correr (`corrida`) | primeira pessoa | **direção →** para contornar o carro atravessado na pista | bate no carro e o cão chega |
+| 7 Vista do semáforo (`semaforo`) | plano fixo, do alto do poste | — | — |
+| 8 A porta emperrada (`porta`, **ponto salvo**) | a câmera acompanha o Jonas, por cima do ombro; o cão aparece no vidro | **martelar** | o cão salta |
+| 9 O vidro segura (`vidro`) | câmera na mão dentro do hall: o cão bate, o vidro racha, o Jonas recua devagar, ofegante; na segunda batida ele corre | — | — |
+| 10 O hall (`hall`, **ponto salvo**) | plano fixo, canto alto | — | — |
+| 11 O vão da escada (`vao`) | plano fixo, do alto do vão | — | — |
+| 12 Portas do terceiro andar (`corredor`) | primeira pessoa | **direção ← ou →** (a da esquerda está entreaberta; a tela não diz qual) | a outra está trancada e o cão sobe |
+| 13 No apartamento (`escolha`, **ponto salvo**) | primeira pessoa | **a escolha**: ← atrás do armário, → o pano da mesa, E/A/Usar entrar no armário | não decidir: o cão entra |
+| 14 O pano no sensor (`pano`) | câmera na mão | **mirar devagar** o pano no sensor e soltar | o pano cai fora e o cão o alcança |
+| 13 Atrás do armário (`atras`) | câmera na mão | **segurar** a respiração, sem soltar e sem mexer | o cão dá a volta |
+| 14 O armário em cima do cão (`empurra`) | câmera na mão | **martelar** para tombar o armário | o cão dá a volta |
+| 13 Dentro do armário (`entra`, `dentro`, `achado`) | primeira pessoa, pelas ripas | **segurar** a respiração enquanto o cão entra pela porta, procura pela sala, para e varre com o sensor; **não salva**: o sensor para no armário, ele vem, arranca a porta e **é fim de jogo** | soltar antes: o cão vem na hora |
+| 16 Pela janela (`janela`, **ponto salvo**) | plano fixo, da rua | — | — |
+| 17 O degrau cede (`degrau`) | primeira pessoa, descendo de costas | **apertar** para agarrar o corrimão | cai na calçada |
+| 18 A trava da última escada (`trava`) | plano fixo, da calçada | **martelar** | o cão salta do patamar de cima |
+| 19 A grade (`calcada`, `fecha`) | primeira pessoa; **câmera lenta** só no salto do cão | **segurar** para levantar a folha, depois **apertar** para fechar | o cão alcança |
+| 20 Em cima da grade (`grade`) | a câmera da primeira cutscene | **ficar parado** | o cão escuta: Escuta +8 e ele fica mais tempo (não mata) |
+
+- **Esconder não basta.** O cão tem a assinatura do Jonas e sente calor: para escapar dele no apartamento é preciso **cobrir os sensores**, com o pano jogado no sensor ou com o armário tombado em cima dele. Entrar no armário é a armadilha. O quadro 15 do storyboard (o cão volta da isca) saiu, e a isca de reserva não é mais usada na fuga.
+- **Cinco pontos salvos**: o começo da emenda e os quadros `porta`, `hall`, `escolha` e `janela`. Errar um comando é o ataque do cão, o fim de jogo e a volta ao último deles (o sangue segue a opção do jogador). No fim, Jonas já está no poço e a história segue na estação.
+- **Comandos nos três meios**: segurar e martelar em E / A / Usar; direção e a escolha em ← → (ou A, D) / direcional ou analógico / ◀ ▶ (a terceira opção da escolha é E / A / Usar); apertar em Espaço ou E / X ou A / Usar; mirar em ← →, A D ou o mouse / analógico esquerdo ou direito / o direcional virtual ou arrastar; ficar parado é não tocar em nada. "Mais tempo" dobra todas as janelas (o cão anda mais devagar, a distância é a mesma) e com a reação "desligada" a fuga se joga sozinha (pelo pano).
+- **Para a revisão**: `?cena=n1-saida&fuga=<quadro>` entra direto num quadro (os nomes entre parênteses na tabela), como um ponto salvo faria. `&cam=seguranca`, `&cam=cao` ou `&cam=ombro` troca a câmera dos quadros que têm mais de uma (`porta`, `vidro`, `escolha`, `pano`, `atras`, `empurra`, `dentro`).
+- **O som vem das coisas** (`soundStep`, em `src/systems/fuga.js`, a mesma regra no jogo e no modo filmagem): os passos e o servo do cão saem do cão enquanto ele anda (também fora de quadro, de onde ele está), a varredura do sensor sai do sensor, a respiração do Jonas sai da boca dele (nenhuma enquanto ele prende; baixa e dentro do armário quando ele está lá, com o mundo abafado), o armário range, racha no golpe e cai, e o ataque sai do cão. Cinco gravações novas em `assets/audio/sfx/`: `apto-fundo` (o fundo do apartamento, em laço: `ambiente-apto`), `jonas-respira-escondido` (`respiracao-escondido`), `cao-sensor-varre` (`sensor-varre`), `armario-golpe` (`armario-racha`) e `fim-de-jogo` (o som de **todo** fim de jogo, sem lugar). Os outros sons novos são sintetizados.
+- **Movimentos feitos à mão por enquanto** (poses, sem clipe novo): recuar ofegante, arremessar o pano, espreitar atrás do armário, empurrar o armário e forçar a porta. Os nomes que uma tomada de captura de movimento vai levar estão em `MOCAP`, em `src/systems/fuga.js`.
+- **O prédio é um cenário próprio**: `src/scenes/predio.js`, com o layout em `data/scenes/predio.json` (uma entidade por linha: a casca, a porta da rua, as caixas de correio, o balcão, o carrinho, o quadro de luz, a escada, as portas dos apartamentos, as caixas, a cozinha, o armário, os móveis cobertos, o pano, a janela, a escada de incêndio e as lâmpadas). `?editor=predio` abre o prédio sozinho, com o interior todo à mostra, para o editor de cenas escolher, mover e salvar cada coisa. A rua o põe inteiro como uma entidade só (`predio-fuga` de `data/scenes/rua.json`); o carro atravessado é `carro-fuga`. A fuga anda pela planta de `src/scenes/predio-plan.js`: o lugar do **armário** é lido do layout (sem girar); a casca, a porta da rua, a escada, a porta do apartamento, a janela e a escada de incêndio podem ser movidas no editor, mas o caminho da fuga continua o da planta.
+- **Modo filmagem**: a cutscene `fuga` (`src/cutscenes/fuga.js`, vistas em `fuga-views.js`): uma vista por quadro, `ato2`, `ato3`, `ato3-armario`, `ato4`, `inteira`, uma `erro-<quadro>` por comando errado (`erro-dentro` é o clipe do armário, já de dentro, pelas ripas) e, nos quadros com mais de uma câmera, `<quadro>-ombro`, `<quadro>-seguranca` e `<quadro>-cao`. `node tools/fuga/manifest.mjs` regrava as vistas no manifesto quando um quadro muda de duração.
+- **Ferramentas**: `tools/fuga/capture.mjs` (uma imagem por quadro, o vídeo da fuga pelo modo filmagem e o vídeo de um erro com a volta ao ponto salvo; `--miss dentro --direct` grava a morte dentro do armário começando lá dentro, em `fuga-erro-dentro.mp4`) e `tools/fuga/perf.mjs` (tempo de quadro por quadro da fuga, no computador e no celular emulado).
 
 ## Como se joga
 
@@ -151,6 +190,68 @@ Se nada chegar: confira o IP e que os dois aparelhos estão na mesma rede (rede 
 
 De onde vem o formato do pacote: a Epic não o documenta. O decodificador de `tools/capture/livelink.mjs` segue o do projeto público PyLiveLinkFace (https://github.com/JimWest/PyLiveLinkFace): versão (1 byte), id do aparelho e nome do sujeito (tamanho em `int32` big-endian e UTF-8), o tempo do quadro, a contagem (1 byte, 61) e 61 `float32` big-endian (os 52 do ARKit, `HeadYaw`, `HeadPitch`, `HeadRoll` e os olhos). Versão ou contagem diferentes são registradas no log e o pacote é lido pelos tamanhos. A documentação da Epic de configuração do app: https://dev.epicgames.com/documentation/en-us/unreal-engine/recording-face-animation-on-ios-device-in-unreal-engine. Ela só fala do IP do alvo; a **porta 11111 não está nessa página** (é a porta usual do Live Link; se o app usar outra, passe-a em `--livelink-port`). Não confirmei se `HeadYaw/Pitch/Roll` vêm em radianos nem o sinal do giro: se a cabeça girar demais ou de menos, ajuste `livelink.head.gain` e `yawSign` em `mapping.json`.
 
+## Movimento do corpo (de um vídeo para o Jonas)
+
+Para o Jonas fazer o que a pessoa atua (recuar de uma porta ofegando, jogar um pano, empurrar um armário, correr), sem traje de captura e sem pagar: a pessoa filma a cena com o celular, o detector de corpo do MediaPipe lê o vídeo **na própria página**, uma etapa em node limpa os números e um script do Blender os transforma num clipe no esqueleto do Jonas. Tudo roda na máquina; **só números** saem do vídeo (o vídeo não é enviado, copiado nem guardado, e nada disso vai para o repositório).
+
+```
+vídeo do celular ──(página de captura)──> <pasta>/<nome>.pose.json ──(process.mjs)──> tools/mocap/takes/<nome>.json ──(retarget.py)──> clipe <nome>
+```
+
+**Como filmar** (a qualidade do clipe depende quase toda daqui):
+
+1. Celular **em tripé, na altura do quadril**, parado (nada de mão, nada de zoom). A câmera de lado ou em três quartos (o corpo mostra os joelhos e os cotovelos dobrando); de frente o detector perde a profundidade e o Jonas sai achatado.
+2. **O corpo inteiro no quadro**, dos pés à cabeça, o tempo todo, com uns 30 cm de folga em volta. Se a ação anda, afaste o celular até caber o percurso, ou deixe a ação no lugar.
+3. Fundo liso e claro, boa luz (de dia, na janela), sem contraluz. **Roupa justa** e que contraste com o fundo: manga e calça largas escondem as dobras; sapato fechado e de cor diferente do chão.
+4. **30 ou 60 quadros por segundo** (60 pega melhor a corrida e o arremesso). Trave a exposição para o vídeo não pulsar.
+5. **Uma ação por tomada**, de 3 a 15 s. Comece com **1 s parado em pé**, de frente para a direção em que vai atuar, os braços soltos, e termine com **1 s parado**. Esse começo é o que o script usa para endireitar a câmera e saber para onde o corpo olha.
+6. Só uma pessoa no quadro. Nada na frente do corpo (mesa, armário) a não ser que seja a ação; o que cobre as pernas vira perna torta.
+
+**Rodar** (da pasta `sinal-de-vida/`):
+
+```bash
+# 1) a página de captura (a pasta fica fora do repositório)
+node tools/capture/server.mjs --out <pasta da captura> --script tools/capture/example-script.json
+#    abra http://localhost:8765, role até "Movimento do corpo", escolha o vídeo, confira os quadros/s
+#    (o campo é preenchido sozinho quando o navegador mede; senão, ponha o do vídeo) e clique em "Analisar o vídeo".
+#    Sai <pasta da captura>/<nome>.pose.json. "só o processador" é mais lento mas funciona em qualquer máquina.
+
+# 2) limpar: filtro, contatos dos pés, raiz, escala do Jonas (node puro, sem instalar nada)
+node tools/mocap/process.mjs <pasta da captura>/<nome>.pose.json --name <nome> [--trim 0.5,7.0] [--yaw 0] [--camera static|follow]
+
+# 3) um GLB de teste e o relatório (Blender 4.5, o mesmo do jonas.py)
+"$BLENDER" -b --factory-startup --python tools/mocap/retarget.py -- --take tools/mocap/takes/<nome>.json --name <nome> \
+    --glb assets/models/jonas.glb --out <pasta de saída>
+"$BLENDER" -b --factory-startup --python tools/mocap/preview.py -- --glb <pasta de saída>/<nome>.test.glb --out <pasta de quadros>   # PNG; ffmpeg junta
+```
+
+Opções do `process.mjs`: `--trim a,b` corta a tomada (segundos do vídeo), `--yaw g` gira o corpo de `g` graus se o Jonas começar olhando para o lado errado (de lado, o detector erra a profundidade e o começo pode vir virado), `--face camera` não vira o começo para a frente do Jonas (deixa como a câmera viu), `--camera follow` quando a câmera acompanhou a pessoa (a raiz sai só dos pés), `--fps 30` (a taxa do clipe), `--sigma 0.05` (segundos do filtro; suba para tirar tremor, desça para pegar golpes), `--no-level` e `--no-depth`. O relatório que ele imprime diz o que achou: inclinação da câmera, para onde o corpo olhava, escala, fração do tempo com cada pé no chão, metros andados. O `retarget.py` escreve o `<nome>.report.json` com o **deslizamento dos pés** (antes e depois de prender) e a altura dos pés apoiados.
+
+**Levar a tomada ao jogo** (o `jonas.glb` não é mexido por estas ferramentas):
+
+1. Veja o `<nome>.test.glb` (o Jonas sem os outros clipes, tocando o novo; abre no Blender, em qualquer visualizador de glTF, ou no `preview.py`) e refaça a tomada ou ajuste `--trim`, `--yaw` e `--sigma` até servir.
+2. Copie `tools/mocap/takes/<nome>.json` (o arquivo fica fora do repositório: `tools/mocap/.gitignore`) para a máquina que gera o modelo. O `tools/models/jonas.py` inclui as tomadas com **duas linhas**, depois dos jeitos de andar (`JG.build(...)`) e antes de apagar os vazios:
+   ```python
+   import importlib.util
+   spec = importlib.util.spec_from_file_location('mocap_retarget', os.path.join(os.path.dirname(__file__), '..', 'mocap', 'retarget.py'))
+   MR = importlib.util.module_from_spec(spec); spec.loader.exec_module(MR)
+   MR.add_takes(arm, ad, os.path.join(os.path.dirname(__file__), '..', 'mocap', 'takes'), log)   # um clipe por <nome>.json
+   ```
+   Cada `<nome>.json` vira o clipe `<nome>` em `jonas.glb` (uma faixa NLA, como os outros). Gere o modelo como sempre (`tools/models/README.md`).
+3. No jogo o clipe é tocado pelo nome, como `idle` ou `run`: `jonas.setPose({ action: '<nome>', at: segundos })` ou o mixer. O osso `root` leva o **percurso** (metros, no plano do chão: o corpo anda de verdade) e o `pelvis` a altura e o balanço; o clipe não gira o `root`. Uma cutscene que toca o clipe põe o Jonas no ponto de partida e deixa o percurso do clipe andar a partir dele (ou o zera, se a cutscene move o corpo). O clipe começa em pé, no 1 s parado da tomada, e termina parado.
+4. O `film-manifest.json` e o `sw.js` **não mudam** por causa das ferramentas (elas não fazem parte do jogo servido); só o `jonas.glb`, que o `sw.js` já guarda, ganha clipes (e o `CACHE` sobe, como sempre que o modelo muda).
+
+**O que limita a qualidade (e o que fazer):**
+
+- **Profundidade de uma câmera só.** O detector estima a distância de cada junta ao quadril pelo tamanho que ela tem na imagem e pelo que aprendeu de corpos; a coordenada ao longo do eixo da câmera é a pior (erro de alguns cm a mais de 10 cm). Por isso de lado vê-se bem o que vai e vem (passo, braço que balança) e mal o que abre para o lado. Em três quartos os dois erros se dividem. Duas câmeras dariam mais, não está feito.
+- **Pés.** Calcanhar e ponta do pé tremem e o chão não é medido: os contatos vêm da altura e da velocidade dos pés (na imagem e no mundo) e de uma regra de consenso entre os pés apoiados; o script prende o pé apoiado no chão **com as pernas do Jonas** (que são 90% e têm outras proporções) e o corpo desliza sobre o pé, não o contrário. Corrida (com instante no ar) e passos curtos são os mais frágeis; a altura do pulo vem da posição dos quadris na imagem. Um pé escondido atrás do outro (câmera de lado) engana o detector por alguns quadros.
+- **Mãos e dedos.** O detector dá só três pontos por mão (indicador, mindinho, polegar): o punho dobra um pouco, os dedos não existem na tomada, e o Jonas mantém a mão relaxada (`hand_relax`). Gesto fino (segurar o pano, agarrar o armário) tem de ser ajustado depois, à mão, ou pela pose das mãos do jogo.
+- **Torção do antebraço e da perna** só aparece quando o cotovelo ou o joelho dobram; braço esticado fica com a palma para o corpo.
+- **Cabeça**: orelhas e nariz dão o giro, mas olhar para baixo ou para o lado com a cabeça parada o detector não vê (o olhar do Jonas continua sendo do jogo).
+- **Roupa larga, mão na frente do corpo, objeto grande** (o armário, a porta) e **mais de uma pessoa** no quadro derrubam a confiança do detector: o `process.mjs` conta os quadros sem pessoa e preenche buracos de até meio segundo, e **se a tomada vier ruim, refilme**: é mais barato que consertar.
+
+**Licenças.** O **MediaPipe Pose Landmarker** (`pose_landmarker_full`, `heavy` e `lite`, de `storage.googleapis.com/mediapipe-models/`) e a biblioteca `@mediapipe/tasks-vision@0.10.21` são Apache-2.0 (a licença da biblioteca é a do repositório `google-ai-edge/mediapipe`; os modelos têm "model card" próprio, que declara a Apache-2.0 para o Pose Landmarker). Eles são carregados pela página em tempo de uso, das mesmas CDNs do rosto, e não ficam no repositório. O que sai (os números e o clipe) é da pessoa que atuou. O `process.mjs` e o `retarget.py` não têm dependências (node e o Python do Blender).
+
 ## Desempenho
 
 Não há régua de triângulos nem de tamanho por modelo: o que vale é o **tempo de quadro medido no jogo**. A meta é 60 quadros por segundo no computador e 30 no celular.
@@ -191,3 +292,5 @@ node --test
 `node --test` (sem argumento) roda os arquivos de `test/`; `npm test` faz o mesmo (`package.json`). No Node 26, `node --test test/` com a pasta como argumento falha (ele a trata como um arquivo), por isso o comando é sem argumento. Um arquivo só: `node --test test/core.test.mjs`. Os testes de navegador (`test/browser.test.mjs`) só rodam com `PLAYWRIGHT_CORE=<pasta do playwright-core>` (e `CHROME`, o executável); com `CAPTURES_DIR=<pasta>` salvam as imagens das cenas (`faseB-*.png`).
 
 `test/core.test.mjs` refaz, com o sistema de verdade (a conversa, a Escuta, a confiança, o diretor), as contas do design com as **conversas reais** e os tamanhos das gravações (a chamada das 22h é a `n1-chamada`, não uma fixture): o cuidadoso que sai agora fecha a noite 1 em **33** (14 depois da chamada; o design contava 37, com uns 4 da rua que o cuidadoso ainda paga), o cuidadoso que **espera** (+18) fecha em **52** (50 ou mais: o cão aparece na grade no corte), o descuidado dá 19, 35, 42, 46, 70 e **76** (a noite 2 abre em 66), e as de calar dão 19, **34**, 56 e **73**; a marca, sair do rádio, o teclado de cores, a senha, a reação rápida, os planos, e na fase B: que **nenhum tamanho de fala está escrito nos dados** (vêm de `durations.json` e `marcas.json`), que toda voz que a história cita existe e tem tamanho, que as seis cenas da noite 1 estão em dados e só usam beats e pontos que existem, as regras da rua (`street.js`), a emenda, as cores do cão quebrado contra o hash do teclado de cores, e uma varredura que garante que nem a sequência de S3 nem a frase de S1 aparecem no repositório (a varredura confere por hash: 12 bits de um hash com sal de cada resposta filtram as janelas de palavras, e só as que passam são conferidas pelo PBKDF2 de verdade; nada legível), a despedida da chamada derrubada, o ramo "não contar" calando no último turno e o cão passando longe no corte de menos de 50. `test/browser.test.mjs` joga a **noite 1 inteira**, da Nova partida ao cartão com o bloco 13 quebrado (teclado e mouse), as quatro saídas da cena 6, a caçamba, a morte e o recomeço, a demonstração, que **cada fala toca uma vez** na noite inteira (espiando `voices.play`), o visor com o campo da senha piscando, uma linha de texto por vez e a grade da primeira cutscene como geometria, também no modo filmagem; `test/capture.test.mjs` cobre a captura do rosto.
+
+`test/fuga.test.mjs` é a fuga pelo prédio: os tipos de comando novos (`beat`, mira lenta, ficar parado, segurar a respiração, a escolha de três caminhos e a armadilha), a chave da escolha da caçamba, os quadros com a câmera de cada um e os caminhos da escolha, uma execução perfeita como função pura do tempo (sem saltos, planos fixos parados, no máximo 3 mudanças de luz por segundo, o Jonas dentro das paredes e sobre os degraus, o recuo ofegante diante do vidro, o pano no sensor, o armário tombado, o último plano na câmera da primeira cutscene), cada comando errado terminando no ataque, a planta do prédio e o layout dele, e as vistas do modo filmagem no manifesto (com as câmeras alternativas). Com o navegador: a emenda que agora termina na corrida (e o erro que volta ao começo da emenda), `?cacamba=keep`, a fuga inteira pelo teclado até a cena do rádio, um erro no trecho de cada ponto salvo com a volta a ele, os três caminhos do apartamento (o pano, o armário, a armadilha) e `?cam=`, o prédio respondendo (porta, vidro, armário, janela, degrau, escada de mão, folha da grade; câmera lenta só no salto), a fuga jogando sozinha com a reação desligada, o toque num celular, o controle e o modo filmagem na página. Os testes antigos da escolha da caçamba (`test/emenda-morte.test.mjs` e parte de `test/browser.test.mjs`) rodam com `cacamba=keep`.

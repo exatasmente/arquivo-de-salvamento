@@ -22,6 +22,7 @@ por `tools/models/jonas.py`.
 
 - **Vozes da noite 1** (`assets/audio/n1/`): síntese de voz (ElevenLabs), a partir do roteiro do próprio projeto (`data/story/falas-noite1.json`).
 - **Efeitos sonoros** (`assets/audio/sfx/`): gerados para este jogo com o ElevenLabs Sound Effects (modelo `eleven_text_to_sound_v3`), a partir de descrições escritas no próprio projeto (`tools/sfx/prompts.json`); depois cortados, nivelados e codificados por `tools/sfx/process.mjs`. São os passos, o cabo, a isca, o rádio, a interface, a reação rápida, os impactos, o fundo dos cães e os quatro ambientes (rua, estação, poço, escada de prédio). Não há música nem voz nesses arquivos. Os sons que não têm gravação (e o som do cão-robô, que segue o aprovado) são sintetizados ao vivo por código.
+- **Efeitos sonoros da fuga pelo prédio** (`apto-fundo`, `jonas-respira-escondido`, `cao-sensor-varre`, `armario-golpe` e `fim-de-jogo`, em `assets/audio/sfx/`): gerados para este jogo com o ElevenLabs Sound Effects, no plano pago da conta do projeto, em 2026-11-23, a partir de descrições escritas no próprio projeto (`tools/sfx/fuga-cues.json`); depois foram postos em mono, 48 kHz, no nível dos outros efeitos, e o fundo do apartamento foi fechado em laço com uma fusão de 1 s.
 - **Vozes da cena de teste do rádio** (`assets/audio/cena-radio.mp3`): as duas vozes são de síntese de voz (ElevenLabs), a partir de um texto do próprio projeto; o filtro de rádio e o chiado foram feitos na mistura.
 
 ## A cidade (a rua)

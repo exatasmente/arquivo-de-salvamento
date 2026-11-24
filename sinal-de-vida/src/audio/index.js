@@ -30,6 +30,17 @@ const ONE = {
   // The flashlight switch and the cut of the camera: two small ticks.
   lanterna: ({ K, t }) => { K.tick(t, { g: 0.35, f0: 1800 }); K.tone(t + 0.012, 0.05, { type: 'square', f0: 240, f1: 160, g: 0.08, lp: 900 }); return 0.1; },
   corte: ({ K, t }) => { K.tick(t, { g: 0.2, f0: 3000 }); return 0.05; },
+  // the chase in his eyes: his breath as he runs (two gusts of air) and his heart while he hides (two low beats)
+  respiracao: ({ K, t }) => { K.noise(t, 0.34, { type: 'bandpass', f0: 1100, q: 0.9, g: 0.16, att: 0.09 }); K.noise(t + 0.42, 0.4, { type: 'bandpass', f0: 800, q: 0.8, g: 0.2, att: 0.12 }); return 0.85; },
+  // the dog's sensor sweeping a room (a thin tone that goes up and comes back), and the cupboard: its door, its wood creaking, splitting under a blow, and going over
+  'sensor-varre': ({ K, t }) => { K.tone(t, 0.32, { f0: 940, f1: 1480, g: 0.07, att: 0.05 }); K.tone(t + 0.34, 0.3, { f0: 1480, f1: 900, g: 0.06, att: 0.05 }); return 0.7; },
+  'armario-abre': ({ K, t }) => { K.tone(t, 0.26, { f0: 310, f1: 190, g: 0.1, att: 0.04 }); K.noise(t + 0.02, 0.2, { type: 'bandpass', f0: 1700, q: 3, g: 0.07, att: 0.03 }); return 0.35; },
+  'armario-fecha': ({ K, t }) => { K.tone(t, 0.07, { f0: 150, f1: 80, g: 0.4, att: 0.003 }); K.noise(t, 0.05, { type: 'bandpass', f0: 2300, q: 1.2, g: 0.2, att: 0.002 }); return 0.2; },
+  'armario-range': ({ K, t, r }) => { const f = 210 + r() * 60; K.tone(t, 0.42, { f0: f, f1: f * 1.35, g: 0.08, att: 0.08 }); K.tone(t + 0.05, 0.36, { f0: f * 2.02, f1: f * 2.6, g: 0.03, att: 0.08 }); return 0.5; },
+  'armario-racha': ({ K, t, r }) => { for (let i = 0; i < 5; i++) K.noise(t + i * 0.035 + r() * 0.02, 0.05, { type: 'bandpass', f0: 1400 + r() * 2600, q: 1.5, g: 0.34 - i * 0.04, att: 0.002 }); K.tone(t, 0.16, { f0: 190, f1: 70, g: 0.5, att: 0.003 }); return 0.4; },
+  'armario-cai': ({ K, t, r }) => { K.tone(t, 0.3, { f0: 96, f1: 38, g: 0.8, att: 0.004 }); K.noise(t, 0.22, { type: 'lowpass', f0: 900, q: 0.7, g: 0.45, att: 0.004 }); for (let i = 0; i < 3; i++) K.noise(t + 0.08 + i * 0.07 + r() * 0.03, 0.06, { type: 'bandpass', f0: 1200 + r() * 1800, q: 1.4, g: 0.16, att: 0.003 }); return 0.6; },
+  'respiracao-escondido': ({ K, t }) => { K.noise(t, 0.3, { type: 'bandpass', f0: 900, q: 0.9, g: 0.08, att: 0.1 }); K.noise(t + 0.5, 0.34, { type: 'bandpass', f0: 700, q: 0.8, g: 0.09, att: 0.12 }); return 0.9; },
+  coracao: ({ K, t }) => { K.tone(t, 0.11, { f0: 62, f1: 44, g: 0.5, att: 0.006 }); K.tone(t + 0.24, 0.13, { f0: 54, f1: 38, g: 0.36, att: 0.006 }); return 0.4; },
   // A rope pulled hand over hand: a creak and the rub of fibre.
   corda: ({ K, t, r }) => { K.noise(t, 0.3, { kind: 'pink', type: 'bandpass', f0: 1400 + r() * 300, q: 2.5, g: 0.16, att: 0.04 }); K.tone(t, 0.28, { type: 'sawtooth', f0: 150 + r() * 30, f1: 120, g: 0.05, lp: 500, att: 0.05 }); return 0.32; },
   // The manhole cover and the climb ending: a dull knock.
@@ -117,6 +128,12 @@ const LOOPS = {
     K.tone(t, dur, { type: 'sine', f0: 150, g: 0.012, att: 0.6, sus: 1 });
     for (let at = t + 2 + r() * 4; at < t + dur - 1; at += 6 + r() * 6) { K.tone(at, 0.2, { type: 'sine', f0: 80, f1: 45, g: 0.07, att: 0.004 }); K.noise(at, 0.12, { kind: 'brown', type: 'lowpass', f0: 300, g: 0.06, att: 0.003 }); }
   },
+  'ambiente-apto': ({ K, t, r, dur }) => {
+    K.noise(t, dur, { kind: 'brown', type: 'lowpass', f0: 200, g: 0.14, att: 0.6, sus: 1 });
+    K.tone(t, dur, { type: 'sine', f0: 100, g: 0.03, att: 0.6, sus: 1 });
+    K.tone(t, dur, { type: 'sine', f0: 150, g: 0.012, att: 0.6, sus: 1 });
+    for (let at = t + 2 + r() * 4; at < t + dur - 1; at += 6 + r() * 6) { K.tone(at, 0.2, { type: 'sine', f0: 80, f1: 45, g: 0.07, att: 0.004 }); K.noise(at, 0.12, { kind: 'brown', type: 'lowpass', f0: 300, g: 0.06, att: 0.003 }); }
+  },
   // The street: wind in gusts over a bed, and the low hum of some machine far down the avenue.
   'ambiente-rua': ({ K, t, r, dur }) => {
     K.noise(t, dur, { kind: 'pink', type: 'lowpass', f0: 240, g: 0.11, att: 0.6, sus: 1 });
@@ -162,7 +179,7 @@ export const NAMES = [...Object.keys(ONE), ...Object.keys(LOOPS), ...MACHINE_NAM
 /** The names the scene editor offers for a sound source ('ouvinte' puts the listener, in the video's render: it is not a sound). */
 export const SOUND_NAMES = NAMES.filter((n) => n !== 'ouvinte');
 /** The sounds that have no room of their own around them (the interface, the beeps, the radio's own noise): their reverb send is 0. */
-const DRY = new Set(['ui-ok', 'ui-move', 'ui-no', 'ui-voltar', 'ui-aba', 'ui-fader', 'bip', 'blip', 'cor', 'cartao', 'ouvido', 'corte', 'lanterna', 'chiado', 'camera-lenta', 'fim-de-jogo', 'ambiente', 'ambiente-rua', 'ambiente-poco', 'ambiente-predio']);
+const DRY = new Set(['ui-ok', 'ui-move', 'ui-no', 'ui-voltar', 'ui-aba', 'ui-fader', 'bip', 'blip', 'cor', 'cartao', 'ouvido', 'corte', 'lanterna', 'chiado', 'camera-lenta', 'fim-de-jogo', 'ambiente', 'ambiente-rua', 'ambiente-poco', 'ambiente-predio', 'ambiente-apto']);
 
 /** The context of the game: 48 kHz, so nothing is cut at 11 kHz (and the recorded voices play at the band they were recorded in). */
 export function createAudioContext() {

@@ -1,0 +1,4 @@
+{
+  "comment": "A fuga pelo prédio (noite 1, cena 4). escolhaCacamba: 'remove' (decisão da pessoa, 2026-11-23): o cão bate na caçamba e a fuga começa; 'keep' devolve a escolha desorientar/desativar ao lado da caçamba, sem fuga.",
+  "escolhaCacamba": "remove"
+}

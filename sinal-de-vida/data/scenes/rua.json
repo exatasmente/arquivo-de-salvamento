@@ -69,6 +69,8 @@
     {"id":"predio-s4","type":"predio","pos":[19.5,0,18],"rot":[0,3.142,0],"scale":[1,1,1],"params":{"largura":9,"profundidade":13,"andares":4,"semente":5175,"fachada":"concreto","cor":"#94a0a4","letreiro":"vialume","marquise":false,"luzes":0.08}},
     {"id":"predio-s5","type":"predio","pos":[33.5,0,22],"rot":[0,3.142,0],"scale":[1,1,1],"params":{"largura":15,"profundidade":21,"andares":11,"semente":6585,"fachada":"vidro","cor":"#9a9894","letreiro":"entrega","marquise":false,"luzes":0.1}},
     {"id":"predio-s6","type":"predio","pos":[50.5,0,20.5],"rot":[0,3.142,0],"scale":[1,1,1],"params":{"largura":15,"profundidade":18,"andares":5,"semente":4492,"fachada":"concreto","cor":"#94a0a4","letreiro":"vialume","marquise":false,"luzes":0.04}},
+    {"id":"predio-fuga","type":"predioFuga","pos":[-12,0,-17.6],"rot":[0,0,0],"scale":[1,1,1],"params":{}},
+    {"id":"carro-fuga","type":"carro","pos":[-16.6,0,0],"rot":[0,1.25,0],"scale":[1,1,1],"params":{"tipo":"sedan","cor":"#6a6a70","luzes":false,"porta":true}},
     {"id":"carro-1","type":"carro","pos":[-27.42,0,4.97],"rot":[0,1.579,0],"scale":[1,1,1],"params":{"tipo":"van","cor":"#5a6a5a","luzes":false,"porta":false}},
     {"id":"carro-2","type":"carro","pos":[-21.45,0,4.99],"rot":[0,1.546,0],"scale":[1,1,1],"params":{"tipo":"sedan","cor":"#5a6a5a","luzes":false,"porta":false}},
     {"id":"carro-3","type":"carro","pos":[10.55,0,5],"rot":[0,1.549,0],"scale":[1,1,1],"params":{"tipo":"furgao","cor":"#9a8a6a","luzes":false,"porta":false}},

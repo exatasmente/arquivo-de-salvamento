@@ -271,10 +271,10 @@ export function createMachines({ r, scene, bus, seed = 1, audio = null, buildDog
       for (const d of dogs) {
         const P = d.puppet;
         if (P) { d.pos = [P.pos[0], P.pos[1]]; d.yaw = P.yaw ?? d.yaw; d.speed = P.speed ?? 0; }
-        const hex = P?.sensor ?? sensorOf(d), y = (scene?.ground?.(d.pos[0], d.pos[1]) ?? 0) + (P?.y ?? 0);
+        const hex = P?.sensor ?? sensorOf(d), y = (P?.h ?? scene?.ground?.(d.pos[0], d.pos[1]) ?? 0) + (P?.y ?? 0);      // (`h`: the floor it stands on, when the story has it off the street: a stair, a landing)
         d.model.root.position.set(d.pos[0], y, d.pos[1]);
         d.model.root.rotation.order = 'YXZ'; d.model.root.rotation.y = d.yaw; d.model.root.rotation.x = P?.pitch ?? 0;
-        d.model.update(dt, { speed: d.speed, state: P ? (P.state ?? 'desconfiada') : d.state === 'down' ? 'search' : d.state, sensorColor: P && !P.sensor ? null : hex, sensorHex: hexNum(hex), look: P?.look, action: P?.action ?? null });
+        d.model.update(dt, { speed: d.speed, state: P ? (P.state ?? 'desconfiada') : d.state === 'down' ? 'search' : d.state, sensorColor: P && !P.sensor ? null : hex, sensorHex: hexNum(hex), look: P?.look, action: P?.action ?? null, lift: P?.y ?? 0 });
       }
     },
     /** The story sends a dog to look at a point (`target`): a dog in a chase is left alone. Returns whether it went. */

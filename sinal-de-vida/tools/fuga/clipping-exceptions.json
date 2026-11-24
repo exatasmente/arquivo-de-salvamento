@@ -1,0 +1,6 @@
+[
+ {
+  "match": "^(entra|dentro|achado):jonas<>armario$",
+  "reason": "He is inside the cupboard: that is the trap of the flat (he goes in by its open door and kneels in it)."
+ }
+]

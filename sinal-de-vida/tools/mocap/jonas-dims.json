@@ -1,0 +1,7 @@
+{
+  "note": "Measured on assets/models/jonas.glb (legs at 90%): thigh + calf, joint to joint, the standing height of the hip joint, the pelvis bone and the lowest point of the feet at rest. retarget.py checks these against the armature it works on and warns if they differ.",
+  "leg": 0.7995,
+  "hipJointZ": 0.874,
+  "pelvisZ": 0.854,
+  "footRestLow": 0.014
+}

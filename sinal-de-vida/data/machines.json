@@ -1,5 +1,5 @@
 {
-  "_nota": "Numeros da furtividade (fase 2). Distancias em metros, tempos em segundos do jogo, velocidades em m/s. O jogador anda 2,6, corre 4,8 e agachado anda 1,35.",
+  "_nota": "Numeros da furtividade (fase 2). Distancias em metros, tempos em segundos do jogo, velocidades em m/s. O jogador anda 1,55 (andar ligeiro), corre 4,8 e agachado anda 1,0; leva um instante para ganhar e perder velocidade.",
   "noise": {
     "_nota": "loud de 0 a 1; o raio de escuta do cao e loud x dog.hearRadius. Parado nao faz barulho.",
     "step":  { "walk": 0.22, "crouch": 0.04, "run": 0.75 },

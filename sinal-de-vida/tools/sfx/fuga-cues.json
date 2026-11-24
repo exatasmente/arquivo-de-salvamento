@@ -1,0 +1,32 @@
+[
+ {
+  "id": "apto-fundo",
+  "seconds": 10,
+  "loop": true,
+  "prompt": "Interior of an empty abandoned apartment building at night, very quiet low room tone, faint distant ventilation hum, tiny creaks of old wood, muffled, no music, no voices"
+ },
+ {
+  "id": "jonas-respira-escondido",
+  "seconds": 4,
+  "loop": false,
+  "prompt": "A frightened man holding his breath hidden inside a wooden wardrobe, a few short shaky quiet breaths through the nose then silence, close-miked, muffled by wood, no music, no speech"
+ },
+ {
+  "id": "cao-sensor-varre",
+  "seconds": 3,
+  "loop": false,
+  "prompt": "A robot sensor scanning, electronic rising sweep with a few soft digital pings, mechanical servo head turning, then a short higher-pitched lock-on beep, no music"
+ },
+ {
+  "id": "armario-golpe",
+  "seconds": 3,
+  "loop": false,
+  "prompt": "A heavy robot dog smashes through a wooden wardrobe door, wood splintering and cracking violently, hard metal impact, a wet heavy body hit and a body falling on a wooden floor, a short pained grunt, no music"
+ },
+ {
+  "id": "fim-de-jogo",
+  "seconds": 3,
+  "loop": false,
+  "prompt": "Dark cinematic game over sting, a low deep sub drone swelling and fading with a faint distorted heartbeat flatline tone, no music melody, no voices"
+ }
+]

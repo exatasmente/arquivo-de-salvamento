@@ -766,5 +766,64 @@
     0.165
    ]
   ]
+ },
+ "apto-fundo": {
+  "file": "apto-fundo.mp3",
+  "loop": true,
+  "dur": 9.024,
+  "channels": 1,
+  "gain_db": 16
+ },
+ "jonas-respira-escondido": {
+  "file": "jonas-respira-escondido.mp3",
+  "loop": false,
+  "dur": 4.032,
+  "channels": 1,
+  "gain_db": 22,
+  "slices": [
+   [
+    0.03,
+    4.002
+   ]
+  ]
+ },
+ "cao-sensor-varre": {
+  "file": "cao-sensor-varre.mp3",
+  "loop": false,
+  "dur": 3.024,
+  "channels": 1,
+  "gain_db": 3,
+  "slices": [
+   [
+    0.03,
+    2.994
+   ]
+  ]
+ },
+ "armario-golpe": {
+  "file": "armario-golpe.mp3",
+  "loop": false,
+  "dur": 3.024,
+  "channels": 1,
+  "gain_db": -2.3,
+  "slices": [
+   [
+    0.03,
+    2.994
+   ]
+  ]
+ },
+ "fim-de-jogo": {
+  "file": "fim-de-jogo.mp3",
+  "loop": false,
+  "dur": 3.024,
+  "channels": 1,
+  "gain_db": -5,
+  "slices": [
+   [
+    0.03,
+    2.994
+   ]
+  ]
  }
 }

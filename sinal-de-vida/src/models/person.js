@@ -341,6 +341,8 @@ export function buildPerson(r, { seed = 1, role = 'pessoa', pack = false } = {})
     compose(lastLoco);
   };
   api.setPose({});
+  /** Metres one cycle of the gait carries the person ({ walk, run, crouch } as setPose takes them), the same the update steps by. */
+  api.stride = (g = {}) => (1.5 - 0.5 * clamp01(g.crouch ?? 0)) * (1 + clamp01(g.run ?? 0) * 0.6);
 
   if (modelIfReady(FILE_LOD)) attach(modelIfReady(FILE_LOD), 'low'); else loadingLod.then((g) => { if (g) attach(g, 'low'); });
   if (modelIfReady(FILE)) attach(modelIfReady(FILE), 'high'); else loading.then((g) => { if (g) attach(g, 'high'); });

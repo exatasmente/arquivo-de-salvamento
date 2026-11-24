@@ -65,6 +65,29 @@ O gradiente suave de cada vértice viaja como UV numa rampa de 128x16 px que o j
 - **Animação.** As bibliotecas CC0 e dois clipes da CMU retargetados (`retarget.py`: `mancar` e `esconder`), mais poses aditivas:
   `hand_relax`, `tired` (cansado, mas de cabeça erguida), `stance` (parado, os pés vêm para baixo do corpo e os braços caem: o `idle` da
   biblioteca é de lutador), `sit_hands` e `radio_low` (sentado à mesa; a mão do rádio desce da orelha para a boca).
+  `esquivar` é o `Roll` da UAL1 (a esquiva da cena 4: mergulho e rolamento sobre o ombro; o jogo corta quando ele está agachado). Os
+  clipes que pisam no chão (`GROUNDED`) são assentados por `ground_clip`: o quadril desce ou sobe até o pé mais baixo do clipe tocar onde
+  o pé fica em repouso (com as pernas encurtadas, o agachado da biblioteca ficava 4 cm acima do chão). A medida liga o slot da ação e
+  desliga o NLA: no Blender 4.4+ uma ação sem slot não anima, e as faixas já postas preenchem os ossos que o clipe não tem.
+- **Jeitos de andar** (`jonas_gait.py`, chamado pelo `jonas.py`). A biblioteca só tem um andar lento, um trote de passada longa e um
+  agachado lento, e nenhum clipe de virar, começar ou parar. O script faz, a partir deles, os clipes que o jogo toca, cada um para a
+  velocidade em que é tocado (as mesmas de `src/systems/player.js`):
+  - os ciclos `walk` (1,1 m/s), `brisk` (o manche inteiro, 1,55 m/s: o andar da biblioteca com a passada 19% mais longa e o passo mais
+    rápido, os braços balançando mais), `run` (o trote na duração original da biblioteca, 4,8 m/s) e `crouch_walk` (1,0 m/s). Todos
+    começam onde o pé esquerdo pousa; o pé que carrega o corpo é preso (vai para trás em linha reta na velocidade do clipe) e as pernas
+    são resolvidas de novo (IK de dois ossos), com o quadril descendo onde a perna não alcança. A passada vem do root motion da
+    biblioteca (`UAL1_Standard_RM.glb`) vezes o encurtamento das pernas;
+  - `walk_start`, `crouch_start` (de parado até o ciclo, na aceleração do controle), `walk_stop_0..3`, `crouch_stop_0..3` (do ciclo até
+    parado, um para cada quarto do ciclo) e `turn_l45` ... `turn_r180`, `crouch_turn_...` (virar no lugar em passos, 45 a 180 graus para
+    cada lado), com os pés presos no mundo quadro a quadro.
+  - `jog` (3,2 m/s: a corrida com metade da passada, para a corrida ofegante dentro do prédio) e os ciclos de escada
+    `stairs_up_run`, `stairs_up_walk`, `stairs_down_run`, `stairs_down_walk`: feitos no plano, a partir do andar (numa escada sempre há
+    um pé no chão), com a passada de uma escada de degraus de 0,30 m (dois degraus por passo correndo, um andando), o tronco para dentro
+    da subida. O jogo os anda pelos degraus percorridos e põe cada pé na altura do próprio degrau (`src/models/plant.js`, `terrain`).
+    Os nomes dizem o que ele faz, não de onde veio o movimento: uma tomada de captura pode substituir qualquer um com o mesmo nome.
+  Cada clipe leva no osso `root` o que o jogo lê e não toca: os metros andados (para a frente), a virada (em torno do vertical), a fase
+  do ciclo (a altura do osso) e quais pés carregam o corpo (o deslocamento lateral: 1 esquerdo, 2 direito, 3 os dois). O log escreve,
+  por clipe, quanto o pé foi corrigido, quanto o quadril desceu e quanto um pé no chão ainda se mexe.
 
 Os pacotes e as imagens ficam fora do repositório:
 

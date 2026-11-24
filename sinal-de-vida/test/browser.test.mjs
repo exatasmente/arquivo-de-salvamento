@@ -259,12 +259,16 @@ const answer = async (page, i, seconds) => {
  * `stopAt`: a kind to stop at, with the sequence on it.)
  */
 async function perform(page, { miss = [], max = 700, choice = 'quiet', stopAt = null } = {}) {
-  const kinds = []; let held = false, n = 0;
+  const kinds = []; let held = false, n = 0, aiming = false;
   const key = async (k, down) => { await (down ? page.keyboard.down(k) : page.keyboard.up(k)); };
   for (let i = 0; i < max; i++) {
-    const v = await page.evaluate(() => { const S = window.__game.st.seq; if (!S) return null; const w = S.sq.view(); return { kind: w.kind, gap: w.gap, over: w.over, el: w.el, want: w.want, active: w.active, outcome: w.outcome, i: w.i, fatal: w.fatal }; });
+    const v = await page.evaluate(() => { const S = window.__game.st.seq; if (!S) return null; const w = S.sq.view(); return { kind: w.kind, gap: w.gap, over: w.over, el: w.el, want: w.want, active: w.active, outcome: w.outcome, i: w.i, fatal: w.fatal, aim: w.aim, zone: w.zone }; });
     if (!v) break;
     if (stopAt && v.kind === stopAt && !v.gap) break;
+    // (the chase's slow aim: the pointer pushed to the middle of its zone, then let go)
+    const push = v.kind === 'aim' && !v.gap && !v.over && v.aim < (v.zone[0] + v.zone[1]) / 2; if (push !== aiming) { aiming = push; await key('KeyD', aiming); }
+    if (v.kind === 'aim' && !v.gap && !v.over && !push) { await key('KeyE', true); await step(page, 2); await key('KeyE', false); }
+    if (v.kind === 'choose' && !v.gap && !v.over && v.el > 0.4) { await key('ArrowRight', true); await step(page, 2); await key('ArrowRight', false); }      // (the chase's choice in the flat: the sheet)
     if (v.kind && !v.gap && !v.over && kinds.at(-1) !== v.kind) kinds.push(v.kind);
     const want = v.kind === 'hold' && !v.gap && !miss.includes('hold');
     if (want !== held) { held = want; await key('KeyE', held); }
@@ -340,12 +344,12 @@ test('the night 1, from the new game to the card: the six scenes, the decisions,
     assert.equal(await page.evaluate(() => window.__game.st.seq.phase), 'cine'); await step(page, 200); await snap(page, 'cena4-emenda-cinematica');
     await hold(page, 'Escape', 70);
     assert.equal(await page.evaluate(() => window.__game.st.seq.phase), 'act'); await snap(page, 'cena4-emenda-segurar');
-    assert.deepEqual((await perform(page)).kinds, ['hold', 'dir', 'pick', 'hold', 'mash', 'press'], JSON.stringify(await page.evaluate(() => ({ seq: Boolean(window.__game.st.seq), esc: window.__game.escuta.value }))));
+    // (the choice by the skip is out, 2026-11-23: with the dog against the skip he runs, and the chase through the building takes him back down the shaft)
+    const done = await perform(page, { max: 3200 });
+    assert.deepEqual(done.kinds.filter((k) => k !== 'beat').slice(0, 3), ['hold', 'dir', 'press'], JSON.stringify(await page.evaluate(() => ({ seq: Boolean(window.__game.st.seq), esc: window.__game.escuta.value }))));
+    assert.deepEqual([...new Set(done.kinds)].sort(), ['aim', 'beat', 'choose', 'dir', 'hold', 'mash', 'press', 'still'], 'the chase asked for every kind of command');
     await step(page, 10);
-    assert.equal(await page.evaluate(() => window.__game.player.hidden), 'cacamba', 'the quiet way: he is in the skip'); await hold(page, 'KeyE', 4); await step(page, 30);        // (and gets out of it to go on)
-    assert.equal(await page.evaluate(() => window.__game.player.hidden), null);
-    assert.match(await goalOf(page), /poço/, JSON.stringify(await page.evaluate(() => ({ scene: window.__game.run.scene, pocket: window.__game.run.pocket, wait: window.__game.director.waitName, sp: window.__game.street?.street.splice, pos: window.__game.player.pos, esc: window.__game.escuta.value }))));
-    await place(page, -1.2, 8.3, 3.14); await hold(page, 'KeyE', 100); await step(page, 30);
+    assert.equal(await page.evaluate(() => Boolean(window.__game.st.seq)), false, 'the chase ended');
     assert.equal(await page.evaluate(() => window.__game.st.scene.id), 'n1-radio'); await ready(page);
     // 5. the radio: Lia's message, the channel 47, the recording of the dam, the call with the operator (the careless way: telling)
     await sitAtRadio(page); await step(page, 300);
@@ -629,7 +633,7 @@ test('the broken dog lying on the pavement is a body: Jonas walks against it and
 
 // ---- câmera e ação variadas: the scene 4 (the avenue) over the shoulder, and the splice as a sequence of action ---------------------------------------------
 /** Opens the avenue, makes the story wait for the splice and puts Jonas at the cut with the button held until the cutscene of the dog starts. */
-async function toSplice(page, open, query = '?cena=n1-saida&sair=agora&semente=7&emenda=cheia') {
+async function toSplice(page, open, query = '?cena=n1-saida&sair=agora&semente=7&emenda=cheia&cacamba=keep') {
   await open(query); await ready(page);
   for (let i = 0; i < 8 && (await page.evaluate(() => window.__game.director.waitName)) !== 'saida-emenda'; i++) { await page.evaluate(() => { const G = window.__game; G.director.signal('isca'); G.test.teleport(-13.3, 7.0); }); await step(page, 400); }
   assert.equal(await page.evaluate(() => window.__game.director.waitName), 'saida-emenda');
@@ -661,7 +665,8 @@ test('over the shoulder in the street: the camera is behind and above him, never
     assert.ok(lim > 1.0 && lim < 1.5, `free but limited (${lim.toFixed(2)} rad)`);
     // the stick walks relative to the camera: W goes where the camera looks
     await place(page, -1.2, 8.1, 1.5708); await page.evaluate(() => window.__game.cam.place(0)); await step(page, 3);        // the camera looks north, the body west
-    await page.keyboard.down('KeyW'); await step(page, 60); await page.keyboard.up('KeyW');
+    // (2026-11-19: he first turns on the spot to face the way, a quarter turn in half a second, then walks at 1.55 m/s: two seconds of it)
+    await page.keyboard.down('KeyW'); await step(page, 120); await page.keyboard.up('KeyW');
     const pos = await page.evaluate(() => window.__game.player.pos); assert.ok(pos[1] < 7.2 && Math.abs(pos[0] + 1.2) < 0.4, `W went north, as the camera looks (${pos})`);
     // hiding in the skip: the camera comes close and low
     await place(page, -13.2, 6.4, 3.14); await page.evaluate(() => window.__game.cam.place(3.14)); await step(page, 5); await press(page, 'KeyE');
@@ -704,7 +709,7 @@ test('the cutscene of the dog arriving can be skipped (Esc held 1 s, Start, or t
     assert.deepEqual(v, { phase: 'act', kind: 'hold', first: true, total: 4.4, ctx: 'walk', bars: true });
   });
   await withGame(async ({ page, open }) => {
-    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia'); await ready(page);
+    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia&cacamba=keep'); await ready(page);
     for (let i = 0; i < 8 && (await page.evaluate(() => window.__game.director.waitName)) !== 'saida-emenda'; i++) { await page.evaluate(() => { const G = window.__game; G.director.signal('isca'); G.test.teleport(-13.3, 7.0); }); await step(page, 400); }
     await place(page, -13.3, 7.0, 3.14);
     await page.evaluate(() => { window.__game.input.S.press.down = true; }); await until(page, () => Boolean(window.__game.st.seq), 40); await page.evaluate(() => { window.__game.input.S.press.down = false; });
@@ -749,7 +754,7 @@ test('accessibility: "mais tempo" doubles the windows of every kind, "desligada"
     assert.equal(await page.evaluate(() => window.__game.st.seq.sq.view().total), 8.8, 'the first hold has four times the base');
   });
   await withGame(async ({ page, open }) => {
-    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia'); await ready(page);
+    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia&cacamba=keep'); await ready(page);
     await page.evaluate(() => { window.__game.options.quick = 'off'; });
     for (let i = 0; i < 8 && (await page.evaluate(() => window.__game.director.waitName)) !== 'saida-emenda'; i++) { await page.evaluate(() => { const G = window.__game; G.director.signal('isca'); G.test.teleport(-13.3, 7.0); }); await step(page, 400); }
     await place(page, -13.3, 7.0, 3.14); await page.keyboard.down('KeyE'); await until(page, () => Boolean(window.__game.st.seq), 40); await page.keyboard.up('KeyE');
@@ -801,7 +806,7 @@ test('when the decoy took the dog far off, the sequence is shorter and easier: t
 
 test('touch: during the sequence the buttons ◀ ▶ appear beside Usar (the dodge and the alternating hammer) and the other buttons of walking go away', { skip, timeout: 300000 }, async () => {
   await withGame(async ({ page, open }) => {
-    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia'); await ready(page);
+    await open('?cena=n1-saida&sair=agora&semente=7&emenda=cheia&cacamba=keep'); await ready(page);
     const vis = () => page.evaluate(() => Object.fromEntries(['dirL', 'dirR', 'use', 'run', 'crouch'].map((b) => [b, getComputedStyle(document.querySelector(`.tb-${b}`)).display !== 'none'])));
     assert.deepEqual(await vis(), { dirL: false, dirR: false, use: true, run: true, crouch: true });
     for (let i = 0; i < 8 && (await page.evaluate(() => window.__game.director.waitName)) !== 'saida-emenda'; i++) { await page.evaluate(() => { const G = window.__game; G.director.signal('isca'); G.test.teleport(-13.3, 7.0); }); await step(page, 400); }

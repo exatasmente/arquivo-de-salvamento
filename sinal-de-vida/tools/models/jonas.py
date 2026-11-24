@@ -45,6 +45,7 @@ import jonas_face as JF  # noqa: E402
 import retarget as RT  # noqa: E402
 import jonas_radio as JR  # noqa: E402
 import jonas_mouth as JM  # noqa: E402
+import jonas_gait as JG  # noqa: E402
 
 V = Vector
 BASE = 'quaternius-base-characters/Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf'
@@ -63,6 +64,7 @@ CLIPS = {
     'derrubado': (1, 'Hit_Knockback'), 'caido': (1, 'Death01'), 'levantar': (1, 'LayToIdle'),
     'corda_subir': (1, 'ClimbUp_1m'), 'sentar': (1, 'Sitting_Idle_Loop'), 'falar': (1, 'Idle_Talking_Loop'),
     'empurrar': (1, 'Push_Loop'), 'golpe': (1, 'Hit_Chest'),
+    'esquivar': (1, 'Roll'),          # the dodge of scene 4: a dive and a roll over the shoulder that comes up in a crouch (the game cuts it there)
 }
 
 
@@ -622,6 +624,40 @@ def scale_hips(act):
                 kp.handle_left.y *= LEG_K
                 kp.handle_right.y *= LEG_K
             fc.update()
+
+
+# the clips whose feet stand on the floor: each is set down so that its lowest foot is where the feet are at rest. (The library's
+# crouch held the feet some 5 cm over the floor, and the walk 1.5 cm, once the legs were shortened: the feet floated and, held to the
+# floor in the game, slid.) The lying and rolling ones are left as they are.
+GROUNDED = ('idle', 'walk', 'run', 'sprint', 'crouch_idle', 'crouch_walk', 'usar', 'manipular', 'radio', 'mirar', 'arremessar', 'falar',
+            'empurrar', 'golpe')
+
+
+def ground_clip(arm, act, rest_low):
+    """Moves the hips of a clip up or down (in the armature's vertical) so that its lowest foot touches the floor. Returns the shift."""
+    ad = arm.animation_data
+    nla, ad.use_nla = ad.use_nla, False        # (the clips already laid down would fill the bones this one does not key)
+    ad.action = act
+    if getattr(act, 'slots', None):            # (Blender 4.4 on: an action plays only through one of its slots)
+        ad.action_slot = act.slots[0]
+    sc, low = bpy.context.scene, 1e9
+    for i in range(int(act.frame_range[0]), int(act.frame_range[1]) + 1):
+        sc.frame_set(i)
+        low = min(low, *(arm.pose.bones[b].head.z for b in ('foot_l', 'foot_r', 'ball_l', 'ball_r')))
+    ad.action = None
+    ad.use_nla = nla
+    dz = rest_low - low
+    if abs(dz) < 0.002:
+        return 0.0
+    d = arm.data.bones['pelvis'].matrix_local.to_3x3().inverted() @ V((0, 0, dz))
+    for fc in act.fcurves:
+        if fc.data_path == 'pose.bones["pelvis"].location':
+            for kp in fc.keyframe_points:
+                kp.co.y += d[fc.array_index]
+                kp.handle_left.y += d[fc.array_index]
+                kp.handle_right.y += d[fc.array_index]
+            fc.update()
+    return dz
 
 
 def patch_uvs(mb, explicit):
@@ -1310,6 +1346,7 @@ def main():
             bpy.data.objects.remove(o, do_unlink=True)
     ad = arm.animation_data or arm.animation_data_create()
     ad.action = None
+    rest_low = min(arm.data.bones[b].head_local.z for b in ('foot_l', 'foot_r', 'ball_l', 'ball_r'))
     for game, (lib, aname) in (CLIPS.items() if not lod else []):
         act = actions.get(aname)
         if not act:
@@ -1321,6 +1358,8 @@ def main():
         for fc in list(a2.fcurves):
             if FING.match(fc.data_path):
                 a2.fcurves.remove(fc)
+        if game in GROUNDED:
+            log('ground', game, round(ground_clip(arm, a2, rest_low), 4))
         tr = ad.nla_tracks.new()
         tr.name = game
         st = tr.strips.new(game, int(a2.frame_range[0]), a2)
@@ -1328,7 +1367,6 @@ def main():
         log('clip', game, aname, tuple(round(x) for x in a2.frame_range))
     if not lod:
         # the CMU clips, retargeted: a limp (loops) and a squat down beside something (plays once and holds)
-        rest_low = min(arm.data.bones[b].head_local.z for b in ('foot_l', 'foot_r', 'ball_l', 'ball_r'))
         for game, (fname, f0, f1, loops) in CMU_CLIPS.items():
             path = os.path.join(assets, CMU, fname + '.fbx')
             a0, info = RT.retarget(arm, path, game + '_0', f0, f1)
@@ -1352,7 +1390,15 @@ def main():
                 relax[f'thumb_0{n}_{side}'] = (down, a)
         pose_clip(arm, 'hand_relax', relax, ad)
         # the library's idle stands like a fighter (feet wide, arms out): Jonas stands with his feet under him and his arms hanging
-        pose_clip(arm, 'stance', {'thigh_l': ((-1, 0, 0), 0.075), 'thigh_r': ((1, 0, 0), 0.075), 'upperarm_l': (down, 0.13), 'upperarm_r': (down, 0.13)}, ad)
+        stance = {'thigh_l': ((-1, 0, 0), 0.075), 'thigh_r': ((1, 0, 0), 0.075), 'upperarm_l': (down, 0.13), 'upperarm_r': (down, 0.13)}
+        pose_clip(arm, 'stance', stance, ad)
+        # his ways of going over the floor, made from the library's loops for the speeds of the game: the loops with the carrying foot
+        # pinned, the brisk walk, the starts, the stops and the turns on the spot (jonas_gait.py). They stand as he stands (the stance).
+        stand_extra = {}
+        for bone_, (tgt_, ang_) in stance.items():
+            axis_, sgn_ = axis_for(arm, bone_, tgt_, 0.4)
+            stand_extra[bone_] = Quaternion(axis_, sgn_ * ang_)
+        JG.build(arm, ad, assets, stand_extra, LEG_K, log)
         # seated at a table: the hands come up from the knees onto it; and the hand that holds the radio comes down from the ear to the mouth
         fwd = (0, -1, 0)
         pose_clip(arm, 'sit_hands', {'upperarm_l': (fwd, 0.2), 'upperarm_r': (fwd, 0.2), 'lowerarm_l': (fwd, 0.18), 'lowerarm_r': (fwd, 0.18)}, ad)
@@ -1412,7 +1458,7 @@ def main():
                             export_animations=not lod, export_force_sampling=True, export_materials='EXPORT', export_vertex_color='NONE', export_attributes=True))
     if os.environ.get('JONAS_SAVE'):           # the scene as it was exported, to look at in Blender
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.environ['JONAS_SAVE']))
-    C.shrink_glb(path, steps=JR.KEY_STEPS)
+    C.shrink_glb(path, steps={**JR.KEY_STEPS, **JG.KEY_STEPS})
     log('WROTE', path, os.path.getsize(path))
     tri = {o.name: sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.data.objects if o.type == 'MESH'}
     log('TRIS', tri, sum(tri.values()))

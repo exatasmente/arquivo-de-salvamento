@@ -355,7 +355,7 @@ export function buildGrate(r, G = GRATE) {
   const T = r.THREE, g = new T.Group(), t0 = globalThis.performance?.now() ?? 0;
   g.name = 'grade';
   const L = layout(G), A = paintingOf(T, G), t1 = globalThis.performance?.now() ?? 0, M = mesher(T, A), R = mulberry32(77 + L.leaves[0].zs.length * 13);
-  const shell = { pos: [], nor: [], idx: [] };
+  const shell = { pos: [], nor: [], idx: [] }, shellH = { pos: [], nor: [], idx: [] }, MH = mesher(T, A);
   const { x0, x1, z0, z1, bar: bw, deep, rod } = G, yb = -deep, c = L.c;
   /** A stretch of a long strip for a shorter piece, begun at a place of its own (so no two bars show the same painting side by side). */
   const part = (q, len) => { const k = Math.min(1, len / q.m), s = R() * (1 - k); return R() < 0.5 ? [q, s, s + k] : [q, s + k, s]; };
@@ -399,44 +399,48 @@ export function buildGrate(r, G = GRATE) {
   let bars = 0;
   const cut = G.cable;
   for (const lf of L.leaves) {
-    const { a, b, za, zb } = lf;
-    for (const z of [za + bw / 2, zb - bw / 2]) { bar(M, { ax: 'x', a0: a, a1: b, mid: z, f: bw, y0: yb, y1: 0, c }, steel(b - a)); shellBox(shell, a, b, yb, 0, z - bw / 2, z + bw / 2); }
-    for (const x of [a + bw / 2, b - bw / 2]) { bar(M, { ax: 'z', a0: za, a1: zb, mid: x, f: bw, y0: yb, y1: 0, c }, steel(zb - za)); shellBox(shell, x - bw / 2, x + bw / 2, yb, 0, za, zb); }
+    const { a, b, za, zb } = lf, MM = lf === L.leaves[0] ? MH : M, SS = lf === L.leaves[0] ? shellH : shell;      // (the hatch leaf is a mesh of its own: it lifts on its hinges)
+    for (const z of [za + bw / 2, zb - bw / 2]) { bar(MM, { ax: 'x', a0: a, a1: b, mid: z, f: bw, y0: yb, y1: 0, c }, steel(b - a)); shellBox(SS, a, b, yb, 0, z - bw / 2, z + bw / 2); }
+    for (const x of [a + bw / 2, b - bw / 2]) { bar(MM, { ax: 'z', a0: za, a1: zb, mid: x, f: bw, y0: yb, y1: 0, c }, steel(zb - za)); shellBox(SS, x - bw / 2, x + bw / 2, yb, 0, za, zb); }
     for (const z of lf.zs) {
       // where the thick cable goes down, the bars are sawn through
       const sawn = cut && cut[0] > a && cut[0] < b && Math.abs(z - cut[1]) < 0.1;
       for (const [p, q] of sawn ? [[a + bw, cut[0] - 0.11], [cut[0] + 0.11, b - bw]] : [[a + bw, b - bw]]) {
         if (q - p < 0.03) continue;
-        bar(M, { ax: 'x', a0: p, a1: q, mid: z, f: bw, y0: yb, y1: 0, c }, steel(q - p)); shellBox(shell, p, q, yb, 0, z - bw / 2, z + bw / 2); bars++;
+        bar(MM, { ax: 'x', a0: p, a1: q, mid: z, f: bw, y0: yb, y1: 0, c }, steel(q - p)); shellBox(SS, p, q, yb, 0, z - bw / 2, z + bw / 2); bars++;
         for (const [xe, ex, open] of [[p, 1, p > a + bw + 1e-6], [q, -1, q < b - bw - 1e-6]]) {
-          if (open) { box(M, xe - 0.001, xe, yb, 0, z - bw / 2, z + bw / 2, { [ex > 0 ? 'nx' : 'px']: [A.edge, 0.2, 0.22] }); continue; }      // the sawn end: bare steel
-          for (const s of [-1, 1]) bead(M, A, R, [xe, yb + c, z + s * bw / 2], [xe, -0.006, z + s * bw / 2], [ex, 0, 0], [0, 0, s], 0.006 + R() * 0.002);
+          if (open) { box(MM, xe - 0.001, xe, yb, 0, z - bw / 2, z + bw / 2, { [ex > 0 ? 'nx' : 'px']: [A.edge, 0.2, 0.22] }); continue; }      // the sawn end: bare steel
+          for (const s of [-1, 1]) bead(MM, A, R, [xe, yb + c, z + s * bw / 2], [xe, -0.006, z + s * bw / 2], [ex, 0, 0], [0, 0, s], 0.006 + R() * 0.002);
         }
       }
     }
     for (const x of lf.xs) {
       const hole = cut && Math.abs(x - cut[0]) < 0.11;
-      for (const [p, q] of hole ? [[za + bw, cut[1] - 0.1], [cut[1] + 0.1, zb - bw]] : [[za + bw, zb - bw]]) if (q - p > 0.03) box(M, x - rod / 2, x + rod / 2, 0.002 - rod, 0.002, p, q, { py: part(A.rodTop, q - p), ny: part(A.rodSide, q - p), px: part(A.rodSide, q - p), nx: part(A.rodSide, q - p) });
-      for (const z of lf.zs) { if (hole && Math.abs(z - cut[1]) < 0.1) continue; for (const s of [-1, 1]) bead(M, A, R, [x - rod / 2, 0.002 - rod, z + s * bw / 2], [x + rod / 2, 0.002 - rod, z + s * bw / 2], [0, 0, s], [0, -1, 0], 0.0045 + R() * 0.0015, 2); }
+      for (const [p, q] of hole ? [[za + bw, cut[1] - 0.1], [cut[1] + 0.1, zb - bw]] : [[za + bw, zb - bw]]) if (q - p > 0.03) box(MM, x - rod / 2, x + rod / 2, 0.002 - rod, 0.002, p, q, { py: part(A.rodTop, q - p), ny: part(A.rodSide, q - p), px: part(A.rodSide, q - p), nx: part(A.rodSide, q - p) });
+      for (const z of lf.zs) { if (hole && Math.abs(z - cut[1]) < 0.1) continue; for (const s of [-1, 1]) bead(MM, A, R, [x - rod / 2, 0.002 - rod, z + s * bw / 2], [x + rod / 2, 0.002 - rod, z + s * bw / 2], [0, 0, s], [0, -1, 0], 0.0045 + R() * 0.0015, 2); }
     }
   }
   // the hatch (the first leaf): two hinges on the frame at its far side, and the plate it is lifted by
   const hatch = L.leaves[0];
   for (const z of [-0.45, 0.45]) { const hx0 = x0 - 0.03, hx1 = x0 + 0.03, f = part(A.frame[0], 0.1); box(M, hx0, hx1, 0, 0.012, z - 0.05, z + 0.05, { py: f, px: part(A.rodSide, 0.1), nx: part(A.rodSide, 0.1), pz: part(A.rodSide, 0.06), nz: part(A.rodSide, 0.06) }); shellBox(shell, hx0, hx1, 0, 0.012, z - 0.05, z + 0.05); }
-  { const px0 = hatch.b - 0.2, px1 = hatch.b - 0.04, f = part(A.frame[1], 0.16); box(M, px0, px1, 0, 0.006, -0.07, 0.07, { py: f, px: part(A.rodSide, 0.14), nx: part(A.rodSide, 0.14), pz: part(A.rodSide, 0.16), nz: part(A.rodSide, 0.16) }); }
+  { const px0 = hatch.b - 0.2, px1 = hatch.b - 0.04, f = part(A.frame[1], 0.16); box(MH, px0, px1, 0, 0.006, -0.07, 0.07, { py: f, px: part(A.rodSide, 0.14), nx: part(A.rodSide, 0.14), pz: part(A.rodSide, 0.16), nz: part(A.rodSide, 0.16) }); }
 
   const keep = (mesh) => { mesh.userData.keep = true; g.add(mesh); return mesh; };
   keep(new T.Mesh(M.geometry(), r.mat(TINT, { map: A.map, emissive: PAINTED }))).name = 'grade-pintada';
-  if (OUTLINE.on) {
+  // the hatch leaf, on its hinges (the frame's far side, x0): shut, it lies where it always lay; the chase lifts it (rotation.z of `grade-folha`)
+  const leaf = new T.Group(); leaf.name = 'grade-folha'; leaf.position.set(x0, 0, 0); g.add(leaf);
+  const inLeaf = (mesh) => { mesh.userData.keep = true; mesh.position.set(-x0, 0, 0); leaf.add(mesh); return mesh; };
+  inLeaf(new T.Mesh(MH.geometry(), r.mat(TINT, { map: A.map, emissive: PAINTED }))).name = 'grade-folha-pintada';
+  const hullOf = (sh) => {
     const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(shell.pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(shell.nor, 3));
-    geo.setAttribute('uv', new T.Float32BufferAttribute(new Float32Array((shell.pos.length / 3) * 2), 2)); geo.setIndex(shell.idx);
-    const hull = keep(new T.Mesh(geo, kitOf(r).mat(OUTLINE_SPEC)));
-    hull.name = 'grade_hull'; hull.renderOrder = 1;
-  }
+    geo.setAttribute('position', new T.Float32BufferAttribute(sh.pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(sh.nor, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(new Float32Array((sh.pos.length / 3) * 2), 2)); geo.setIndex(sh.idx);
+    const hull = new T.Mesh(geo, kitOf(r).mat(OUTLINE_SPEC)); hull.renderOrder = 1; return hull;
+  };
+  if (OUTLINE.on) { keep(hullOf(shell)).name = 'grade_hull'; inLeaf(hullOf(shellH)).name = 'grade-folha_hull'; }
   g.userData.bars = bars;                                                      // (the tests count the bars: they are one mesh)
   g.userData.rods = L.leaves.reduce((n, lf) => n + lf.xs.length, 0);
-  g.userData.tris = M.tris + shell.idx.length / 3;
+  g.userData.tris = M.tris + MH.tris + (shell.idx.length + shellH.idx.length) / 3;
   g.userData.paintMs = Math.round(t1 - t0);                                    // (0 when the painting was already made for another grate)
   return { group: g, footprint: footprint(G) };
 }

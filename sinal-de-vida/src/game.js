@@ -47,6 +47,9 @@ import LAYOUT from '../data/scenes/galeria.json' with { type: 'json' };
 import RUA_LAYOUT from '../data/scenes/rua.json' with { type: 'json' };
 import NIGHTS from '../data/story/nights.json' with { type: 'json' };
 import SCENES from '../data/story/scenes.json' with { type: 'json' };
+import FUGA_CFG from '../data/story/fuga.json' with { type: 'json' };
+import { createChaseRun } from './fuga-run.js';
+import { BEAT as FUGA_BEAT } from './systems/fuga.js';
 import CONVERSATIONS_RAW from '../data/story/conversations.json' with { type: 'json' };
 import MARCAS from '../data/story/marcas.json' with { type: 'json' };
 import FALAS from '../data/story/falas-noite1.json' with { type: 'json' };
@@ -409,7 +412,7 @@ export async function boot() {
   function buildSeqProps(variant) {
     const g = new T3.Group(), ground = st.world.sc.ground?.(EM.CABLE.grate[0], EM.CABLE.grate[1]) ?? 0.15;
     const out = { group: g, tail: null, set() {}, dispose() { g.removeFromParent(); g.traverse((o) => { o.geometry?.dispose?.(); }); } };
-    if (variant === 'curta') { st.world.sc.group.add(g); return out; }
+    if (variant === 'curta' || variant === 'fuga') { st.world.sc.group.add(g); return out; }
     const frame = new T3.Mesh(new T3.BoxGeometry(1.0, 0.05, 0.64), r.mat('#202228')); frame.position.set(EM.CABLE.grate[0], ground + 0.02, EM.CABLE.grate[1]); g.add(frame);
     const hole = new T3.Mesh(new T3.BoxGeometry(0.9, 0.02, 0.54), r.mat('#050507')); hole.position.set(EM.CABLE.grate[0], ground + 0.05, EM.CABLE.grate[1]); g.add(hole);
     for (let i = -4; i <= 4; i++) { const b = new T3.Mesh(new T3.BoxGeometry(0.045, 0.045, 0.6), r.mat('#6a6e76')); b.position.set(EM.CABLE.grate[0] + i * 0.105, ground + 0.07, EM.CABLE.grate[1]); g.add(b); }
@@ -426,9 +429,9 @@ export async function boot() {
     return out;
   }
   /** The blood of the attack (the person's decision of 2026-11-17, only in this game): drops in the air, a pool on the pavement, blots on him. Made only when `gore()` is on, and never otherwise. */
-  function buildBlood(at, seed) {
+  function buildBlood(at, seed, h = null) {
     const g = new T3.Group(); g.name = 'sangue';
-    const gy = st.world.sc.ground?.(at[0], at[1]) ?? 0.15;
+    const gy = h ?? st.world.sc.ground?.(at[0], at[1]) ?? 0.15;
     const dropMat = r.mat('#6a0e14'), darkMat = r.mat('#450910');
     const drops = Array.from({ length: EM.BLOOD.n }, () => { const m = new T3.Mesh(new T3.SphereGeometry(0.024, 5, 4), dropMat); m.visible = false; g.add(m); return m; });
     const flat = (mat, sides) => { const m = new T3.Mesh(new T3.CircleGeometry(1, sides), mat); m.rotation.x = -Math.PI / 2; m.visible = false; g.add(m); return m; };
@@ -459,6 +462,7 @@ export async function boot() {
       dispose() { g.removeFromParent(); g.traverse((o) => { o.geometry?.dispose?.(); }); },
     };
   }
+  const dumpChoice = () => (['keep', 'remove'].includes(q.get('cacamba')) ? q.get('cacamba') : FUGA_CFG.escolhaCacamba === 'keep' ? 'keep' : 'remove');
   /** `opts`: { retry, variant, from }: the checkpoint brings him back to the start of the splice (the cutscene is skipped, the fade comes up from black). */
   function startSequence(opts = {}) {
     if (st.seq || !S4) return;
@@ -466,7 +470,9 @@ export async function boot() {
     const dg = S4.machines.list().find((x) => x.id === id), far = dg && dist2(dg.pos, sp.pos) > 14;
     const forced = q.get('emenda');
     // the decoy that took the dog far away makes it shorter and easier: the dog only passes at a distance and looks (two steps, no leap, no stuck cable)
-    const variant = opts.variant ?? (forced === 'cheia' || forced === 'curta' ? forced : far ? 'curta' : 'cheia');
+    const base = opts.variant ?? (forced === 'cheia' || forced === 'curta' ? forced : far ? 'curta' : 'cheia');
+    // (the choice by the skip is behind one switch, data/story/fuga.json: out, the full sequence ends in the run and the chase; `?cacamba=keep|remove` says otherwise for a review)
+    const variant = base === 'cheia' && dumpChoice() === 'remove' ? 'fuga' : base;
     const from = opts.from ?? (mulberry32(((run.seed >>> 0) ^ 0x5eed) >>> 0)() < 0.5 ? -1 : 1);           // from which side of the lane the dog leaps (the seed of the game)
     const noQuiet = !run.pocket.includes('isca-reserva');                                                  // the lure pressed against the sensor is the reserve one
     // the dodge is always to the left (south, away from the skip, where the dog is going to slide): the seed only decides which side of the lane the dog leaps from
@@ -487,6 +493,7 @@ export async function boot() {
   function dropSequence() {
     const S = st.seq; if (!S) return;
     S.props?.dispose(); S.blood?.dispose(); S.sparks?.dispose(); S4?.machines.puppet(S.id, null);
+    if (S.kind === 'fuga') chase.drop(S);
     st.seq = null; if (S4) S4.seq = null;
     ui.sign(null); ui.cut(false); ui.gameOver(null); delete app.dataset.seq; app.dataset.ctx = ctxName();
   }
@@ -503,6 +510,8 @@ export async function boot() {
       audio.play(e.hit ? 'reacao-acerto' : 'reacao-erro', { gain: 0.7 });
       S.lastStep = { kind: e.kind, hit: e.hit, auto: e.auto, at: S.t, i: e.i };
       const fatal = S.sq.view().fatal, last = e.i === S.sq.view().count - 1;
+      if (S.variant === 'fuga' && e.kind === 'hold') closeSplice(true);                 // the connector clicks shut: it is the noise the dog leaps at
+      if (S.variant === 'fuga' && e.kind === 'press' && e.hit) { rec.runAt = S.t; audio.play('respiracao', { gain: 0.6 }); }
       if (e.kind === 'dir') {
         const d = S.sq.view().dodge;
         if (e.hit) rec.dodge = { side: d.side, at: rec.starts[e.i] + d.at };
@@ -521,14 +530,14 @@ export async function boot() {
         }
       } else if (!e.hit && !fatal) seqMiss();
       if (e.kind === 'mash' && e.hit) { rec.freedAt = S.t; audio.play('cabo-solta', { gain: 0.8 }); }
-      if (e.kind === 'press' && last) closeSplice();                                 // (missed: it closes anyway, with the noise)
+      if (e.kind === 'press' && last && S.variant !== 'fuga') closeSplice();        // (missed: it closes anyway, with the noise)
     } else if (e.type === 'seq-end') {
-      if (e.outcome === 'done') { endSequence(); return; }
+      if (e.outcome === 'done') { if (S.variant === 'fuga') { const id = S.id; dropSequence(); S4.machines.puppet(id, S.pose.dog); chase.start({}); } else endSequence(); return; }
       S.goreOn = gore();
       if (e.outcome === 'bitten') {
         // it recovers and goes for him: from the skip to where he is (at the dog, if he was kneeling at it)
         const atDog = S.sq.view().log.at(-1)?.i === 3;
-        rec.failAt = S.t; rec.knock = { S: [...EM.DUMP.hit], C: [...(atDog ? EM.DUMP.near[rec.choice.id] : EM.J)] }; rec.knockedAt = S.t + EM.ATTACK.bite;
+        rec.failAt = S.t; rec.knock = { S: [...EM.DUMP.hit], C: [...(atDog ? EM.DUMP.near[rec.choice.id] : S.variant === 'fuga' ? S.pose.jonas.pos : EM.J)] }; rec.knockedAt = S.t + EM.ATTACK.bite;
       }
     }
   }
@@ -537,10 +546,11 @@ export async function boot() {
     escuta.raise(SEQ_ESCUTA, 'reaction'); ui.heard(now());
     bus.emit('noise', { pos: [...EM.J], loud: 0.7, kind: 'fall', src: 'jonas-fall' });
   }
-  function closeSplice() {
+  function closeSplice(quiet = false) {
     const S = st.seq, rec = S.rec; rec.closedAt = S.t;
     S4.street.finish(st.handRadio);
-    for (const e of S4.street.take()) if (e.type === 'say') say('Tânia', TANIA[e.id] ?? '', dur(e.id, TANIA[e.id]), e.id);        // ("Feito. Volta pela grade, devagar.", on the hand radio)
+    if (quiet) S4.street.take();                                                     // (the chase: Tânia's "Feito" would be said into the dog's leap)
+    else for (const e of S4.street.take()) if (e.type === 'say') say('Tânia', TANIA[e.id] ?? '', dur(e.id, TANIA[e.id]), e.id);        // ("Feito. Volta pela grade, devagar.", on the hand radio)
     st.world.sc.ents.setParam(S4.cfg.cable, 'emendado', true); st.world.sc.setThing?.('paineis', 'limpo');
     audio.play('consertar', { gain: 0.8 });
   }
@@ -569,8 +579,15 @@ export async function boot() {
   function resumeSplice(cp) {
     if (!S4 || st.seq) return;
     if (director.waitName !== 'saida-emenda') return;
+    if (cp.fuga && FUGA_BEAT[cp.fuga]) { chase.start({ from: cp.fuga, retry: true }); return; }
     startSequence({ retry: true, variant: cp.variant, from: cp.from });
   }
+  /** The chase is over: he is down the shaft, the splice is closed, and the story goes on in the station (he does not climb down again). */
+  function endChase() {
+    dropSequence(); if (st.view) st.view.work = null; player.hidden = null;
+    ui.toast('Cabo emendado: a bateria volta a carregar', now()); director.signal('saida-emenda'); director.use('poco');
+  }
+  const chase = createChaseRun({ r, st, app, audio, ui, bus, options, STEP, FADE_IN, SLOW: EM.SLOW, player, fmt: (t) => fmt(t), now: () => now(), gore: () => gore(), buildBlood, dropFrom, checkpoint: () => checkpoint(), done: () => endChase(), S4: () => S4, run: () => run, escuta: () => escuta, director: () => director, cam: () => q.get('cam') });
   /** The world is slow while the dodge is asked for, and eases back. */
   function seqScale(S) {
     const v = S.sq.view(), on = v.active && !v.gap && v.kind === 'dir';
@@ -579,7 +596,8 @@ export async function boot() {
     S.rec.slowK = S.slowK;
     return 1 - S.slowK * (1 - EM.SLOW.scale);
   }
-  function stepSequence(it) {
+  function stepSequence(it, lk) {
+    if (st.seq.kind === 'fuga') { chase.step(it, lk); return; }
     const S = st.seq, id = S.id;
     const scale = S.phase === 'act' ? seqScale(S) : 1, dt = STEP * scale;
     S.timeScale = scale;
@@ -693,6 +711,8 @@ export async function boot() {
     if (q.has('contou')) { fresh.flags.contou = q.get('contou') !== '0'; if (fresh.flags.contou) fresh.flags.soubeComporta = true; }
     if (q.has('acabou')) fresh.flags.chamadaAcabou = q.get('acabou') !== '0';
     if (q.has('escuta')) fresh.escuta = { value: Math.max(0, Math.min(100, Number(q.get('escuta')))) };
+    // `?fuga=<beat>`: straight into the chase at one of its beats (systems/fuga.js), as a saved point would bring him back
+    if (FUGA_BEAT[q.get('fuga')] && sc.street) { fresh.cp = { scene: sceneId, at: 'saida-emenda', fuga: q.get('fuga') }; fresh.pocket.push('isca-reserva'); }
     bind(fresh); st.phase = 'play'; screens.close(true); st.screen = null; audio.resume(); document.getElementById('hint')?.remove();
     if (q.get('mao') === '1') st.handRadio = true;
     director.resume(); app.dataset.ctx = ctxName();
@@ -836,7 +856,7 @@ export async function boot() {
     }
     if (hands.active) { look.take(); hands.step(it); director.update(STEP, { pos: player.pos }); if (!hands.active) app.dataset.ctx = ctxName(); return; }
     if (it.pause) { screens.open('menu'); return; }
-    if (st.seq) { look.take(); stepSequence(it); return; }
+    if (st.seq) { stepSequence(it, look.take()); return; }
     // the quick reaction
     if (it.react || st.reactNow) { st.reactNow = false; if (quick.active) quick.press(); }
     quick.step(STEP);
@@ -893,12 +913,15 @@ export async function boot() {
       walked = player.step(STEP * hurtK, { mx: it.mx, mz: it.mz }, dir, { colliders: worldColliders(), limit: w.limit }, { run: wantRun });
     }
     if (walked > 0) {
-      st.footAcc += walked;
-      const stride = wantRun ? 1.45 : player.crouch ? 0.9 : 0.8;
-      if (st.footAcc > stride) {
+      // the sound of a step comes when a foot comes down: every half of the stride his body is walking with (models/jonas.js measures it on
+      // the clips); the noise the dogs hear keeps the pace it always had (it is a rule of the game, not a picture)
+      st.footAcc += walked; st.stepAcc = (st.stepAcc ?? 0) + walked;
+      const half = body.stride ? body.stride({ ...(body.gaitAt?.(player.speed) ?? {}), crouch: player.crouch ? 1 : 0 }) / 2 : (wantRun ? 1.45 : player.crouch ? 0.9 : 0.8);
+      const fx = player.pos[0], fz = player.pos[1];
+      if (st.stepAcc > half) { st.stepAcc = 0; audio.play(footName(w, fx, fz), { gain: player.crouch ? 0.2 : wantRun ? 1.0 : 0.55, pos: [fx, 0.05, fz] }); }   // the surface under his feet (a grate rings, a platform is a step up), at his feet
+      const noiseEvery = wantRun ? 1.45 : player.crouch ? 0.9 : 0.8;
+      if (st.footAcc > noiseEvery) {
         st.footAcc = 0;
-        const fx = player.pos[0], fz = player.pos[1];
-        audio.play(footName(w, fx, fz), { gain: player.crouch ? 0.2 : wantRun ? 1.0 : 0.55, pos: [fx, 0.05, fz] });   // the surface under his feet (a grate rings, a platform is a step up), at his feet
         if (S4) bus.emit('noise', { pos: [...player.pos], loud: noiseOf('step', { crouch: player.crouch, run: wantRun }), kind: wantRun ? 'run' : player.crouch ? 'crouch' : 'step', src: 'jonas' });
       }
     }
@@ -927,6 +950,7 @@ export async function boot() {
   function seqSign() {
     const S = st.seq, P = S?.pose; if (!P) return null;
     r.camera.updateMatrixWorld();
+    if (S.kind === 'fuga') { const c = chase.sign(device(), GLYPHS[device()] ?? GLYPHS.keyboard); if (!c) return null; const p = project3(...c.at); if (!p) return null; return { ...c.spec, x: Math.max(70, Math.min(innerWidth - 70, p[0])), y: Math.max(90, Math.min(innerHeight - 60, p[1])) }; }
     const v = S.sq.view(), dev = device(), g = dev === 'touch' ? 'Usar' : (GLYPHS[dev] ?? GLYPHS.keyboard).use;
     const hand = [EM.J[0] - 0.1, 0.95, EM.J[1] - 0.35], cableMid = [(EM.CABLE.grate[0] + EM.CABLE.cut[0]) / 2, 0.5, EM.CABLE.grate[1] - 0.1];
     const auto = S.sq.view().auto ? 'automático' : '';
@@ -991,40 +1015,56 @@ export async function boot() {
         const hers = desk.active || hands.active;       // at the radio, or with his hands up: the step places and moves him (src/desk.js, src/hands.js)
         body.root.visible = (hers || !st.examine) && st.phase !== 'title' && !player.hidden && !(st.cut && st.cut.b.noJonas) && !cam.near;
         const sj = st.seq?.pose?.jonas;
-        if (sj) { body.root.visible = !sj.hidden; body.root.position.set(sj.pos[0], w.sc.ground?.(sj.pos[0], sj.pos[1]) ?? 0, sj.pos[1]); body.root.rotation.y = sj.yaw; body.update(dtReal * animK, { speed: sj.speed ?? 0, crouch: (sj.crouch ?? 0) > 0.5, run: Boolean(sj.run), lamp: st.seq.phase === 'act' ? 'on' : 'off', action: sj.action ?? null, gaze: sj.gaze ?? { x: 0, y: 0 } }); }
-        else if (!hers) { const g = w.sc.ground?.(player.pos[0], player.pos[1]) ?? 0; body.root.position.set(player.pos[0], g, player.pos[1]); body.root.rotation.y = player.body; }
+        if (sj) { body.root.visible = !sj.hidden; body.root.position.set(sj.pos[0], (sj.h ?? w.sc.ground?.(sj.pos[0], sj.pos[1]) ?? 0) + (sj.y ?? 0), sj.pos[1]); body.root.rotation.y = sj.yaw; body.update(dtReal * animK, { speed: sj.speed ?? 0, crouch: (sj.crouch ?? 0) > 0.5, run: Boolean(sj.run), lamp: sj.lamp ?? (st.seq.phase === 'act' ? 'on' : 'off'), action: sj.action ?? null, gaze: sj.gaze ?? { x: 0, y: 0 }, twist: sj.twist ?? 0, turn: sj.turn ?? null, stop: sj.stop ?? null, stairs: sj.stairs ?? null, ground: sj.ground ?? null }); st.bodyY = undefined; }
+        else if (!hers) {
+          // (a step up or down is taken in a moment, not in a frame: his feet go each onto its own ground meanwhile, models/jonas.js `ground`)
+          const g = w.sc.ground?.(player.pos[0], player.pos[1]) ?? 0, was = st.bodyY, lim = 3.2 * dtReal * animK;
+          st.bodyY = was === undefined || Math.abs(g - was) > 0.7 || st.bodyScene !== w ? g : was + Math.max(-lim, Math.min(lim, g - was)); st.bodyScene = w;
+          body.root.position.set(player.pos[0], st.bodyY, player.pos[1]); body.root.rotation.y = player.body;
+        }
         if (!sj && !hers && !st.examine) {
           // he looks at what matters: the thing in front of him (the point he can use), else straight ahead; the head lamp follows the flashlight
           const c = st.view?.cand; let gx = 0, gy = 0;
           if (c) { const a = Math.atan2(-(c.pos[0] - player.pos[0]), -(c.pos[1] - player.pos[1])); let d = a - player.body; d = Math.atan2(Math.sin(d), Math.cos(d)); gx = Math.max(-0.55, Math.min(0.55, d)); }
           if (st.cut?.b.look === 'up') { gx = 0; gy = 0.6; }
           st.gaze = (st.gaze ?? 0) + (gx - (st.gaze ?? 0)) * Math.min(1, dtReal * 6);
-          body.update(dtReal * animK, { speed: player.speed, crouch: player.crouch, run: player.speed > 3.5, lamp: player.light ? 'on' : 'off', gaze: { x: st.gaze, y: gy } });
+          body.update(dtReal * animK, { speed: player.speed, crouch: player.crouch, run: player.speed > 3.5, lamp: player.light ? 'on' : 'off', gaze: { x: st.gaze, y: gy }, turn: player.gait.turn, stop: player.gait.stop, ground: w.sc.ground ? st.groundFn ??= (x, z) => st.world?.sc.ground?.(x, z) ?? null : null });
         }
         // the light: the flashlight; in a cutscene the beat may bring a light of its own (a sensor shining down the shaft)
         const sl = st.cut?.b.spot;
         if (sl && cutting) { const sw = st.cut.t, sway = options.flashes ? 0 : Math.sin(sw * 1.7) * 0.22; r.spot({ on: true, pos: sl.pos, dir: [sl.dir[0] + sway, sl.dir[1], sl.dir[2] + Math.cos(sw * 1.3) * 0.12 * (options.flashes ? 0 : 1)], color: sl.color ?? '#e8a42a', range: sl.range ?? 9, cos: Math.cos(sl.cone ?? 0.5) }); }
+        else if (st.seq?.kind === 'fuga') r.spot(chase.spot(cam));
         else if (st.seq?.phase === 'act') {
           // in the reaction his head lamp is on the dog: the one thing he must see (and the picture must show)
           const dg = st.seq.pose.dog, j = EM.J, dv = [dg.pos[0] - j[0], 0.5 + (dg.y ?? 0) - 1.1, dg.pos[1] - j[1]];
           r.spot({ on: true, pos: [j[0], 1.1, j[1]], dir: dv, color: '#fff2d0', range: 14, cos: Math.cos(0.42) });
         }
         else r.spot({ on: player.light && st.phase === 'play' && !st.cut && !st.seq, pos: cam.aim.pos, dir: cam.aim.dir, color: '#fff2d0', range: 15, cos: Math.cos(0.5) });
+        // `?anim` in the address: what his legs are doing, on the picture and in the console (models/moves.js: the state, the change under way and its rule)
+        if (q.has('anim')) {
+          st.animEl ??= (() => { const e = document.createElement('pre'); e.style.cssText = 'position:fixed;left:8px;bottom:8px;margin:0;padding:6px 8px;font:12px/1.35 monospace;color:#d8f0c0;background:rgba(0,0,0,.6);z-index:99;pointer-events:none;white-space:pre'; document.body.append(e); return e; })();
+          const mv = body.move?.(), sh = Object.entries(body.shares?.() ?? {}).sort((a, b) => b[1] - a[1]).map(([n, w]) => `${n} ${w.toFixed(2)}`).join('  '), tr = body.terrain?.();
+          const lg = body.moves?.log ?? [], last = lg.at(-1);
+          if (last && st.animSeen !== last) { st.animSeen = last; console.info(`anim ${last.t.toFixed(2)}s ${last.from} > ${last.to} (${last.rule}, ${last.blend}s${last.listed ? '' : ', not a listed change'})`); }
+          st.animEl.textContent = mv ? `${mv.state}${mv.from ? `  <  ${mv.from}  ${(mv.k * 100).toFixed(0)}%  (${mv.rule}, ${mv.blend}s${mv.listed ? '' : ', unlisted'})` : ''}\n${sh}\nhips ${((tr?.hips ?? 0) * 100).toFixed(0)} cm  feet ${(tr?.feet ?? []).map((x) => (x * 100).toFixed(0)).join(' / ')} cm` : '';
+        }
         // the broken dog blinks the colours; the aim of the decoy is an arc
         if (S4?.broken) {
           const f = S4.flashT === null ? null : flashAt(S4.flashT);
           S4.broken.update(dtReal, { state: 'desligado', sensorColor: f ? bodyHex(f.hex, f.power) : '#16161a' });
           S4.broken.halo.follow(S4.broken); S4.broken.halo.set(f ? bodyHex(f.hex, f.power) : null, r.camera.aspect < 1 ? 1.8 : 1.25);     // (on a phone the light is bigger)
         }
-        aimLine.visible = Boolean(S4 && st.aiming);
-        if (aimLine.visible) {
+        const roll = st.seq?.kind === 'fuga' ? st.seq.pose?.fx.aim : null;
+        aimLine.visible = Boolean(S4 && (st.aiming || roll));
+        if (roll) { const arr = aimGeo.attributes.position.array; for (let i = 0; i < 64; i++) { const u = i / 63 * (roll.length - 1), a = roll[Math.floor(u)], b2 = roll[Math.min(roll.length - 1, Math.floor(u) + 1)], f = u - Math.floor(u); arr[i * 3] = a[0] + (b2[0] - a[0]) * f; arr[i * 3 + 1] = a[1] + (b2[1] - a[1]) * f; arr[i * 3 + 2] = a[2] + (b2[2] - a[2]) * f; } aimGeo.attributes.position.needsUpdate = true; }
+        else if (aimLine.visible) {
           const p = player.pos, c = Math.cos(st.aimPitch), a = S4.gear.aim([p[0], 1.4, p[1]], [-Math.sin(st.aimYaw) * c, Math.sin(st.aimPitch), -Math.cos(st.aimYaw) * c]);
           const arr = aimGeo.attributes.position.array, n = Math.min(64, a.points.length);
           for (let i = 0; i < 64; i++) { const q = a.points[Math.min(i, n - 1)]; arr[i * 3] = q[0]; arr[i * 3 + 1] = q[1]; arr[i * 3 + 2] = q[2]; }
           aimGeo.attributes.position.needsUpdate = true;
         }
         audio.setListener(cam.eye, cam.dir);
-        const dull = player.hidden ? 0.7 : 0; if (dull !== st.dull) { st.dull = dull; audio.setOcclusion(dull); }          // in a hiding place the world is heard through the walls of it
+        const dull = player.hidden ? 0.7 : st.seq?.pose?.inside ? 0.5 : 0; if (dull !== st.dull) { st.dull = dull; audio.setOcclusion(dull); }          // in a hiding place the world is heard through the walls of it
         titleLife(t, w);
         // the radio of the station: from its place while Jonas walks, in front of him, centred and dry, when he sits at the bench (the title has its own hiss)
         st.deskNear = (st.deskNear ?? 0) + ((desk.active ? 1 : 0) - (st.deskNear ?? 0)) * Math.min(1, dtReal * 3.5);

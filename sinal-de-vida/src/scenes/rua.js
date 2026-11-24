@@ -13,6 +13,7 @@ import { placeEntities, invert, makeThings } from './common.js';
 import { mulberry32 } from '../../vendor/engine/rng.js';
 import { STREET } from './rua-layout.js';
 import { footprint as grateFootprint } from './grade.js';
+import { buildScene as buildPredio } from './predio.js';
 import LAYOUT from '../../data/scenes/rua.json' with { type: 'json' };
 
 export const VIEWS = {
@@ -67,7 +68,7 @@ export function buildScene(r, { layout, editor = false, hooks = {} } = {}) {
     const plan = planDetails(STREET, kindName, dr, SPOTS), of = (...t) => layout.entities.filter((e) => t.includes(e.type)), fr = mulberry32(7 * 59 + 3), H = curb;
     // the buildings' fronts, by side: where the rows are open there are lots and alleys to wall off
     const rows = { 1: [], [-1]: [] };
-    for (const e of of('predio', 'loja')) { const w = Math.max(6, Math.round((e.params.largura ?? 9) / 3) * 3); rows[e.pos[2] > 0 ? 1 : -1].push([e.pos[0] - w / 2, e.pos[0] + w / 2]); }
+    for (const e of of('predio', 'loja', 'predioFuga')) { const w = Math.max(6, Math.round((e.params.largura ?? (e.type === 'predioFuga' ? 12 : 9)) / 3) * 3); rows[e.pos[2] > 0 ? 1 : -1].push([e.pos[0] - w / 2, e.pos[0] + w / 2]); }
     const walls = [], weeds = [], lifted = [];
     for (const s of [1, -1]) {
       const iv = rows[s].sort((a, b) => a[0] - b[0]); let x = -halfX - 6;
@@ -99,11 +100,13 @@ export function buildScene(r, { layout, editor = false, hooks = {} } = {}) {
       tree(F, t.x, H, t.z, t.i * 13 + 5, { line: true }); collide(`arvore-${t.i}`, t.x, t.z, 0.3, 0.3);
       for (const [dx, dz, w, d] of [[0, -0.56, 1.24, 0.12], [0, 0.56, 1.24, 0.12], [-0.56, 0, 0.12, 1.0], [0.56, 0, 0.12, 1.0]]) F.box([t.x + dx - w / 2, H - 0.02, t.z + dz - d / 2], [t.x + dx + w / 2, H + 0.09, t.z + dz + d / 2], 0.025, ['-y'], { outline: true, uv: (x, y, z) => { const R = [0.75, 0.76, 0.99, 0.89]; return [R[0] + (R[2] - R[0]) * (((x + z) * 0.7 % 1 + 1) % 1), R[1] + (R[3] - R[1]) * Math.min(1, (y - H + 0.02) / 0.11)]; } });
     }
+    // (nothing of the pavement's furniture stands in front of the door of the building of the chase)
+    { const fg = of('predioFuga')[0], out = (t) => !(fg && t.z < 0 && Math.abs(t.x - (fg.pos[0] - 1.3)) < 2.6); plan.benches = plan.benches.filter(out); plan.bins = plan.bins.filter(out); }
     for (const t of plan.benches) { addPiece(tb, 'bench', { pos: [t.x, H, t.z], ry: t.s > 0 ? Math.PI : 0 }); collide(`banco-${t.i}`, t.x, t.z, 1.9, 0.55); }
     for (const t of plan.bins) { addPiece(tb, 'trash_bin', { pos: [t.x, H, t.z] }); collide(`lixeira-${t.i}`, t.x, t.z, 0.5, 0.5); }
     for (const [x, z, k] of weeds) if (k < 0.75 && Math.abs(Math.abs(z) - (road + 0.85)) > 0.2) tuft(F, x, H, z, fr, 0.7 + k);
     // the dead trees of the lots show over the walls
-    for (const [x, z, sd] of [[-15.5, 14.2, 3], [-9, 16.5, 5], [7.5, 14, 8], [12, 17, 13], [-12, -14.5, 21], [-3.5, -16, 34], [6, -14, 55], [15, -15.4, 89], [-19, 17.5, 144]]) tree(F, x, H - 0.1, z, sd, { h: 4.4 });
+    for (const [x, z, sd] of [[-15.5, 14.2, 3], [-9, 16.5, 5], [7.5, 14, 8], [12, 17, 13], [-12, -14.5, 21], [-3.5, -16, 34], [6, -14, 55], [15, -15.4, 89], [-19, 17.5, 144]]) if (!of('predioFuga').some((e) => Math.abs(x - e.pos[0]) < 6.5 && Math.abs(z - e.pos[2]) < 6.5)) tree(F, x, H - 0.1, z, sd, { h: 4.4 });
     // rubbish against the walls (out of the walker's way), scraps anywhere; a cabinet of the street's services by each lot
     for (let i = 0; i < 16; i++) { const s = fr() < 0.5 ? 1 : -1, x = -halfX + 4 + fr() * (halfX * 2 - 8), n = 1 + Math.floor(fr() * 3); for (let k = 0; k < n; k++) bag(F, x + k * 0.42 + fr() * 0.1, H, s * (GROUND.wall - 0.26 - fr() * 0.1), fr, 0.8 + fr() * 0.4, true); }
     for (let i = 0; i < 70; i++) { const s = fr() < 0.5 ? 1 : -1, k = fr(), x = -halfX + fr() * halfX * 2; scrap(F, x, k < 0.5 ? 0.012 : H + 0.008, s * (k < 0.5 ? road - 0.1 - fr() * 0.5 : road + 0.4 + fr() * (walk - road - 0.2)), fr, fr() < 0.6 ? 'paper' : 'plank', 0.12 + fr() * 0.2); }
@@ -139,7 +142,12 @@ export function buildScene(r, { layout, editor = false, hooks = {} } = {}) {
 
   // --- the entities ------------------------------------------------------------------------------------------------
   const things = new T.Group(); group.add(things);
-  const place = placeEntities({ r, layout, editor, hooks, group: things, chunk: 30, night: (k) => 1 - k, points: 8, override: OLD ? null : cityBuilders({ kind: kindName, game: !editor }) });
+  // the building of the chase is a scene of its own (scenes/predio.js, data/scenes/predio.json), put in whole as one entity: its things stand in the street's frame
+  const predioFuga = (k, p, e) => { const inner = buildPredio(r, { embed: true }), root = new T.Group(); inner.group.position.set(-e.pos[0], -e.pos[1], -e.pos[2]); root.add(inner.group); return { root, collider: { w: 12, d: 12 }, dynamic: true, fuga: inner.fuga, lights: [...inner.place.lamps.values()].map((l) => ({ pos: l.pos, color: l.base.color, range: l.base.range })) }; };
+  const place = placeEntities({ r, layout, editor, hooks, group: things, chunk: 30, night: (k) => 1 - k, points: 8, override: OLD ? null : { ...cityBuilders({ kind: kindName, game: !editor }), predioFuga } });
+  // the building of the chase brings its own lamps (its hall, its stairs, its corridor): the street lights them with the rest
+  const fugaId = layout.entities.find((e) => e.type === 'predioFuga')?.id ?? null, fuga = fugaId && !OLD ? place.ents.X(fugaId) : null;
+  (fuga?.lights ?? []).forEach((l, i) => place.lamps.set(`${fugaId}#l${i}`, { pos: l.pos, base: { color: l.color, range: l.range, night: true } }));
   place.refreshBoxes();
   const lod = editor || OLD ? null : createCityLod(kit, group, place.ents.made);
   lod?.update(eye);
@@ -188,6 +196,8 @@ export function buildScene(r, { layout, editor = false, hooks = {} } = {}) {
     /** The floor height: the sidewalks are a curb above the road. */
     ground: (x, z) => (Math.abs(z) > road && Math.abs(z) < walk + 0.01 ? curb : place.ground(x, z)),
     setActive: place.setActive, place,
+    /** The building of the chase: what moves in it and what of it is shown (models/predio/index.js), or null. */
+    fuga: fuga?.fuga ?? null,
     get hides() { return [...place.hides.values()]; },
     update(t, ctx) {
       r.time(t); place.ents.update(t, ctx); place.tick(t);

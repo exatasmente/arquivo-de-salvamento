@@ -26,6 +26,7 @@ import { mulberry32 } from '../../vendor/engine/rng.js';
 import { loadModel, modelIfReady, FILM, rampTexture, cloneScene, filterClip, visibleTris } from './glb.js';
 import { Layers, clamp01 } from './anim.js';
 import { OUTLINE } from './outline.js';
+import { plantFeet } from './plant.js';
 
 const FILE = 'dog.glb';
 const loading = loadModel(FILE);
@@ -41,6 +42,12 @@ const norm = (s) => ALIAS[s] ?? (STATE_COLOR[s] ? s : 'calma');
 const PAINTED = 0.3;               // how much of the painted texture shows whatever the scene's light (as PAINTED of Jonas)
 const DUR = {};
 const BODY_CLIPS = ['parado', 'andar', 'rolar', 'virar_sensor', 'farejar', 'buscar', 'correr_caca', 'derrubar', 'desligado'];
+const LEGS = ['FL', 'FR', 'BL', 'BR'];
+// metres the hull goes in one cycle of each moving clip (tools/models/dog.py: a walk cycle every 0.9 m, a gallop every 0.9 / 0.35 m); they
+// are measured on the clips when the file arrives, these are only for before that
+const STRIDE = { andar: 0.9, buscar: 0.9, rolar: 0.9 / 0.35, correr_caca: 0.9 / 0.35 };
+// its feet stay where they were put down (plant.js): the ball of a foot is down within these of the floor; two step at once
+const FEET = { down: 0.006, up: 0.03, reach: 0.09, turn: 0.45, step: 0.16, lift: 0.06, pairs: 2, above: 0.05, level: true };
 
 function clipsOf(gltf) {
   if (gltf.userData.layers) return gltf.userData.layers;
@@ -88,6 +95,8 @@ export function buildDog(r, { seed = 1 } = {}) {
       for (const [h, of] of hulls) { h.visible = Boolean(outline.on) && of.visible; if (o.color) h.material.uniforms.uColor?.value.set(outline.color); }
     },
     outline,
+    /** false lets the feet go where the clips put them (to compare; the game keeps it on). */
+    plant: true,
   };
 
   /** The shell's material: the look's flat one, back faces only, pushed out after the skin (as models/jonas.js does). */
@@ -152,13 +161,52 @@ export function buildDog(r, { seed = 1 } = {}) {
     layers = new Layers(inst);
     for (const n of BODY_CLIPS) if (by[n]) layers.add(n, by[n]);
     if (by.sensor_yaw) layers.add('sensor_yaw', by.sensor_yaw);
+    // the gait of the moving clips, measured once; and the four feet held to the floor
+    const bone = (n) => inst.getObjectByName(n);
+    if (!gltf.userData.gait) gltf.userData.gait = gaitOf();
+    gait = gltf.userData.gait;
+    const legs = LEGS.map((n) => ({ hip: bone(`leg_${n}_up`), knee: bone(`leg_${n}_low`), foot: bone(`wheel_${n}`), toe: bone(`wheel_${n}`), bend: n[0] === 'F' ? 1 : -1 }));
+    if (legs.every((l) => l.hip && l.knee && l.foot)) feet = plantFeet(T, root, legs, { ...FEET, rest: gait.rest ?? 0.046 });
     api.ready = true;
     if (lastCall) compose(lastCall);
   }
 
+  let gait = null, feet = null;
+  /** For each moving clip, the metres one cycle carries the hull (how fast a foot that is down goes back under it), and how high a foot's ball is standing. */
+  function gaitOf() {
+    const out = {}, balls = LEGS.map((n) => inst.getObjectByName(`wheel_${n}`));
+    if (balls.some((b) => !b)) return out;
+    const inv = new T.Matrix4(), p = new T.Vector3();
+    const sample = (W) => { layers.apply(W); inst.updateWorldMatrix(true, true); inv.copy(root.matrixWorld).invert(); return balls.map((b) => b.getWorldPosition(p).applyMatrix4(inv).toArray()); };
+    if (layers.has('parado')) out.rest = Math.min(...sample({ parado: [1, 0] }).map((q) => q[1]));
+    for (const n of Object.keys(STRIDE)) {
+      if (!layers.has(n)) continue;
+      const N = 96, pts = [];
+      for (let i = 0; i < N; i++) pts.push(sample({ [n]: [1, (i / N) * DUR[n]] }));
+      let sum = 0, cnt = 0;
+      for (let f = 0; f < 4; f++) {
+        const ys = pts.map((q) => q[f][1]), lo = Math.min(...ys);
+        for (let i = 0; i < N; i++) { const j = (i + 1) % N; if (ys[i] < lo + 0.008 && ys[j] < lo + 0.008) { sum += pts[j][f][2] - pts[i][f][2]; cnt++; } }
+      }
+      if (cnt) out[n] = { stride: (sum / cnt) * N };
+    }
+    layers.apply({});
+    return out;
+  }
+  const strideOf = (n) => (gait?.[n]?.stride > 0.2 ? gait[n].stride : STRIDE[n]);
+  /** The clips a state walks with, and the share of the gallop at a speed (as compose mixes them). */
+  const goOf = (state) => ({ calma: 'andar', desconfiada: 'andar', busca: 'buscar', caca: 'correr_caca' }[state] ?? 'andar');
+  const rollShare = (state, sp) => (state === 'caca' ? 0 : clamp01((sp - 1.6) / 0.8));
+  /** Metres one cycle of its gait carries it, in a state, with this share of the gallop. */
+  const strideFor = (state, roll) => (1 - roll) * strideOf(goOf(state)) + roll * strideOf('rolar');
+  api.stride = (state = 'calma', speed = 1) => { const st = norm(state); return strideFor(st, rollShare(st, Math.abs(speed))); };
+  api.rollShare = (state, speed) => rollShare(norm(state), Math.abs(speed));
+  /** How the feet have been held (see jonas.js). */
+  api.feetStats = () => (feet ? feet.legs.map((l) => ({ steps: l.steps, off: l.held ? l.off / l.held : 0, offMax: l.offMax, state: l.state, w: l.w })) : null);
+
   /** The pose and the band's colour, a pure function of the arguments. */
   function compose(s) {
-    lastCall = s;
+    lastCall = s._dt || s._reset ? { ...s, _dt: 0, _reset: false } : s;   // (composed again, the same call holds the feet where they are)
     const { phase = 0, speed = 0, sensorColor = null, look = null, t = 0, walk = null, roll = null, at = null, action = null } = s;
     const state = norm(s.state);
     const off = state === 'desligado';
@@ -169,7 +217,7 @@ export function buildDog(r, { seed = 1 } = {}) {
     if (sensorMat.uniforms?.uColor) sensorMat.uniforms.uColor.value.set(c);
     if (!layers) return;
     const moving = walk ?? (sp > 0.05 && !off ? 1 : 0);
-    const rollK = roll ?? clamp01((sp - 1.6) / 0.8);
+    const rollK = roll ?? rollShare(state, sp);
     const u = ((phase / (2 * Math.PI)) % 1 + 1) % 1;
     const W = {};
     const loopT = (n) => ((t % DUR[n]) + DUR[n]) % DUR[n];
@@ -194,21 +242,45 @@ export function buildDog(r, { seed = 1 } = {}) {
     else yaw = Math.sin(t * (state === 'calma' ? 0.55 : 1.1)) * (state === 'calma' ? 0.7 : 1.3);
     add('sensor_yaw', 1, (yaw + 2.4) / 4.8 * DUR.sensor_yaw);
     layers.apply(W);
+    // the feet that are down stay where they are (`lift`: how high the caller holds the hull over the floor, as in a leap)
+    if (feet && api.plant !== false) {
+      if (s._reset) feet.reset();
+      root.updateWorldMatrix(true, false);
+      feet.apply(s._dt ?? 0, { ground: root.matrixWorld.elements[13] - (s.lift ?? 0), on: 1 });
+    }
   }
 
-  api.setPose = (a = {}) => compose({ ...a });
+  let poseT = null;
+  api.setPose = (a = {}) => {
+    // a film plays its frames in order: the feet go on from the last one; a jump in time (or no time) lets them go
+    const go = a.t !== undefined && poseT !== null && a.t > poseT && a.t - poseT < 0.25;
+    const step = go ? a.t - poseT : 0;
+    poseT = a.t ?? null;
+    compose({ ...a, _dt: step, _reset: !go });
+  };
   let phase = 0, wk = 0, rn = 0, clock = 0, offAt = 0, prevState = null, actAt = 0, prevAction = null;
+  let lastX = null, lastZ = 0, spSeen = 0;
   const lerp = (a, b, k) => a + (b - a) * Math.min(1, k);
-  api.update = (dt, { speed = 0, state = 'calma', sensorColor = null, look, action = null } = {}) => {
+  api.update = (dt, { speed = 0, state = 'calma', sensorColor = null, look, action = null, lift = 0 } = {}) => {
     clock += dt;
-    const st = norm(state), sp = Math.abs(speed), off = st === 'desligado', moving = sp > 0.05;
+    // how far the root went since the last call, along where it faces: the gait follows the ground covered, not the speed it is told
+    const rp = root.position;
+    let moved = null, jumped = lastX === null;
+    if (lastX !== null) {
+      const dx = rp.x - lastX, dz = rp.z - lastZ, d = Math.hypot(dx, dz);
+      if (d > Math.max(0.75, 10 * dt)) jumped = true;
+      else { const fwd = -Math.sin(root.rotation.y) * dx - Math.cos(root.rotation.y) * dz; moved = Math.abs(fwd) >= 0.3 * d ? Math.sign(fwd) * d : d; }
+    }
+    lastX = rp.x; lastZ = rp.z;
+    if (dt > 0 && moved !== null) spSeen = lerp(spSeen, Math.abs(moved) / dt, dt * 12);
+    const st = norm(state), sp = moved === null ? Math.abs(speed) : spSeen, off = st === 'desligado', moving = sp > 0.05;
     if (st !== prevState) { offAt = 0; prevState = st; }
     offAt += dt;
     if (action !== prevAction) { actAt = 0; prevAction = action; }
     actAt += dt;
-    rn = lerp(rn, !off && sp > 1.8 ? 1 : 0, dt * 6); wk = lerp(wk, !off && moving ? 1 : 0, dt * 8);
-    phase += (sp / 0.9) * Math.PI * 2 * dt * (rn > 0.5 ? 0.35 : 1);
-    compose({ phase, speed: sp, state: st, sensorColor, look: look ?? null, t: clock, walk: wk, roll: rn, at: action ? actAt : offAt, action });
+    rn = lerp(rn, !off ? rollShare(st, sp) : 0, dt * 6); wk = lerp(wk, !off && moving ? 1 : 0, dt * 8);
+    phase += ((moved ?? sp * dt) / strideFor(st, rn)) * Math.PI * 2;
+    compose({ phase, speed: sp, state: st, sensorColor, look: look ?? null, t: clock, walk: wk, roll: rn, at: action ? actAt : offAt, action, lift, _dt: dt, _reset: jumped });
   };
   api.setPose({});
 

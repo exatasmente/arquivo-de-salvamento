@@ -7,5 +7,6 @@ import radioTeste from './radio-teste.js';
 import radioCurto from './radio-curto.js';
 import noite1 from './noite1.js';
 import emenda from './emenda.js';
+import fuga from './fuga.js';
 
-export const CUTSCENES = { galeria, rua, 'a-galeria': aGaleria, 'radio-teste': radioTeste, 'radio-curto': radioCurto, noite1, emenda };
+export const CUTSCENES = { galeria, rua, 'a-galeria': aGaleria, 'radio-teste': radioTeste, 'radio-curto': radioCurto, noite1, emenda, fuga };

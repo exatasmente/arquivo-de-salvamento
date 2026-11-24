@@ -14,7 +14,9 @@ const ROOT = path.resolve(new URL('..', import.meta.url).pathname);
 const CORE = process.env.PLAYWRIGHT_CORE, skip = CORE ? false : 'set PLAYWRIGHT_CORE to run the browser tests';
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.glb': 'model/gltf-binary', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg' };
 const KEY = 'sinal-de-vida.card.v2';
-const QUERY = '?cena=n1-saida&sair=agora&semente=7&emenda=cheia';
+// (the choice by the skip is out of the game since 2026-11-23 and lives behind one switch, data/story/fuga.json: these tests keep the old way honest with `cacamba=keep`;
+// what the game plays now, the run and the chase, is in test/fuga.test.mjs)
+const QUERY = '?cena=n1-saida&sair=agora&semente=7&emenda=cheia&cacamba=keep';
 
 async function withGame(fn, { touch = false } = {}) {
   const { chromium } = createRequire(import.meta.url)(CORE);
@@ -87,7 +89,8 @@ test('the speed: the animation of the bodies follows the game steps, not how man
     await page.keyboard.up('KeyW');
     const r = await page.evaluate(() => ({ p: window.__game.player.pos.slice(), anim: window.__anim }));
     const walked = Math.hypot(r.p[0] - p0[0], r.p[1] - p0[1]);
-    assert.ok(Math.abs(walked - 2.6) < 0.15, `one second of steps is 2.6 m of walking (${walked.toFixed(2)} m, the same speed as in the station)`);
+    // (2026-11-19: the stick all the way is a brisk walk, 1.55 m/s, and he takes 0.31 s to get up to it: 1.31 m in the first second)
+    assert.ok(Math.abs(walked - 1.31) < 0.1, `one second of steps from standing is 1.31 m of walking (${walked.toFixed(2)} m, the same speed as in the station)`);
     assert.ok(Math.abs(r.anim - 1.0) < 0.1, `and one second of animation (${r.anim.toFixed(2)} s; it was 48 s)`);
   });
 });
@@ -221,7 +224,9 @@ test('desorientar (quiet): the lure at the sensor deafens the dog for about 8 s,
   const dog = (t) => actionPose('cheia', rec, t).dog;
   assert.equal(dog(7).state, 'busca', 'stunned against the skip'); assert.equal(dog(12).state, 'busca'); assert.ok(dog(10.2).speed >= 0 && dog(14).yaw !== dog(12).yaw, 'it turns');
   assert.equal(dog(10.1 + DUMP.deaf + 3).state, 'calma', 'after the 8 s it goes on along its route'); assert.ok(Math.hypot(...dog(10.1 + DUMP.deaf + 4).pos.map((x, i) => x - DUMP.hit[i])) > 1.5);
-  assert.equal(actionPose('cheia', rec, 15.5).jonas.hidden, true, 'and he is in the skip, out of sight');
+  // (2026-11-19: he goes to the skip crouched at the pace of his crouched walk, 1.1 m/s, round the lamp post, turning on the spot in
+  // steps: in it 3.3 s after the splice, not 1.8; the step leaves 5.2 s for it)
+  assert.equal(actionPose('cheia', rec, 17.1).jonas.hidden, true, 'and he is in the skip, out of sight');
 });
 
 test('desativar (loud): the cable into the socket on its back shorts the battery, it sparks and falls switched off, Escuta +10, and the splice closes shorter and slower', { skip, timeout: 600000 }, async () => {

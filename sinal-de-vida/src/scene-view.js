@@ -3,7 +3,7 @@
 // (window.__engine) is this scene's: its entities can be picked, moved, made and saved in data/scenes/.
 import { createRender } from './render.js';
 
-export const SCENES = ['galeria', 'rua'];
+export const SCENES = ['galeria', 'rua', 'predio'];
 
 export async function viewScene(name) {
   if (!SCENES.includes(name)) throw new Error(`no scene ${name} (${SCENES.join(', ')})`);

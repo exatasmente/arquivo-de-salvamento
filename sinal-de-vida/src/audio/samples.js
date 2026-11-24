@@ -72,6 +72,12 @@ export const ROUTES = {
   'ambiente-rua': { ids: ['amb-rua'], g: -1, loop: true, wet: 0 },
   'ambiente-poco': { ids: ['amb-poco'], g: 4, loop: true, wet: 0 },
   'ambiente-predio': { ids: ['amb-predio'], g: 1, loop: true, wet: 0 },
+  // the chase through the building (2026-11-23): the flat's room tone, his breath while he hides, the sweep of the dog's sensor, the blow on the cupboard, the game over
+  'ambiente-apto': { ids: ['apto-fundo'], g: 3, loop: true, wet: 0 },
+  'respiracao-escondido': { ids: ['jonas-respira-escondido'], g: -2, pitch: 0.03, vol: 1, wet: 0.2 },
+  'sensor-varre': { ids: ['cao-sensor-varre'], g: -5, pitch: 0.04, vol: 1 },
+  'armario-racha': { ids: ['armario-golpe'], g: 0, pitch: 0.04, vol: 1 },
+  'fim-de-jogo': { ids: ['fim-de-jogo'], g: -3, wet: 0 },
 };
 export const SAMPLE_NAMES = Object.keys(ROUTES);
 

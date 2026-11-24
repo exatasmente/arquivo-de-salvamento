@@ -14,7 +14,8 @@ import SCENES from '../../data/story/scenes.json' with { type: 'json' };
 const T0 = CINE.cheia;                           // where the reaction starts on this cutscene's clock
 const A = 4.6, W = 0.6, S = SLOW.scale, L = W / S;                         // the dodge window starts at A (world seconds), lasts W, and takes L seconds of film
 /** The film's reaction time of a moment `w` of the game's clock (the dodge window is slow). */
-const R = (w) => (w <= A ? w : w <= A + W ? A + (w - A) / S : w + L - W);
+const Rw = (w) => (w <= A ? w : w <= A + W ? A + (w - A) / S : w + L - W);
+const R = (w) => Rw(w >= 7.3 ? w + 1.6 : w);          // (what comes after the dodge is 1.6 s later than written: see LATE below)
 /** The game's clock at the film's reaction time `r`. */
 const worldOf = (r) => (r <= A ? r : r <= A + L ? A + (r - A) * S : r - L + W);
 const slowKAt = (r) => { const e = (u) => { const c = Math.max(0, Math.min(1, u)); return c * c * (3 - 2 * c); }; return e((r - A) / 0.3) * (1 - e((r - A - L + 0.3) / 0.3)); };
@@ -28,7 +29,12 @@ const LOUD = { ...BASE, starts: [0, A, 7.3, 8.5, 10.4, 14.4], wins: [4.4, W, 2.0
 // the dodge missed: the dog gets to him when its leap ends and the attack goes on
 const KNOCK = { variant: 'cheia', from: -1, film: true, starts: [0, A], wins: [4.4, W], dodge: null, knockedAt: A + W };
 const LOUD_OFF = 30, KNOCK_OFF = 60;
-const END_QUIET = 18.9, END_LOUD = 16.7;
+// (2026-11-19: Jonas walks back to the dog after his roll instead of jogging, and the choice waits for him: STEPS' `after` of the dodge went
+// from 2.2 to 3.8 s. The times of the two runs above and of the views and sounds below are still written on the old clock; LATE moves
+// whatever comes after the dodge.)
+const LATE = 1.6;
+const late = (rec) => { const f = (x) => (x === undefined ? x : x + LATE); return { ...rec, starts: rec.starts.map((x, i) => (i >= 2 ? x + LATE : x)), choice: rec.choice ? { ...rec.choice, at: rec.choice.at + LATE } : rec.choice, b1End: f(rec.b1End), deafAt: f(rec.deafAt), jabAt: f(rec.jabAt), freedAt: f(rec.freedAt), closedAt: f(rec.closedAt) }; };
+const END_QUIET = 19.4, END_LOUD = 16.7;
 
 const views = {
   cinematica: [0, T0, 'A cinemática inteira do cão chegando enquanto Jonas emenda: o cão vira a esquina entre os carros, o sensor muda de âmbar fraco para âmbar e Jonas olha por cima do ombro'],
@@ -54,8 +60,8 @@ const shotOf = (rec, off) => {
   return { day: 0, cam: (u, t) => pose(t).cam, actors: { cao: (u, t) => { const d = pose(t).dog; return { ...d, color: d.sensor }; }, jonas: (u, t) => { const j = pose(t).jonas; return j.hidden ? { ...j, pos: [-30, -30] } : j; } } };
 };
 const shots = {};
-for (const k of ['cinematica', 'esquina', 'sensor', 'olhar', 'espera', 'salto', 'batida', 'desorientar', 'cabo-preso', 'fecha', 'esconde', 'acao']) shots[k] = shotOf(QUIET, 0);
-for (const k of ['desativar', 'desativar-fecha']) shots[k] = shotOf(LOUD, LOUD_OFF);
+for (const k of ['cinematica', 'esquina', 'sensor', 'olhar', 'espera', 'salto', 'batida', 'desorientar', 'cabo-preso', 'fecha', 'esconde', 'acao']) shots[k] = shotOf(late(QUIET), 0);
+for (const k of ['desativar', 'desativar-fecha']) shots[k] = shotOf(late(LOUD), LOUD_OFF);
 shots.derrubado = shotOf(KNOCK, KNOCK_OFF);
 
 function buildOwn(r) {

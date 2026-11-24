@@ -6,12 +6,17 @@
 //   actionPose(variant, rec, t)   the reaction after it, from what the sequence recorded (rec): { cam, dog, jonas, tail, fx }
 //   STEPS[variant]                the steps of the sequence (src/systems/sequence.js)
 // A variant is 'cheia' (the dog came for him: four steps) or 'curta' (the decoy took it far away: it only passes at a distance and looks: two steps).
-// Poses: { pos: [x, z], yaw, y?, pitch?, speed, state, sensor?, look?, action?, at?, crouch?, walk?, gaze? }. The dog faces -Z at yaw 0, like a person.
+// Poses: { pos: [x, z], yaw, y?, pitch?, speed, state, sensor?, look?, action?, at?, crouch?, walk?, gaze?, twist?, turn?, stop? }. The dog faces -Z at yaw 0, like a person.
+// Jonas's feet must not slide (the person's decision of 2026-11-19): he is moved only along a way his steps can follow (a turn on the spot,
+// then a walk at the pace of the gait, then the turn to what he faces next: goWay; facing off the way he goes would slide his feet), a look over the shoulder while he kneels is a turn of his upper
+// body (`twist`), not of his knees on the pavement, and the dodge is a dive and a roll whose way over the floor is the clip's own (ROLL).
 import { mulberry32 } from '../../vendor/engine/rng.js';
+import { routeAt, routeLength } from './route.js';
+import { turnTime, turnEase } from './turn.js';
 
 export const J = [-13.3, 8.1];                  // where Jonas works during the sequence: south of the cable, on the pavement
 export const CABLE = { cut: [-13.3, 7.7], right: [-13.1, 7.7], grate: [-15.9, 8.05] };
-export const CINE = { cheia: 5.6, curta: 4.0 };
+export const CINE = { cheia: 5.6, curta: 4.0, fuga: 5.6 };
 /** The dodge is an event: the world drops to `scale` of its speed (eased in and out), and the camera pushes in on Jonas and the dog. */
 export const SLOW = { scale: 0.28, easeIn: 10, easeOut: 5, push: 0.3, fov: 9 };
 /** The attack when the dodge is missed (seconds since the dog got to him): the picture fades to black, the game over, and the reload. */
@@ -23,7 +28,7 @@ export const STEPS = {
   cheia: [
     { kind: 'hold', window: 2.2, need: 3.0, first: true, after: 0.4 },
     // the dodge: the world is slow while this window runs; the next step waits for the dog to slide into the skip and for Jonas to be back on his feet
-    { kind: 'dir', window: 0.6, after: 2.2, landing: 0.6 },       // (after: he is on his feet again; the dog is stunned a while before that)
+    { kind: 'dir', window: 0.6, after: 3.8, landing: 0.6 },       // (after: he is on his feet again and nearly back beside the dog, at a walk: DODGE_END; the dog is stunned a while before that)
     // the dog is stunned against the skip for about 2 s: two options, left (desorientar, quiet) and right (desativar, loud); each is a command of its own, and missing it is the end
     { kind: 'pick', window: 2.0, branches: {
       quiet: [
@@ -42,12 +47,30 @@ export const STEPS = {
     { kind: 'hold', window: 1.5, need: 2.0, first: true, after: 0.2 },
     { kind: 'press', window: 1.2, after: 1.0 },
   ],
+  // the chase (the person's decision of 2026-11-23: the choice by the skip is out): the hold closes the splice, and the click of the connector is the
+  // noise the dog leaps at; the dodge; and with the dog stunned against the skip for two seconds, one press: run. Then the chase (systems/fuga.js).
+  fuga: [
+    { kind: 'hold', window: 2.2, need: 3.0, first: true, after: 0.4 },
+    { kind: 'dir', window: 0.6, after: 2.3, landing: 0.6 },                       // (after: he is on his feet, turned to the dog and to the avenue behind it)
+    { kind: 'press', window: 2.0, fatal: true, after: 0 },                        // (after: FLEE_TIME, set below: he is off and running when the chase takes him)
+  ],
 };
+/**
+ * The run that begins the chase: from where his dive left him, round to the west of the skip (`via`, then `cut`, where the chase's first beat takes him,
+ * already at his run), how fast he gets up to it, and the camera that opens on the avenue and the lit door of the building across it.
+ */
+export const FLEE = { via: [-15.9, 9.5], cut: [-16.6, 7.7], pace: 4.8, accel: 6, cam: { eye: [-10.5, 2.25, 10.45], at: [-13.9, 1.5, 1.0], fov: 60 } };
 /** The pieces of the staging: the skip the dog slams into, where Jonas kneels to reach it, where he hides, how long it stays deaf, the clock of the slide. */
 // (the dog loses its grip and slides sideways into the skip, facing east, the sensor on its east end; Jonas kneels at the head for the lure and reaches over the back for the socket)
-export const DUMP = { hit: [-13.1, 6.5], yaw: -Math.PI / 2, slide: 0.6, near: { quiet: [-12.15, 6.8], loud: [-12.85, 7.25] }, nearYaw: { quiet: Math.PI / 2, loud: 0 }, hide: [-13.9, 6.45], deaf: 8, spark: 1.1 };
+export const DUMP = { hit: [-13.1, 6.5], yaw: -Math.PI / 2, slide: 1.0, near: { quiet: [-12.15, 6.8], loud: [-12.85, 7.25] }, nearYaw: { quiet: Math.PI / 2, loud: 0 }, hide: [-13.9, 6.45], deaf: 8, spark: 1.1 };
 export const ESCUTA_DISABLE = 10;
 const HIDE_WAY = [J, [-14.25, 7.6], DUMP.hide];            // (round the lamp post at his shoulder)
+/** How fast Jonas goes crouched (m/s) between the places of the scene (his crouched walk is made for 1.0 m/s: tools/models/jonas_gait.py), and how his speed comes up and goes down along a way (m/s2, as the player's controller: systems/player.js). */
+export const CROUCH_PACE = 1.1, WAY_ACCEL = 5, WAY_DECEL = 3.75;
+/** How wide he takes a corner of a way (metres of the way each side of it: route.js): a tight one turns him over a planted foot. */
+export const WAY_ROUND = 0.6;
+/** How far he turns to look at the dog behind him while he kneels (radians, + to his left: the west): the whole turn, over feet that stay; the model spreads it from the hips up (TWIST in models/jonas.js). */
+export const LOOK_BACK = 1.1;
 // the dodge window is in WORLD seconds: the game runs the world at SLOW.scale while it is on (about 2.1 s for the person)
 // the hold of the first step must fill within its (doubled) window: need 3.0 of 4.4 s; the short one 2.0 of 3.0 s
 
@@ -94,9 +117,9 @@ export function cinePose(variant, t) {
     else if (shot === 1) { const u = clamp((t - tA) / (tB - tA)); cam = { eye: mix([2.9, 0.55, 4.1], [3.2, 0.5, 3.9], ease(u)), at: [4.6, 0.62, 3.4], fov: 38 }; }
     else { const u = clamp((t - tB) / (total - tB)); cam = { eye: mix([-15.9, 1.1, 9.0], [-15.4, 1.15, 8.9], ease(u)), at: mix([-13.3, 0.95, 8.1], [-13.3, 1.0, 8.1], u), fov: 40 }; }
   }
-  // Jonas: kneeling at the cable, working; in the last plane he turns his head, and then his body, to look over his shoulder at the dog
-  const turn = shot === 2 ? ease(clamp((t - tB) / 0.9)) : 0, looks = full ? 1.25 : -1.3;   // (full: toward the west, where the dog is; short: toward the east)
-  const jonas = { pos: J, yaw: turn * looks, crouch: 1, speed: 0, action: 'manipular', gaze: { x: turn * 0.5 * Math.sign(looks), y: 0 }, look: turn * 0.8 * Math.sign(looks) };
+  // Jonas: kneeling at the cable, working; in the last plane he turns his head and his shoulders (not his knees) to look over his shoulder at the dog
+  const turn = shot === 2 ? ease(clamp((t - tB) / 0.9)) : 0, looks = full ? LOOK_BACK : -LOOK_BACK;   // (full: toward the west, where the dog is; short: toward the east)
+  const jonas = { pos: J, yaw: 0, twist: turn * looks, crouch: 1, speed: 0, action: 'manipular', gaze: { x: turn * 0.5 * Math.sign(looks), y: 0 }, look: turn * 0.8 * Math.sign(looks) };
   return { shot, cam, dog, jonas, total };
 }
 
@@ -109,8 +132,60 @@ export function leap(from) {
 /** How slow the world is at time t (0..1) when the run has no live value: the dodge window with its easings (the film). */
 function slowKOf(rec, t) { const t1 = rec.starts?.[1]; if (t1 === undefined) return 0; const W = rec.wins?.[1] ?? 0.6, a = rec.dodge?.at ?? rec.knockedAt ?? t1 + W; return ease(clamp((t - t1) / 0.15)) * (1 - ease(clamp((t - a) / 0.3))); }
 const ACTION_CAM = { eye: [-10.7, 2.1, 9.8], at: [-16.2, 0.45, 7.9], fov: 50 };
-/** The dodge: left of the picture is south (+z), right is north: how far he goes and the time each part takes. */
-export const DODGE = { dash: 0.3, fall: 0.7, rise: 1.2, back: 0.4, dz: 1.0, dx: 0.3 };       // (dx: a little to the east, off the lamp post at his shoulder; the lengths of the clips `derrubado` and `levantar` of Jonas: 0.67 and 1.2 s)
+// once the dog is against the skip: the dog, the skip and Jonas coming up from his roll on the pavement to the south of it
+const SLAM_CAM = { eye: [-10.9, 1.8, 10.3], at: [-13.6, 0.5, 8.4], fov: 58 };   // (east of it is the hoarding of the station: x > -10.4)
+/**
+ * The dodge (2026-11-19: he no longer falls flat on his back, which read as dead): from his knees he spins toward the left of the picture
+ * (south, +z) and dives, lands on his hands and rolls over his shoulder, and comes up in a crouch facing away; he turns round to the dog
+ * and hurries back on his feet (`pace`: his brisk walk, pressed a little) to where he can reach it (READY), crouching as he gets there (`down` s before). `roll`: when the clip `esquivar` has him crouched on his feet; `spin`: the turn
+ * before the dive; `yaw`: the way he dives (south-south-west: the camera is to the east, the shop fronts 2.9 m to the south).
+ */
+export const DODGE = { spin: 0.16, roll: 0.75, settle: 0.12, yaw: Math.PI - 0.5, ready: [-12.6, 7.7], pace: 1.8, down: 0.3 };
+/**
+ * The way the dive takes him over the floor at each moment of the clip `esquivar` (seconds of the clip, metres along the dive), read on the
+ * clip: what touches the floor stays where it touched (the toes of the push, the hands, the shoulder and the back, then the feet) and the
+ * short flight between them goes at 1.2 m/s. After `DODGE.roll` the feet are down and he does not move.
+ */
+export const ROLL = [[0, 0], [0.05, 0.3], [0.1, 0.62], [0.15, 0.68], [0.2, 0.74], [0.25, 0.8], [0.3, 0.86], [0.35, 1.07], [0.4, 1.38], [0.45, 1.61], [0.5, 1.79],
+  [0.55, 1.85], [0.6, 1.93], [0.65, 2.04], [0.7, 2.15], [0.75, 2.31]];
+const rollAt = (tau) => { if (tau <= 0) return 0; for (let i = 1; i < ROLL.length; i++) if (tau <= ROLL[i][0]) { const [a, sa] = ROLL[i - 1], [b, sb] = ROLL[i]; return sa + (sb - sa) * (tau - a) / (b - a); } return ROLL.at(-1)[1]; };
+const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+const turnTo = (a, b, k) => a + wrapA(b - a) * k;
+/**
+ * Going along a way (a polyline: corners rounded as route.js rounds them) from time t0: a turn on the spot to face the way, the walk
+ * up to `pace` (speeding up and slowing down as a body does), and the turn on the spot into `yaw1` at the end. The turns take the time
+ * and follow the curve of systems/turn.js, as his turning clips were made. Pure.
+ * { pos, yaw, speed, done, end (when it is all over), turn ({ a, k } while he turns on the spot), stop ({ t, T } while he slows down and settles) }:
+ * `turn` and `stop` go to his model with the pose (models/jonas.js).
+ */
+export function goWay(pts, t, t0, yaw0, yaw1, pace = CROUCH_PACE, v0 = 0) {
+  const a = pts[0], b = pts.at(-1), way = { from: a, via: pts.slice(1, -1), to: b, round: WAY_ROUND }, L = pts.length > 1 ? routeLength(way) : 0, goes = L > 1e-3;
+  const head0 = goes ? routeAt(way, 0).yaw : yaw0, head1 = goes ? routeAt(way, 1).yaw : yaw0;
+  const pre = wrapA(head0 - yaw0), post = wrapA(yaw1 - head1);
+  // (taken up as he goes, `v0` m/s, and not far off his heading: no stop and no turn on the spot, he bends his way over the first steps)
+  const rolling = goes && v0 > 0.3 && Math.abs(pre) < 1.2;
+  const tIn = !rolling && Math.abs(pre) > 0.02 ? turnTime(pre) : 0, tOut = Math.abs(post) > 0.02 ? turnTime(post) : 0;
+  // the walk: up to the pace (or as fast as the way lets him get), steady, down again
+  const vp = goes ? Math.min(pace, Math.sqrt(2 * L * WAY_ACCEL * WAY_DECEL / (WAY_ACCEL + WAY_DECEL))) : 0;
+  const vs = rolling ? Math.min(v0, vp) : 0;                 // the speed he has as the way begins
+  const tA = (vp - vs) / WAY_ACCEL, tD = vp / WAY_DECEL, dA = (vp + vs) * tA / 2, dD = vp * tD / 2, tC = goes ? Math.max(0, (L - dA - dD) / vp) : 0, T = goes ? tA + tC + tD : 0;
+  const k = t - t0, end = tIn + T + tOut;
+  if (k <= tIn) return { pos: [...a], yaw: tIn > 0 ? yaw0 + pre * turnEase(clamp(k / tIn)) : yaw0, speed: 0, done: end <= 0, end, turn: tIn > 0 && k >= 0 ? { a: pre, k: clamp(k / tIn) } : null, stop: null };
+  const w = k - tIn;
+  if (w < T) {
+    const d = w < tA ? vs * w + WAY_ACCEL * w * w / 2 : w < tA + tC ? dA + vp * (w - tA) : Math.min(L, L - WAY_DECEL * (T - w) * (T - w) / 2);
+    const v = w < tA ? vs + WAY_ACCEL * w : w < tA + tC ? vp : WAY_DECEL * (T - w);
+    const q = routeAt(way, clamp(d / L));
+    if (rolling) q.yaw = q.yaw - pre * (1 - ease(clamp(w / 0.45)));
+    // (the stop's own clip settles his feet after the root stands; with a turn on the spot coming, the turn's steps do that)
+    return { pos: q.pos, yaw: q.yaw, speed: v, done: false, end, turn: null, stop: w >= tA + tC ? { t: w - tA - tC, T: tD, clip: tOut <= 0 } : null };
+  }
+  const o = w - T, y1 = goes ? head1 : yaw0;
+  return { pos: [...b], yaw: tOut > 0 ? y1 + post * turnEase(clamp(o / tOut)) : yaw1, speed: 0, done: o >= tOut, end,
+    turn: tOut > 0 && o < tOut ? { a: post, k: clamp(o / tOut) } : null, stop: goes && tOut <= 0 && o < 1.2 ? { t: tD + o, T: tD, clip: true } : null };
+}
+const BACK_VIA = [-12.4, 7.5];
+const DOG_YAW = heading(DODGE.ready, DUMP.hit);       // facing the dog against the skip
 
 /**
  * rec: { variant, from (-1|1), starts: [t of each step's start], wins: [window of each step], hits: [bool|undefined], dodge: { side, at } | null, knockedAt, endAt, freedAt, closedAt }
@@ -128,21 +203,60 @@ export function actionPose(variant, rec, t) {
  *   failAt              the pick or the first step of the branch was missed: the dog gets up and goes for him
  */
 const STUN_WOBBLE = (t) => Math.sin(t * 9) * 0.05;
+/**
+ * After the leap (2026-11-19: it no longer glides sideways into the skip, which slid its feet over the pavement): it lands past Jonas still
+ * running, its feet scrabbling as it swings round, and runs on, slowing, straight into the south face of the skip, head first; the blow
+ * spins it round against it (see `stunned`). SKID.via is the corner it swings round (clear of the hydrant and the lamp post), and the way
+ * slows from the leap's speed to SKID.end of it.
+ */
+export const SKID = { via: [-12.75, 7.65], end: 0.4 };
 const dumpAt = (t, lp) => {
-  // after the leap: it lands past Jonas, loses its grip, skids and slams into the south face of the skip (the dog faces -z at yaw 0)
-  const k = clamp(t / DUMP.slide), a = ease(clamp(k / 0.4)), b = ease(clamp((k - 0.4) / 0.6));
-  const land = mix(lp.C, lp.land, a), pos = mix(land, DUMP.hit, b);
-  const yaw0 = heading(lp.S, lp.C);
-  return { pos, yaw: yaw0 + (DUMP.yaw - yaw0) * ease(clamp((k - 0.25) / 0.6)), speed: k < 1 ? 3.2 * (1 - k) : 0, y: k < 0.4 ? 0.3 * Math.sin(Math.PI * k / 0.4) : 0, pitch: k >= 1 ? 0.18 : 0.1 * k, k };
+  const k = clamp(t / DUMP.slide), way = { from: lp.C, via: [lp.land, SKID.via], to: DUMP.hit }, L = routeLength(way);
+  const f = (u) => (u - (1 - SKID.end) * u * u / 2) / (1 - (1 - SKID.end) / 2);          // the share of the way covered: a steady slowing down
+  const q = routeAt(way, f(k)), v = L / DUMP.slide * (1 - (1 - SKID.end) * k) / (1 - (1 - SKID.end) / 2);
+  return { pos: q.pos, yaw: q.yaw, speed: k < 1 ? v : 0, y: k < 0.12 ? 0.12 * Math.sin(Math.PI * k / 0.12) : 0, pitch: k < 0.12 ? 0.06 : 0.02, k };
 };
-/** Jonas dodging, `td` seconds after the press: the dash, the fall, getting up, and back to the cable. */
-function dodgeJ(rec, td) {
-  const dz = (rec.dodge.side === 'left' ? 1 : -1) * DODGE.dz, D = DODGE, yawTo = dz > 0 ? Math.PI : 0;       // facing the way he goes (south: yaw pi; north: yaw 0)
-  if (td < D.dash) { const u = ease(td / D.dash); return { pos: [J[0] + D.dx * u, J[1] + dz * u], yaw: yawTo, crouch: 0, speed: 3.6, run: true, action: null }; }
-  if (td < D.dash + D.fall) return { pos: [J[0] + D.dx, J[1] + dz], yaw: yawTo, crouch: 0, speed: 0, action: 'derrubado', at: td - D.dash };
-  if (td < D.dash + D.fall + D.rise) return { pos: [J[0] + D.dx, J[1] + dz], yaw: yawTo, crouch: 0, speed: 0, action: 'levantar', at: td - D.dash - D.fall };
-  const u = ease(clamp((td - D.dash - D.fall - D.rise) / D.back));
-  return { pos: [J[0] + D.dx * (1 - u), J[1] + dz * (1 - u)], yaw: yawTo * (1 - u), crouch: u, speed: u < 1 ? 1.2 : 0, action: null };
+/** Which way the dog faces as it hits the skip (the last stretch of the skid). */
+const SKID_YAW = heading(SKID.via, DUMP.hit);
+/** Where the dive ends (he is up on his feet, crouched), and the way he dives (yaw), for a side: 'left' (south, +z) or 'right' (north). */
+export function rollEnd(side) {
+  const yaw = side === 'left' ? DODGE.yaw : DODGE.yaw - Math.PI, s = ROLL.at(-1)[1];
+  return { pos: [J[0] - Math.sin(yaw) * s, J[1] - Math.cos(yaw) * s], yaw };
+}
+/** Jonas dodging, `td` seconds after the press: the spin and the dive, the roll, up in a crouch; then the turn to the dog and the way to READY. `twist0`: his look over the shoulder when he pressed. */
+function dodgeJ(rec, td, twist0 = LOOK_BACK) {
+  const D = DODGE, end = rollEnd(rec.dodge.side), yaw = end.yaw, dir = [-Math.sin(yaw), -Math.cos(yaw)];
+  if (td < D.roll) {
+    // he spins on his knees toward the dive (the upper body, already turned to the dog, leads), and the clip's own way carries him
+    const k = ease(clamp(td / D.spin)), s = rollAt(td), y = turnTo(0, yaw, k);
+    return { pos: [J[0] + dir[0] * s, J[1] + dir[1] * s], yaw: y, crouch: 1, speed: 0, action: 'esquivar', at: td, twist: twist0 * (1 - k) };
+  }
+  if (rec.variant === 'fuga') return fleeJ(rec, td, end);
+  // up, facing away: he gets to his feet as he turns round, hurries back (upright, at a brisk walk) to READY and crouches there, facing the dog
+  const t0 = D.roll + D.settle, g = goWay([end.pos, D.ready], td, t0, yaw, DOG_YAW, D.pace);
+  return { pos: g.pos, yaw: g.yaw, crouch: Math.max(1 - ease(clamp((td - t0) / D.down)), ease(clamp((td - (t0 + g.end - D.down)) / D.down))), speed: g.speed, action: null, gaze: { x: 0, y: 0.1 }, turn: g.turn, stop: g.stop };
+}
+/** After the dive, the chase's way: up on his feet as he turns to the dog against the skip; and at the press (rec.runAt) he is off, round the skip, up to his run. */
+function fleeJ(rec, td, end) {
+  const D = DODGE, t0 = D.roll + D.settle, toDog = heading(end.pos, DUMP.hit), turn = goWay([end.pos], td, t0, end.yaw, toDog);
+  const run = rec.runAt != null ? rec.dodge.at + td - rec.runAt : -1;
+  if (run < 0) return { pos: end.pos, yaw: turn.yaw, crouch: 1 - ease(clamp((td - t0) / 0.5)), speed: 0, action: null, gaze: { x: 0, y: 0.1 }, turn: turn.turn };
+  const way = { from: end.pos, via: [FLEE.via], to: FLEE.cut, round: 0.8 }, L = routeLength(way), tA = FLEE.pace / FLEE.accel, dA = FLEE.pace * tA / 2;
+  const d = run < tA ? FLEE.accel * run * run / 2 : dA + FLEE.pace * (run - tA), q = routeAt(way, clamp(d / L));
+  const y0 = goWay([end.pos], rec.runAt - rec.dodge.at, t0, end.yaw, toDog).yaw;
+  return { pos: q.pos, yaw: turnTo(y0, q.yaw, ease(clamp(run / 0.4))), crouch: 0, speed: Math.min(FLEE.pace, FLEE.accel * run), run: true, action: null };
+}
+/** How long the run to FLEE.cut takes from the press. */
+export const FLEE_TIME = (() => { const L = routeLength({ from: rollEnd('left').pos, via: [FLEE.via], to: FLEE.cut, round: 0.8 }), tA = FLEE.pace / FLEE.accel; return tA + (L - FLEE.pace * tA / 2) / FLEE.pace; })();
+STEPS.fuga[2].after = FLEE_TIME;
+/** When the dodge has him at READY facing the dog (seconds after the press). */
+export const DODGE_END = DODGE.roll + DODGE.settle + goWay([rollEnd('left').pos, DODGE.ready], 0, 0, rollEnd('left').yaw, DOG_YAW, DODGE.pace).end;
+/** Jonas before any branch: kneeling at the cut, looking back at the dog over his shoulder, the dodge. Pure, from the recording. */
+function jonasBefore(rec, t) {
+  const t1 = rec.starts?.[1];
+  if (rec.dodge && t >= rec.dodge.at) return dodgeJ(rec, t - rec.dodge.at, t1 === undefined ? 0 : LOOK_BACK * ease(clamp((rec.dodge.at - t1) / 0.5)));
+  if (t1 !== undefined && t >= t1) { const tau = clamp((t - t1) / 0.5); return { pos: J, yaw: 0, twist: LOOK_BACK * ease(tau), crouch: 1, speed: 0, action: 'manipular', gaze: { x: 0.5 * tau, y: 0 } }; }
+  return { pos: J, yaw: 0, crouch: 1, speed: 0, action: 'manipular' };
 }
 function fullPose(rec, t) {
   const [t0, t1, t2, t3, t4, t5] = rec.starts, [w0, w1] = rec.wins, lp = leap(rec.from);
@@ -173,7 +287,8 @@ function fullPose(rec, t) {
     } else {
       // stunned against the skip, then what Jonas did
       const ts = t - slamAt, flick = (Math.floor(ts * 2.4) % 2) ? SENSOR.weak : SENSOR.amber;
-      const stunned = { pos: DUMP.hit, yaw: DUMP.yaw + STUN_WOBBLE(ts) * 3 * Math.exp(-ts * 0.5), speed: 0, state: 'busca', y: 0, pitch: 0.18 + Math.sin(ts * 11) * 0.03 * Math.exp(-ts), sensor: flick, look: Math.sin(ts * 3) * 0.5 };
+      const spin = ease(clamp(ts / 0.45));                   // the blow turns it along the skip, its sensor to the east (a few quick steps)
+      const stunned = { pos: DUMP.hit, yaw: turnTo(SKID_YAW, DUMP.yaw, spin) + STUN_WOBBLE(ts) * 3 * Math.exp(-ts * 0.5) * spin, speed: 0, state: 'busca', y: 0, pitch: 0.18 + Math.sin(ts * 11) * 0.03 * Math.exp(-ts), sensor: flick, look: Math.sin(ts * 3) * 0.5 };
       dog = stunned; fx.stun = 1;
       if (bit) {
         // the pick or the first step went wrong: it gets its head up (white sensor), rears and leaps at him
@@ -208,57 +323,63 @@ function fullPose(rec, t) {
     }
   }
   // ---- Jonas
-  const dodgeEnd = rec.dodge ? rec.dodge.at + DODGE.dash + DODGE.fall + DODGE.rise + DODGE.back : null;
+  // (where the look over the shoulder had got to when he pressed; and where he is when a branch begins)
+  const lookAt = (tt) => (t1 === undefined || tt < t1 ? 0 : LOOK_BACK * ease(clamp((tt - t1) / 0.5)));
+  const dodged = (tt) => dodgeJ(rec, tt - rec.dodge.at, lookAt(rec.dodge.at));
   if (rec.knockedAt != null && t >= rec.knockedAt) {
-    const k = t - rec.knockedAt, tremble = Math.max(0, 1 - k / 2.4) * 0.05, P = bit ? (rec.knock?.C ?? J) : J;
-    jonas = { pos: [P[0] + Math.sin(k * 29) * tremble, P[1] + Math.cos(k * 23) * tremble], yaw: 1.3, crouch: 0, speed: 0, action: 'derrubado', at: k };
+    // the dog on him: he turns to it as it hits (the shoulders first) and goes down; then his shoulders shake under it (the body stays where
+    // it fell: shaking the whole of him would slide it over the pavement)
+    const k = t - rec.knockedAt, tremble = k > 0.55 ? Math.max(0, 1 - (k - 0.55) / 2.4) : 0, P = bit ? (rec.knock?.C ?? J) : J;
+    const tk = ease(clamp((k - 0.06) / 0.16)), y0 = bit ? jonasBefore(rec, rec.failAt ?? rec.knockedAt).yaw : 0;     // (the turn is once his feet have left the pavement)
+    jonas = { pos: P, yaw: turnTo(y0, 1.3, tk), twist: lookAt(rec.knockedAt) * (1 - tk) + Math.sin(k * 29) * 0.12 * tremble, crouch: 0, speed: 0, action: 'derrubado', at: k };
     fx.flinch = 1; fx.attack = k;
-  } else if (rec.dodge && t >= rec.dodge.at && t < dodgeEnd) {
-    jonas = dodgeJ(rec, t - rec.dodge.at);
-  } else if (t1 !== undefined && t >= t1 && !(rec.dodge && t >= rec.dodge.at)) {
-    // he looks over his shoulder at the dog that crouches to leap
-    const tau = clamp((t - t1) / 0.5);
-    jonas = { pos: J, yaw: 1.25 * ease(tau), crouch: 1, speed: 0, action: 'manipular', gaze: { x: 0.5 * tau, y: 0 } };
-  }
+  } else jonas = jonasBefore(rec, t);
   // the branch: he goes to the dog (the lure at its sensor, or the cable at the socket of its back), does it, and goes back to the cable
   const goes = t3 !== undefined && t >= t3 && (ch === 'quiet' || ch === 'loud') && !(rec.knockedAt != null && t >= rec.knockedAt);
+  let back = null;
   if (goes) {
-    const endB = rec.b1End ?? (t3 + rec.wins[3]), tin = clamp((t - t3) / 0.45), tout = clamp((t - endB) / 0.5);
-    const nearP = DUMP.near[ch], nearY = DUMP.nearYaw[ch];
-    const from = rec.dodge && t3 < dodgeEnd ? dodgeJ(rec, Math.min(t3, dodgeEnd - 1e-3) - rec.dodge.at).pos : J;          // (he may still be getting up when he chooses)
-    if (rec.b1End == null || t < endB) {
-      jonas = { pos: mix(from, nearP, ease(tin)), yaw: tin < 1 ? nearY * ease(tin) : nearY, crouch: 1, speed: tin < 1 ? 1.2 : 0, action: tin < 1 ? null : 'manipular', gaze: { x: 0, y: 0.3 }, lean: 0.5 };
-    } else if (tout < 1 && (t4 === undefined || t < t4)) {
-      jonas = { pos: mix(nearP, J, ease(tout)), yaw: nearY + (1.57 - nearY) * ease(tout), crouch: 1, speed: tout < 1 ? 1.2 : 0, action: null };
+    const endB = rec.b1End ?? Infinity, nearP = DUMP.near[ch], nearY = DUMP.nearYaw[ch];
+    const from = jonasBefore(rec, t3);
+    if (t < endB) {
+      const g = goWay([from.pos, nearP], t, t3, from.yaw, nearY, CROUCH_PACE, from.speed ?? 0);
+      jonas = { pos: g.pos, yaw: g.yaw, crouch: 1, speed: g.speed, action: g.done ? 'manipular' : null, gaze: { x: 0, y: 0.3 }, turn: g.turn, stop: g.stop };
+    } else {
+      // (from where he had got to: the command may come before he is all the way there)
+      const there = goWay([from.pos, nearP], endB, t3, from.yaw, nearY, CROUCH_PACE, from.speed ?? 0);
+      // (back round the dog's side, clear of it as it turns about deaf and of the hydrant: at his walking pace he is beside it for longer)
+      back = goWay(ch === 'quiet' ? [there.pos, BACK_VIA, J] : [there.pos, J], t, endB, there.yaw, Math.PI / 2);
+      if (!back.done || t4 === undefined || t < t4) jonas = { pos: back.pos, yaw: back.yaw, crouch: 1, speed: back.speed, action: back.done ? 'manipular' : null, turn: back.turn, stop: back.stop };
     }
   }
   // ---- the cable: stuck in the grate until he pulls it, then to the cut
   let freed = 0;
-  if (t4 !== undefined && t >= t4) {
+  if (t4 !== undefined && t >= t4 && !(back && !back.done)) {
     // (the film has no live bar: its run records when the cable came free, and the strain follows from there)
     const p = rec.film ? clamp((t - t4) / Math.max(0.01, (rec.freedAt ?? t4 + 2) - t4)) : (rec.mash ?? 0);
     freed = rec.freedAt != null && t >= rec.freedAt ? 1 : p;
-    jonas = { pos: J, yaw: 1.57, crouch: 1, speed: 0, action: 'manipular', gaze: { x: 0.3, y: -0.2 }, lean: p };
+    jonas = { pos: J, yaw: Math.PI / 2, crouch: 1, speed: 0, action: 'manipular', gaze: { x: 0.3, y: -0.2 }, lean: p };
     fx.strain = rec.freedAt != null && t >= rec.freedAt ? 0 : 0.4 + p * 0.6;
   }
   if (t5 !== undefined && t >= t5 && t4 !== undefined) {
-    jonas = { pos: J, yaw: 0, crouch: 1, speed: 0, action: 'manipular', gaze: { x: 0, y: -0.3 } };
+    // he turns on his knees' spot back to the cut (crouched, a step at a time), kneels and closes it
+    const g = goWay([J], t, t5, Math.PI / 2, 0);
+    jonas = { pos: J, yaw: g.yaw, crouch: 1, speed: 0, action: g.done ? 'manipular' : null, gaze: { x: 0, y: -0.3 }, turn: g.turn };
     freed = 1;
     if (rec.closedAt != null) {
       const k = t - rec.closedAt;
       fx.spark = k < 0.4;
       if (ch === 'quiet') {
-        // he gets up crouched and goes to the skip, climbs in (and is out of sight)
-        if (k > 0.5) { const u = ease(clamp((k - 0.5) / 1.1)), p = along(HIDE_WAY, lenOf(HIDE_WAY) * u); jonas = { pos: p.pos, yaw: p.yaw, crouch: 1, speed: u < 1 ? 1.5 : 0, action: null, hidden: u >= 1 }; }
+        // he gets up crouched and goes to the skip, round the lamp post, and climbs in (and is out of sight)
+        if (k > 0.5) { const h = goWay(HIDE_WAY, t, rec.closedAt + 0.5, 0, heading(HIDE_WAY.at(-2), DUMP.hide)); jonas = { pos: h.pos, yaw: h.yaw, crouch: 1, speed: h.speed, action: null, hidden: h.done, turn: h.turn, stop: h.stop }; }
       } else if (k > 0.5) jonas = { pos: J, yaw: 0, crouch: clamp(1 - (k - 0.5) / 0.5), speed: 0, action: null };
     }
   }
   // the camera pushes in a little on the leap, and frames the dog and Jonas once it is against the skip
   if (t1 !== undefined) { const k = clamp((t - t1) / 1.0); cam = { ...cam, fov: ACTION_CAM.fov - 4 * ease(k), eye: [cam.eye[0] - 0.1 * ease(k), cam.eye[1] - 0.05 * ease(k), cam.eye[2]] }; }
-  if (t > slamAt && rec.knockedAt == null) { const k = ease(clamp((t - slamAt) / 0.6)); cam = { ...cam, eye: mix(cam.eye, [-11.0, 1.7, 10.2], k), at: mix(cam.at, [-13.0, 0.55, 6.9], k), fov: cam.fov + (50 - cam.fov) * k }; }
+  if (t > slamAt && rec.knockedAt == null) { const k = ease(clamp((t - slamAt) / 0.6)), to = rec.variant === 'fuga' ? FLEE.cam : SLAM_CAM; cam = { ...cam, eye: mix(cam.eye, to.eye, k), at: mix(cam.at, to.at, k), fov: cam.fov + (to.fov - cam.fov) * k }; }
   // the dodge as an event: while the world is slow the camera comes in toward Jonas and the dog (`rec.slowK`, 0..1, the game's; the film has the same from the times)
   const sk = rec.slowK ?? slowKOf(rec, t);
-  if (sk > 0.001) { const mid = [(J[0] + dog.pos[0]) / 2, 0.6, (J[1] + dog.pos[1]) / 2], q = SLOW.push * sk; cam = { ...cam, eye: [cam.eye[0] + (mid[0] - cam.eye[0]) * q, cam.eye[1] + (mid[1] - cam.eye[1]) * q, cam.eye[2] + (mid[2] - cam.eye[2]) * q], at: mix(cam.at, mid, 0.5 * sk), fov: cam.fov - SLOW.fov * sk }; }
+  if (sk > 0.001) { const mid = [(jonas.pos[0] + dog.pos[0]) / 2, 0.6, (jonas.pos[1] + dog.pos[1]) / 2], q = SLOW.push * sk; cam = { ...cam, eye: [cam.eye[0] + (mid[0] - cam.eye[0]) * q, cam.eye[1] + (mid[1] - cam.eye[1]) * q, cam.eye[2] + (mid[2] - cam.eye[2]) * q], at: mix(cam.at, mid, 0.5 * sk), fov: cam.fov - SLOW.fov * sk }; }
   fx.slowK = sk;
   if (rec.knockedAt != null && t >= rec.knockedAt) {
     // the attack is framed close and low, from beside them, and shakes at the first blow
@@ -266,7 +387,7 @@ function fullPose(rec, t) {
     const eye = mix(cam.eye, [C[0] + 1.5 + Math.sin(k * 0.6) * 0.1, 0.62 + k * 0.03, C[1] + 1.45 - k * 0.08], a), at = mix(cam.at, [C[0] - 0.15, 0.3, C[1] - 0.05], a);
     cam = { eye: [eye[0] + Math.sin(k * 61) * sh, eye[1] + Math.cos(k * 47) * sh, eye[2]], at, fov: cam.fov + (44 - cam.fov) * a };
   }
-  return { cam, dog, jonas, tail: tailOf(freed, fx.strain, t, rec.spent ? 0.7 : 1), fx };
+  return { cam, dog, jonas, tail: rec.variant === 'fuga' ? null : tailOf(freed, fx.strain, t, rec.spent ? 0.7 : 1), fx };
 }
 /** The dog on him: the take-down, and then it strikes again and again (head down, a lunge on every beat). */
 function attackDog(rec, t, knock, kd) {

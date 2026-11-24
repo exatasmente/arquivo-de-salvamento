@@ -7,6 +7,8 @@
 // on to the page by Server-Sent Events (/livelink/stream). It saves nothing by itself. The HTTP side stays on 127.0.0.1.
 //
 // Also serves, read-only, src/ vendor/ assets/models/ assets/props/ data/scenes/ data/cutscenes/ of the game under /game/ (for the 'Jonas ao vivo' panel) and reads/saves mapping.json (/api/mapping, checked).
+// The body ("Movimento do corpo"): PUT/GET /api/body/<name> keeps <folder>/<name>.pose.json, the world landmarks of each frame of a video the person picked
+// (or of the webcam, live). Numbers only: the image is read in the page and never leaves it.
 // Writes <folder>/<id>.wav, <folder>/<id>.face.json and the neutral (neutral.json for the webcam, neutral-livelink.json for the iPhone). HTTP on 127.0.0.1 only.
 import http from 'node:http';
 import dgram from 'node:dgram';
@@ -18,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const arg = (name, d = null) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
-const STATIC = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'], '/capture.js': ['capture.js', 'text/javascript; charset=utf-8'], '/lib.mjs': ['lib.mjs', 'text/javascript; charset=utf-8'], '/jonas-live.js': ['jonas-live.js', 'text/javascript; charset=utf-8'], '/director.html': ['director.html', 'text/html; charset=utf-8'], '/director.js': ['director.js', 'text/javascript; charset=utf-8'] };
+const STATIC = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'], '/capture.js': ['capture.js', 'text/javascript; charset=utf-8'], '/lib.mjs': ['lib.mjs', 'text/javascript; charset=utf-8'], '/jonas-live.js': ['jonas-live.js', 'text/javascript; charset=utf-8'], '/director.html': ['director.html', 'text/html; charset=utf-8'], '/director.js': ['director.js', 'text/javascript; charset=utf-8'], '/body.js': ['body.js', 'text/javascript; charset=utf-8'] };
 // The game, read-only, for the "Jonas ao vivo" panel: only these folders of the game and only these kinds of file (never tools/, never anything outside the game).
 const GAME = path.resolve(HERE, '..', '..');
 const GAME_DIRS = ['src/', 'vendor/', 'assets/models/', 'assets/props/', 'data/scenes/', 'data/cutscenes/'];
@@ -82,6 +84,17 @@ export function createCaptureServer({ out, script, port = 8765, livelinkPort = n
       if (req.method === 'GET' && p === '/api/state') return send(res, 200, state());
       if (req.method === 'GET' && p === '/api/neutral') { const f = path.join(out, NEUTRAL[url.searchParams.get('source')] ?? NEUTRAL.webcam); return existsSync(f) ? send(res, 200, readFileSync(f)) : send(res, 404, { error: 'none' }); }
       if (req.method === 'PUT' && p === '/api/neutral') { const j = JSON.parse((await body(req)).toString()); if (!Array.isArray(j.b) || j.b.length !== 51 || !Array.isArray(j.h)) return send(res, 400, { error: 'bad neutral' }); const src = NEUTRAL[url.searchParams.get('source')] ? url.searchParams.get('source') : 'webcam'; writeFileSync(path.join(out, NEUTRAL[src]), JSON.stringify({ ...j, source: src })); return send(res, 200, { ok: true }); }
+      const mb = /^\/api\/body\/([A-Za-z0-9_-]{1,40})$/.exec(p);
+      if (mb) {
+        const file = path.join(out, `${mb[1]}.pose.json`);
+        if (req.method === 'PUT') {
+          const data = await body(req); let j;
+          try { j = JSON.parse(data.toString()); } catch { return send(res, 400, { error: 'not json' }); }
+          if (j.kind !== 'pose' || !Array.isArray(j.frames) || !(j.fps > 0)) return send(res, 400, { error: 'bad pose' });
+          writeFileSync(file, data); return send(res, 200, { ok: true, bytes: data.length, frames: j.frames.length });
+        }
+        if (req.method === 'GET') return existsSync(file) ? send(res, 200, readFileSync(file)) : send(res, 404, { error: 'none' });
+      }
       const m = /^\/api\/take\/([A-Za-z0-9_-]{1,40})\/(audio|face)$/.exec(p);
       if (m) {
         const [, id, kind] = m;

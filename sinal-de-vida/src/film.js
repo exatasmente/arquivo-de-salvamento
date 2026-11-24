@@ -52,7 +52,7 @@ export function manifest() {
 const BEDS = new Set(['ambiente', 'ambiente-rua', 'ambiente-poco', 'ambiente-predio']);
 
 /** The layout each cutscene films, for the sound of the objects in it (the two of the radio, with their own lamps and voices, have none). */
-const LAYOUT_OF = { galeria: GALERIA, 'a-galeria': GALERIA, rua: RUA, noite1: RUA, emenda: RUA };
+const LAYOUT_OF = { galeria: GALERIA, 'a-galeria': GALERIA, rua: RUA, noite1: RUA, emenda: RUA, fuga: RUA };
 
 /** Where a sound of a cutscene is (its `pos`, or `at`: an actor of the cutscene, or the id of an entity of its layout), at cutscene time t; null: the camera's own. */
 function placeOf(def, layout, e, t) {
