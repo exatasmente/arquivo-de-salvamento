@@ -263,7 +263,7 @@ export function drawOverlay(g, w, h, st) {
   if (st.dark > 0.005) { g.globalAlpha = st.dark * FLASH.darkPeak; g.fillStyle = FLASH.dark; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
   if (st.dim > 0.005) { g.globalAlpha = st.dim; g.fillStyle = '#04050c'; g.fillRect(0, 0, w, h); g.globalAlpha = 1; }
   if (st.noise > 0.01) drawNoise(g, w, h, st.noise, st.t);
-  if (st.screen) drawScreen(g, w, h, st.screen, st.t);
+  if (st.screen) (st.screen.kind === 'fecho' ? drawFecho : st.screen.kind === 'fita' ? drawFita : drawScreen)(g, w, h, st.screen, st.t);
   if (st.card) drawCard(g, w, h, st.card, st.t);
   if (st.sheet) drawSheet(g, w, h, st.sheet);
   if (st.dialog) drawDialog(g, w, h, st.dialog);
@@ -357,10 +357,75 @@ function drawSheet(g, w, h, s) {
   g.textAlign = 'left';
 }
 
+/**
+ * The "CAIXA FECHADO" box of the game (the report against the drawer), for the film mode. s: { title, subtitle, lines: [text], shown, hi, verdict, button }:
+ * `shown` lines are drawn (the rest wait), `hi` is the index of the line the box points at (the cash gap), `verdict` shows with the last line.
+ */
+function drawFecho(g, w, h, s) {
+  const tall = h > w * 1.1, bw = Math.round(tall ? w * 0.94 : Math.min(w * 0.82, h * 1.5)), fs = tall ? w * 0.047 : h * 0.047, pad = fs * 1.1;
+  g.textBaseline = 'top'; g.textAlign = 'left';
+  const wrap = (text, px) => {
+    g.font = mono(px); const out = []; let cur = '';
+    for (const wd of text.split(' ')) { const tryL = cur ? cur + ' ' + wd : wd; if (g.measureText(tryL).width > bw - pad * 2 && cur) { out.push(cur); cur = wd; } else cur = tryL; }
+    out.push(cur); return out;
+  };
+  const shown = s.shown ?? s.lines.length, rows = [];
+  s.lines.forEach((ln, i) => { if (i < shown) rows.push({ rs: wrap(ln, fs), hi: i === s.hi, color: i === s.hi ? '#ff9a7a' : INK }); });
+  if (s.verdict && shown >= s.lines.length) rows.push({ rs: wrap(s.verdict, fs * 0.9), hi: false, color: '#b09a5a' });
+  const head = fs * 2.9, body = rows.reduce((a, r) => a + r.rs.length * fs * 1.3 + fs * 0.55, 0), foot = fs * 2.2;
+  const bh = Math.round(pad * 2 + head + Math.max(body, fs * 6) + foot), bx = Math.round((w - bw) / 2), by = Math.round((h - bh) / 2);
+  g.fillStyle = '#000'; g.fillRect(bx + 5, by + 5, bw, bh);
+  g.fillStyle = 'rgba(14,12,10,0.96)'; g.fillRect(bx, by, bw, bh);
+  g.strokeStyle = GOLD; g.lineWidth = Math.max(3, Math.round(h / 150)); g.strokeRect(bx, by, bw, bh);
+  let y = by + pad;
+  g.font = mono(fs * 1.25); g.fillStyle = NAME; g.fillText(s.title, bx + pad, y); y += fs * 1.6;
+  g.font = mono(fs * 0.8); g.fillStyle = '#b09a5a'; g.fillText(s.subtitle, bx + pad, y); y += fs * 1.3;
+  g.fillStyle = GOLD; g.fillRect(bx + pad, y, bw - pad * 2, 2); y += fs * 0.6;
+  for (const r of rows) {
+    const rh = r.rs.length * fs * 1.3;
+    if (r.hi) { g.fillStyle = 'rgba(255,120,90,0.16)'; g.fillRect(bx + pad * 0.5, y - fs * 0.15, bw - pad, rh + fs * 0.3); g.fillStyle = '#ff9a7a'; g.fillRect(bx + pad * 0.5, y - fs * 0.15, fs * 0.2, rh + fs * 0.3); }
+    g.font = mono(r.hi ? fs * 1.05 : fs * (r.color === INK ? 1 : 0.9)); g.fillStyle = r.color;
+    for (const l of r.rs) { g.fillText(l, bx + pad, y); y += fs * 1.3; }
+    y += fs * 0.55;
+  }
+  if (s.button) {
+    const by2 = by + bh - pad - fs * 1.4;
+    g.fillStyle = 'rgba(201,162,74,0.18)'; g.fillRect(bx + pad, by2, bw - pad * 2, fs * 1.4);
+    g.strokeStyle = GOLD; g.lineWidth = 2; g.strokeRect(bx + pad, by2, bw - pad * 2, fs * 1.4);
+    g.font = mono(fs * 0.95); g.fillStyle = INK; g.textAlign = 'center'; g.fillText(s.button, bx + bw / 2, by2 + fs * 0.2); g.textAlign = 'left';
+  }
+}
+
+/**
+ * The register tape (the end of a night), as a paper strip. s: { head: [text], rows: [[label, value, 'gap'?] | '-' | '='], shown, unroll }: `shown`
+ * rows are printed; the row with the 'gap' mark is the cash difference, written like the others and only underlined.
+ */
+function drawFita(g, w, h, s) {
+  const tall = h > w * 1.1, pw = Math.round(tall ? w * 0.9 : Math.min(w * 0.46, h * 0.82)), fs0 = tall ? pw * 0.062 : pw * 0.058, fs = Math.min(fs0, (h * 0.9) / (s.rows.length * 1.5 + 6.4)), pad = fs * 1.0;   // the size is fixed by the whole tape, so it does not change while it unrolls
+  const shown = s.shown ?? s.rows.length, rowH = fs * 1.5;
+  const full = Math.round(pad * 2 + fs * 4.2 + s.rows.length * rowH + fs * 0.8), ph = Math.round(pad * 2 + fs * 4.2 + shown * rowH + fs * 0.8), px = Math.round((w - pw) / 2), py = Math.round(Math.max(h * 0.03, (h - full) / 2));   // the top stays where it is while the paper unrolls
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(px + 6, py + 6, pw, ph);
+  g.fillStyle = '#e9e2cc'; g.fillRect(px, py, pw, ph);
+  g.fillStyle = '#cfc8b0'; for (let x = px; x < px + pw; x += fs * 0.7) g.fillRect(x, py + ph - fs * 0.35, fs * 0.35, fs * 0.35);   // the torn edge
+  g.textBaseline = 'top'; g.textAlign = 'left';
+  const ink = '#26221c';
+  let y = py + pad;
+  s.head.forEach((t, i) => { g.font = mono(i === 0 ? fs * 1.15 : fs * 0.75); g.fillStyle = ink; g.textAlign = 'center'; g.fillText(t, px + pw / 2, y); y += i === 0 ? fs * 1.4 : fs * 1.0; });
+  g.textAlign = 'left'; y += fs * 0.4;
+  s.rows.slice(0, shown).forEach((r) => {
+    if (r === '-' || r === '=') { g.fillStyle = ink; g.fillRect(px + pad, y + rowH * 0.45, pw - pad * 2, r === '=' ? 4 : 2); y += rowH; return; }
+    const gap = r[2] === 'gap';
+    if (gap) { g.fillStyle = 'rgba(190,40,30,0.2)'; g.fillRect(px + pad * 0.5, y - fs * 0.12, pw - pad, rowH * 0.98); g.fillStyle = '#b32a1e'; g.fillRect(px + pad * 0.5, y - fs * 0.12, fs * 0.22, rowH * 0.98); }
+    g.font = mono(gap ? fs * 1.02 : fs * 0.92); g.fillStyle = gap ? '#8a1c12' : ink;
+    g.fillText(r[0], px + pad, y); g.textAlign = 'right'; g.fillText(String(r[1]), px + pw - pad, y); g.textAlign = 'left';
+    y += rowH;
+  });
+}
+
 /** The screens of the office, seen straight on (a provisional drawing until the game has its own, phase 4). */
 function drawScreen(g, w, h, s, t) {
   const tall = h > w * 1.1; // a vertical picture (the 9:16 cut): the screen takes the width and a tall frame instead of a small 4:3 one
-  const sw = tall ? Math.round(w * 0.94) : Math.round(Math.min(w * 0.8, h * 1.2)), sh = tall ? Math.round(Math.min(h * 0.62, sw * (s.kind === 'cam' ? 1.2 : 0.9))) : Math.round(sw * 0.72), x = Math.round((w - sw) / 2), y = Math.round((h - sh) / 2);
+  const sw = tall ? Math.round(w * 0.94) : Math.round(Math.min(w * 0.8, h * 1.2)), sh = tall ? Math.round(Math.min(h * (s.hFrac ?? 0.62), sw * (s.kind === 'cam' ? 1.2 : 0.9))) : Math.round(sw * 0.72), x = Math.round((w - sw) / 2), y = Math.round((h - sh) / 2);
   g.fillStyle = '#1a1814'; g.fillRect(x - 14, y - 14, sw + 28, sh + 28); // the bezel
   g.fillStyle = '#050805'; g.fillRect(x, y, sw, sh);
   g.save(); g.beginPath(); g.rect(x, y, sw, sh); g.clip();

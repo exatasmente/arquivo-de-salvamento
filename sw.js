@@ -5,7 +5,7 @@
 // The opening video of the Rinha is not kept: offline the game falls back to its real-time cutscenes.
 
 // precache:start
-const VERSION = '47b2869f0f45';
+const VERSION = 'a276f8909175';
 const PRECACHE = [
   ["assets/o-dia-que-sobra.jpg", '17931a2396ad'],
   ["assets/og.jpg", '77776032a238'],
@@ -76,7 +76,7 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/cutscenes/bomba4.js", '9282e501a799'],
   ["o-dia-que-sobra/src/cutscenes/cartao.js", '4b601efe32a2'],
   ["o-dia-que-sobra/src/cutscenes/chegada.js", '00180d62607a'],
-  ["o-dia-que-sobra/src/cutscenes/common.js", 'fd67ab4e6e7b'],
+  ["o-dia-que-sobra/src/cutscenes/common.js", '164aa97bb979'],
   ["o-dia-que-sobra/src/cutscenes/corte.js", '17385d31c956'],
   ["o-dia-que-sobra/src/cutscenes/finais-kit.js", '48eb9520e01e'],
   ["o-dia-que-sobra/src/cutscenes/final1.js", '1577b80b2016'],
@@ -86,14 +86,16 @@ const PRECACHE = [
   ["o-dia-que-sobra/src/cutscenes/final5.js", '798dce4f2bb2'],
   ["o-dia-que-sobra/src/cutscenes/gerente.js", 'c4d8399d4de2'],
   ["o-dia-que-sobra/src/cutscenes/noites.js", '31012b953cd7'],
-  ["o-dia-que-sobra/src/cutscenes/player.js", '6f6f1c2d1d72'],
+  ["o-dia-que-sobra/src/cutscenes/player.js", '923e33393d03'],
   ["o-dia-que-sobra/src/cutscenes/rotina.js", 'a32130acd70d'],
   ["o-dia-que-sobra/src/cutscenes/serie.js", '464d9d3a6516'],
   ["o-dia-que-sobra/src/cutscenes/stagecraft.js", '02900e0c1996'],
   ["o-dia-que-sobra/src/cutscenes/telefone.js", '871cb9694517'],
+  ["o-dia-que-sobra/src/cutscenes/video3-facts.js", '3e166e67fbb0'],
+  ["o-dia-que-sobra/src/cutscenes/video3.js", '8ff9431da154'],
   ["o-dia-que-sobra/src/entities.js", '5e53f58c267e'],
-  ["o-dia-que-sobra/src/film-manifest.json", 'b1ecb5d4bead'],
-  ["o-dia-que-sobra/src/film.js", '32aa6dd18160'],
+  ["o-dia-que-sobra/src/film-manifest.json", '15ff31fe45fd'],
+  ["o-dia-que-sobra/src/film.js", '3baf9332ceb0'],
   ["o-dia-que-sobra/src/game.js", 'b0e46cb6379e'],
   ["o-dia-que-sobra/src/input.js", '8c4f6f7f6bdf'],
   ["o-dia-que-sobra/src/look.js", 'a25babe004bd'],
